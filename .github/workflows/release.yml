@@ -82,6 +82,13 @@ jobs:
       - name: EXE bauen (PyInstaller)
         run: pyinstaller --noconfirm --clean packaging/traceify.spec
 
+      - name: Tesseract neben die EXE legen
+        run: |
+          Copy-Item packaging\tesseract dist\Traceify\tesseract -Recurse -Force
+          if (-not (Test-Path dist\Traceify\tesseract\tesseract.exe)) { throw "Tesseract fehlt im Paket" }
+          if (-not (Test-Path dist\Traceify\tesseract\tessdata\deu.traineddata)) { throw "Deutsche OCR-Daten fehlen im Paket" }
+          Get-ChildItem dist\Traceify\tesseract | Select-Object -First 8 | Format-Table Name, Length
+
       - name: EXE-Selbsttest
         run: |
           $p = Start-Process -FilePath "dist\Traceify\Traceify.exe" -ArgumentList "--selbsttest" -Wait -PassThru

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1 – 04.11.2026
+### Neu
+- Neue Bildmarke: ein **T**. Oben die glatte CAD-Vektorlinie mit Ankerpunkten, der Stamm wird nach unten immer pixeliger, wie ein Scan. Das gilt für App-Icon, Taskleiste, Setup und EXE.
+
+### Behoben
+- Windows-Build: Der Release-Build zu v0.3.0 brach im EXE-Selbsttest ab, weil das eingebaute Tesseract nicht gefunden wurde. Tesseract liegt jetzt als eigener Ordner `tesseract\` direkt neben `Traceify.exe`, statt von PyInstaller eingepackt zu werden. Der Build prüft vorab, ob Programm und deutsche Sprachdaten im Paket sind.
+- Der Selbsttest gibt jetzt den gefundenen Tesseract-Pfad aus. Das erleichtert die Fehlersuche.
+
 ## 0.3.0 – 03.11.2026
 ### Neuer Name, Logo, Open Source
 - Das Projekt heißt jetzt **Traceify** (vorher RasterCAD). Paket `traceify`, Startdatei `Traceify_Start_Windows.bat`.

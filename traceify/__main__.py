@@ -11,7 +11,7 @@ def selftest() -> int:
 
     from . import __version__
     from .core.pipeline import ConvertSettings, convert
-    from .core.ocr import tesseract_available, available_languages
+    from .core.ocr import _tesseract_cmd, available_languages, tesseract_available
     from .export import export
 
     img = np.full((400, 600), 255, np.uint8)
@@ -28,7 +28,7 @@ def selftest() -> int:
     assert pymupdf.__name__
     msg = (f"Traceify {__version__} Selbsttest: {st} | Tesseract: "
            f"{'ja ' + '+'.join(l for l in available_languages() if l in ('deu', 'eng')) if tesseract_available() else 'nein'}"
-           f" | Ausgabe: {out}")
+           f" | Pfad: {_tesseract_cmd()} | Ausgabe: {out}")
     print(msg)
     try:
         with open(os.path.join(out, "selftest.txt"), "w", encoding="utf-8") as f:

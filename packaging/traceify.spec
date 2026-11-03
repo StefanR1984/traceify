@@ -2,8 +2,8 @@
 # PyInstaller-Bauplan für Traceify (Windows).
 # Aufruf aus dem Projektordner:  pyinstaller --noconfirm packaging/traceify.spec
 #
-# Liegt unter packaging/tesseract/ ein Tesseract (tesseract.exe + DLLs + tessdata/),
-# wird es mitgeliefert – die Texterkennung funktioniert dann ohne Installation.
+# Tesseract OCR wird NICHT über PyInstaller eingesammelt, sondern nach dem Build als Ordner
+# dist/Traceify/tesseract/ neben die EXE kopiert (siehe .github/workflows/release.yml).
 import os
 import sys
 
@@ -11,7 +11,6 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 ASSETS = os.path.join(ROOT, "traceify", "assets")
-TESS = os.path.join(SPECPATH, "tesseract")
 
 datas = [(ASSETS, "traceify/assets")]
 datas += collect_data_files("ezdxf")
@@ -55,19 +54,10 @@ exe = EXE(
     and os.path.exists(os.path.join(SPECPATH, "windows", "version_info.txt")) else None,
 )
 
-extra = []
-if os.path.isdir(TESS):
-    # Ordnerstruktur dist/Traceify/tesseract/... beibehalten
-    for root, _dirs, files in os.walk(TESS):
-        for f in files:
-            src = os.path.join(root, f)
-            rel = os.path.relpath(src, SPECPATH)
-            extra.append((rel.replace("\\", "/"), src, "DATA"))
-
 coll = COLLECT(
     exe,
     a.binaries,
-    a.datas + extra,
+    a.datas,
     strip=False,
     upx=False,
     name="Traceify",
