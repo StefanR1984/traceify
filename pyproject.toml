@@ -1,0 +1,10 @@
+[project]
+name = "traceify-desktop"
+dynamic = ["version"]
+description = "Raster- und PDF-Zeichnungen in DXF, SVG und G-Code umwandeln – mit lokaler KI (Ollama)"
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

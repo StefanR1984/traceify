@@ -1,0 +1,147 @@
+name: Windows-Build
+
+# Baut Traceify.exe (PyInstaller) samt Tesseract OCR und den Windows-Installer (Inno Setup).
+# - Manuell (Actions → Windows-Build → Run workflow): Ergebnis als Download unter „Artifacts“
+# - Tag v* (z. B. v0.3.0): zusätzlich GitHub-Release mit Setup.exe und portabler ZIP
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TESSERACT_URL: https://github.com/tesseract-ocr/tesseract/releases/download/5.5.3/tesseract-ocr-w64-setup-5.5.3.20260724.exe
+  TESSDATA_URL: https://github.com/tesseract-ocr/tessdata_fast/raw/main
+  PYTHONUTF8: "1"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Version bestimmen
+        id: ver
+        run: |
+          $v = python tools/make_version_info.py
+          "version=$v" >> $env:GITHUB_OUTPUT
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            $tag = $env:GITHUB_REF_NAME.TrimStart("v")
+            if ($tag -ne $v) { throw "Tag v$tag passt nicht zu __version__ $v in traceify/__init__.py" }
+          }
+          Write-Host "Version: $v"
+
+      - name: Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+
+      - name: Tesseract OCR besorgen
+        run: |
+          $setup = "$env:RUNNER_TEMP\tesseract-setup.exe"
+          Invoke-WebRequest -UseBasicParsing $env:TESSERACT_URL -OutFile $setup
+          $target = "$env:RUNNER_TEMP\Tesseract-OCR"
+          # NSIS: /S = still, /D= muss das letzte Argument sein (ohne Anführungszeichen)
+          Start-Process -FilePath $setup -ArgumentList "/S", "/D=$target" -Wait
+          if (-not (Test-Path "$target\tesseract.exe")) { throw "Tesseract-Installation fehlgeschlagen" }
+          $dest = "packaging\tesseract"
+          New-Item -ItemType Directory -Force $dest | Out-Null
+          Copy-Item "$target\*" $dest -Recurse -Force -Exclude "uninstall.exe", "doc", "*.html"
+          New-Item -ItemType Directory -Force "$dest\tessdata" | Out-Null
+          foreach ($lang in "eng", "deu", "osd") {
+            Invoke-WebRequest -UseBasicParsing "$env:TESSDATA_URL/$lang.traineddata" -OutFile "$dest\tessdata\$lang.traineddata"
+          }
+          & "$dest\tesseract.exe" --version
+          & "$dest\tesseract.exe" --list-langs --tessdata-dir "$dest\tessdata"
+
+      - name: Icons erzeugen
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tools/make_icons.py
+
+      - name: EXE bauen (PyInstaller)
+        run: pyinstaller --noconfirm --clean packaging/traceify.spec
+
+      - name: EXE-Selbsttest
+        run: |
+          $p = Start-Process -FilePath "dist\Traceify\Traceify.exe" -ArgumentList "--selbsttest" -Wait -PassThru
+          $log = Get-ChildItem "$env:TEMP\traceify_selftest_*\selftest.txt" -ErrorAction SilentlyContinue | Select-Object -Last 1
+          if ($log) { Get-Content $log }
+          if ($p.ExitCode -ne 0) { throw "Selbsttest der EXE fehlgeschlagen (Exit $($p.ExitCode))" }
+          if (-not ($log -and (Get-Content $log) -match "Tesseract: ja")) { throw "Gebündeltes Tesseract wird nicht gefunden" }
+
+      - name: Installer bauen (Inno Setup)
+        run: |
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc "/DAppVersion=${{ steps.ver.outputs.version }}" packaging\windows\traceify.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup fehlgeschlagen" }
+
+      - name: Portable ZIP
+        run: Compress-Archive -Path dist\Traceify -DestinationPath "dist\Traceify-Portable-${{ steps.ver.outputs.version }}.zip"
+
+      - name: Prüfsummen
+        run: |
+          Get-FileHash dist\*.exe, dist\*.zip -Algorithm SHA256 |
+            ForEach-Object { "{0}  {1}" -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
+            Set-Content dist\SHA256SUMS.txt
+          Get-Content dist\SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Traceify-Windows-${{ steps.ver.outputs.version }}
+          path: |
+            dist/Traceify-Setup-*.exe
+            dist/Traceify-Portable-*.zip
+            dist/SHA256SUMS.txt
+          retention-days: 30
+
+      - name: Release-Text aus CHANGELOG
+        if: github.ref_type == 'tag'
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $lines = Get-Content CHANGELOG.md
+          $start = ($lines | Select-String -Pattern "^## $([regex]::Escape($v))\b").LineNumber
+          $body = @()
+          if ($start) {
+            for ($i = $start; $i -lt $lines.Count; $i++) {
+              if ($lines[$i] -match "^## ") { break }
+              $body += $lines[$i]
+            }
+          }
+          $intro = "**Download:** ``Traceify-Setup-$v.exe`` herunterladen und ausführen. Windows zeigt beim ersten Start evtl. „Der Computer wurde durch Windows geschützt“ – auf „Weitere Informationen → Trotzdem ausführen“ klicken (die EXE ist noch nicht signiert).`n"
+          ($intro + "`n" + ($body -join "`n")) | Set-Content release_notes.md -Encoding utf8
+
+      - uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          name: Traceify ${{ steps.ver.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            dist/Traceify-Setup-*.exe
+            dist/Traceify-Portable-*.zip
+            dist/SHA256SUMS.txt
