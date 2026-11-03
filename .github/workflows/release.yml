@@ -91,8 +91,11 @@ jobs:
 
       - name: EXE-Selbsttest
         run: |
+          # Alte Selbsttest-Ordner (z. B. aus pytest) entfernen, sonst wird evtl. das falsche Protokoll gelesen
+          Remove-Item "$env:TEMP\traceify_selftest_*" -Recurse -Force -ErrorAction SilentlyContinue
           $p = Start-Process -FilePath "dist\Traceify\Traceify.exe" -ArgumentList "--selbsttest" -Wait -PassThru
-          $log = Get-ChildItem "$env:TEMP\traceify_selftest_*\selftest.txt" -ErrorAction SilentlyContinue | Select-Object -Last 1
+          $log = Get-ChildItem "$env:TEMP\traceify_selftest_*\selftest.txt" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime | Select-Object -Last 1
           if ($log) { Get-Content $log }
           if ($p.ExitCode -ne 0) { throw "Selbsttest der EXE fehlgeschlagen (Exit $($p.ExitCode))" }
           if (-not ($log -and (Get-Content $log) -match "Tesseract: ja")) { throw "Gebündeltes Tesseract wird nicht gefunden" }

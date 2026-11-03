@@ -128,6 +128,9 @@ def test_parse_json_variants():
     assert parse_json('Hier: {"a": 3} fertig') == {"a": 3}
 
 
-def test_selftest_entrypoint():
+def test_selftest_entrypoint(tmp_path, monkeypatch):
+    import tempfile
     from traceify.__main__ import selftest
+    # Protokoll in den Testordner statt nach %TEMP% (stört sonst den EXE-Selbsttest im Build)
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     assert selftest() == 0

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2 – 04.11.2026
+### Behoben
+- Windows-Build: Der EXE-Selbsttest las je nach Zufall das Protokoll eines früheren Testlaufs aus dem Quellcode, dort ohne Tesseract. Deshalb scheiterten die Release-Builds zu v0.3.0 und v0.3.1, obwohl die EXE selbst in Ordnung war. Alte Protokolle werden jetzt vorher gelöscht, gelesen wird das neueste, und der Python-Test schreibt in einen eigenen Ordner.
+- Inhaltlich gleich wie 0.3.1 (T-Icon, Tesseract neben der EXE).
+
 ## 0.3.1 – 04.11.2026
 ### Neu
 - Neue Bildmarke: ein **T**. Oben die glatte CAD-Vektorlinie mit Ankerpunkten, der Stamm wird nach unten immer pixeliger, wie ein Scan. Das gilt für App-Icon, Taskleiste, Setup und EXE.
