@@ -3,6 +3,8 @@
 ## 0.3.2 – 04.11.2026
 ### Behoben
 - Windows-Build: Der EXE-Selbsttest las je nach Zufall das Protokoll eines früheren Testlaufs aus dem Quellcode, dort ohne Tesseract. Deshalb scheiterten die Release-Builds zu v0.3.0 und v0.3.1, obwohl die EXE selbst in Ordnung war. Alte Protokolle werden jetzt vorher gelöscht, gelesen wird das neueste, und der Python-Test schreibt in einen eigenen Ordner.
+- Release-Build: Die deutschen Anführungszeichen im Hinweistext brachen den PowerShell-Schritt ab. Den Release-Text erzeugt jetzt ein Python-Skript (`tools/release_notes.py`).
+- Release-Build: Der Build akzeptiert auch die Tag-Schreibweise `v.0.3.2`. Mit „Run workflow“ und Angabe `release_tag` lassen sich die Dateien an ein bestehendes Release nachreichen.
 - Inhaltlich gleich wie 0.3.1 (T-Icon, Tesseract neben der EXE).
 
 ## 0.3.1 – 04.11.2026

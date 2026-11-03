@@ -3,16 +3,23 @@ name: Windows-Build
 # Baut Traceify.exe (PyInstaller) samt Tesseract OCR und den Windows-Installer (Inno Setup).
 # - Manuell (Actions → Windows-Build → Run workflow): Ergebnis als Download unter „Artifacts“
 # - Tag v* (z. B. v0.3.0): zusätzlich GitHub-Release mit Setup.exe und portabler ZIP
+# - Manuell mit release_tag: Dateien an ein bestehendes Release anhängen
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional: bestehendes Release-Tag (z. B. v0.3.2), an das die Dateien angehängt werden"
+        required: false
+        default: ""
 
 permissions:
   contents: write
 
 env:
+  RELEASE_TAG: ${{ github.event.inputs.release_tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
   TESSERACT_URL: https://github.com/tesseract-ocr/tesseract/releases/download/5.5.3/tesseract-ocr-w64-setup-5.5.3.20260724.exe
   TESSDATA_URL: https://github.com/tesseract-ocr/tessdata_fast/raw/main
   PYTHONUTF8: "1"
@@ -45,9 +52,9 @@ jobs:
         run: |
           $v = python tools/make_version_info.py
           "version=$v" >> $env:GITHUB_OUTPUT
-          if ($env:GITHUB_REF_TYPE -eq "tag") {
-            $tag = $env:GITHUB_REF_NAME.TrimStart("v", "V", ".")
-            if ($tag -ne $v) { throw "Tag $($env:GITHUB_REF_NAME) passt nicht zu __version__ $v in traceify/__init__.py – erwartet wird v$v" }
+          if ($env:RELEASE_TAG) {
+            $tag = $env:RELEASE_TAG.TrimStart("v", "V", ".")
+            if ($tag -ne $v) { throw "Tag $($env:RELEASE_TAG) passt nicht zu __version__ $v in traceify/__init__.py - erwartet wird v$v" }
           }
           Write-Host "Version: $v"
 
@@ -131,24 +138,13 @@ jobs:
           retention-days: 30
 
       - name: Release-Text aus CHANGELOG
-        if: github.ref_type == 'tag'
-        run: |
-          $v = "${{ steps.ver.outputs.version }}"
-          $lines = Get-Content CHANGELOG.md
-          $start = ($lines | Select-String -Pattern "^## $([regex]::Escape($v))\b").LineNumber
-          $body = @()
-          if ($start) {
-            for ($i = $start; $i -lt $lines.Count; $i++) {
-              if ($lines[$i] -match "^## ") { break }
-              $body += $lines[$i]
-            }
-          }
-          $intro = "**Download:** ``Traceify-Setup-$v.exe`` herunterladen und ausführen. Windows zeigt beim ersten Start evtl. „Der Computer wurde durch Windows geschützt“ – auf „Weitere Informationen → Trotzdem ausführen“ klicken (die EXE ist noch nicht signiert).`n"
-          ($intro + "`n" + ($body -join "`n")) | Set-Content release_notes.md -Encoding utf8
+        if: env.RELEASE_TAG != ''
+        run: python tools/release_notes.py "${{ steps.ver.outputs.version }}" release_notes.md
 
       - uses: softprops/action-gh-release@v2
-        if: github.ref_type == 'tag'
+        if: env.RELEASE_TAG != ''
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           name: Traceify ${{ steps.ver.outputs.version }}
           body_path: release_notes.md
           files: |
