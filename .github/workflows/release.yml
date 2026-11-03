@@ -46,8 +46,8 @@ jobs:
           $v = python tools/make_version_info.py
           "version=$v" >> $env:GITHUB_OUTPUT
           if ($env:GITHUB_REF_TYPE -eq "tag") {
-            $tag = $env:GITHUB_REF_NAME.TrimStart("v")
-            if ($tag -ne $v) { throw "Tag v$tag passt nicht zu __version__ $v in traceify/__init__.py" }
+            $tag = $env:GITHUB_REF_NAME.TrimStart("v", "V", ".")
+            if ($tag -ne $v) { throw "Tag $($env:GITHUB_REF_NAME) passt nicht zu __version__ $v in traceify/__init__.py – erwartet wird v$v" }
           }
           Write-Host "Version: $v"
 
