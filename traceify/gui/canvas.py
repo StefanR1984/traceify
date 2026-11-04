@@ -5,6 +5,8 @@ Werkzeuge (set_tool):
   erase   – Raster-Radierer (malt Weiß)
   pen     – Raster-Stift (malt Schwarz, z. B. Lücken in Linien schließen)
   region  – Bereich aufziehen (eigener Modus oder „ignorieren“)
+  line, polyline, rect, circle, arc – neue Vektoren zeichnen (mit Fangpunkten)
+  trim, extend – Stutzen und Dehnen
 """
 from __future__ import annotations
 
@@ -17,11 +19,53 @@ from PySide6.QtWidgets import (QGraphicsEllipseItem, QGraphicsItem, QGraphicsPat
                                QGraphicsScene, QGraphicsSimpleTextItem,
                                QGraphicsView, QRubberBand)
 
+import math
+
+from ..core import cad
 from ..core.edit import entity_points, move_point
 from ..core.model import Arc, Circle, Insert, Line, Polyline, Text, layer_color
 
 TOOL_SELECT, TOOL_ERASE, TOOL_PEN, TOOL_REGION = "select", "erase", "pen", "region"
 TOOL_SYMBOL = "symbol"
+TOOL_LINE, TOOL_POLYLINE, TOOL_RECT = "line", "polyline", "rect"
+TOOL_CIRCLE, TOOL_ARC, TOOL_TRIM, TOOL_EXTEND = "circle", "arc", "trim", "extend"
+DRAW_TOOLS = (TOOL_LINE, TOOL_POLYLINE, TOOL_RECT, TOOL_CIRCLE, TOOL_ARC)
+PICK_TOOLS = (TOOL_TRIM, TOOL_EXTEND)
+SNAP_COLOR = QColor(255, 196, 0)
+
+
+def snap_marker_path(kind: str, p, r: float) -> QPainterPath:
+    """Fangsymbol wie in CAD üblich: □ Endpunkt, △ Mitte, ○ Zentrum, ✕ Schnitt, ⊾ Lot, ⧗ nächster."""
+    x, y = p
+    path = QPainterPath()
+    if kind == cad.SNAP_END:
+        path.addRect(QRectF(x - r, y - r, 2 * r, 2 * r))
+    elif kind == cad.SNAP_MID:
+        path.moveTo(x, y - r)
+        path.lineTo(x + r, y + r)
+        path.lineTo(x - r, y + r)
+        path.closeSubpath()
+    elif kind == cad.SNAP_CENTER:
+        path.addEllipse(QPointF(x, y), r, r)
+    elif kind == cad.SNAP_INTERSECTION:
+        path.moveTo(x - r, y - r)
+        path.lineTo(x + r, y + r)
+        path.moveTo(x - r, y + r)
+        path.lineTo(x + r, y - r)
+    elif kind == cad.SNAP_PERP:
+        path.moveTo(x - r, y - r)
+        path.lineTo(x - r, y + r)
+        path.lineTo(x + r, y + r)
+        path.moveTo(x - r, y)
+        path.lineTo(x, y)
+        path.lineTo(x, y + r)
+    else:
+        path.moveTo(x - r, y - r)
+        path.lineTo(x + r, y - r)
+        path.lineTo(x - r, y + r)
+        path.lineTo(x + r, y + r)
+        path.closeSubpath()
+    return path
 
 REGION_COLORS = {"ignorieren": (110, 110, 110), "mittellinie": (40, 120, 255),
                  "umriss": (190, 40, 190), "nur_text": (230, 150, 0)}
@@ -240,6 +284,10 @@ class Canvas(QGraphicsView):
     nodeEditStarted = Signal()
     nodeEditFinished = Signal()
     toolCancelled = Signal()
+    entitiesDrawn = Signal(list)                  # neue Objekte (Bildpixel)
+    trimRequested = Signal(object, float, float)  # Objekt, Klickpunkt
+    extendRequested = Signal(object, float, float)
+    drawInfo = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -272,6 +320,19 @@ class Canvas(QGraphicsView):
         self.handles: list[NodeHandle] = []
         self.region_items: list[RegionItem] = []
         self.marker_items: list = []
+        # Zeichnen
+        self.snap_enabled = True
+        self.snap_modes = set(cad.SNAP_LABELS)
+        self.ortho_enabled = False
+        self.mm_per_px_provider = lambda: 1.0
+        self._snap_index = None
+        self._draw_pts: list = []
+        self._draw_cur = None
+        self._draw_preview = None
+        self._snap_item = None
+        self._snap_label = None
+        self._hover_item = None
+        self._typed = ""
         self.scene().selectionChanged.connect(self.refresh_handles)
 
     # ---- Inhalte ----
@@ -309,6 +370,7 @@ class Canvas(QGraphicsView):
             self.raster_item.setOpacity(op)
 
     def set_entities(self, entities):
+        self._snap_index = None
         self.clear_entities()
         for e in entities:
             if isinstance(e, Text):
@@ -330,7 +392,22 @@ class Canvas(QGraphicsView):
         self.items_by_layer = {}
         self.item_by_id = {}
 
+    def add_entities(self, ents):
+        """Neue Objekte ergänzen, ohne die ganze Szene neu aufzubauen."""
+        self._snap_index = None
+        for e in ents:
+            if isinstance(e, Text):
+                it = TextEntityItem(e)
+            elif isinstance(e, Insert):
+                it = InsertItem(e, self.drawing_provider, self.line_width)
+            else:
+                it = EntityItem(e, self.line_width)
+            self.scene().addItem(it)
+            self.items_by_layer.setdefault(e.layer, []).append(it)
+            self.item_by_id[id(e)] = it
+
     def refresh_entities(self, ents):
+        self._snap_index = None
         for e in ents:
             it = self.item_by_id.get(id(e))
             if it is not None:
@@ -357,6 +434,7 @@ class Canvas(QGraphicsView):
                 it.setSelected(True)
 
     def remove_entity_items(self, ents):
+        self._snap_index = None
         self.clear_handles()
         ids = {id(e) for e in ents}
         for layer, items in self.items_by_layer.items():
@@ -441,6 +519,8 @@ class Canvas(QGraphicsView):
             self.region_items.append(it)
 
     def contextMenuEvent(self, ev):
+        if self.tool in DRAW_TOOLS + PICK_TOOLS:
+            return
         sp = self.mapToScene(ev.pos())
         for it in reversed(self.region_items):
             if it.isVisible() and it.rect().contains(sp):
@@ -452,6 +532,9 @@ class Canvas(QGraphicsView):
     def set_tool(self, tool: str, size: int | None = None):
         if size:
             self.brush_size = int(size)
+        if tool != self.tool or tool not in DRAW_TOOLS:
+            self.cancel_drawing()
+        self._clear_hover()
         self.tool = tool
         self._rect_purpose = {TOOL_REGION: "region", TOOL_SYMBOL: "symbol"}.get(tool)
         self._remove_brush_cursor()
@@ -462,8 +545,13 @@ class Canvas(QGraphicsView):
         else:
             self.clear_handles()
             self.setDragMode(QGraphicsView.NoDrag)
-            self.viewport().setCursor(Qt.CrossCursor if tool in (TOOL_REGION, TOOL_SYMBOL)
-                                      else Qt.BlankCursor)
+            if tool in DRAW_TOOLS + PICK_TOOLS:
+                self.scene().clearSelection()
+                self.viewport().setCursor(Qt.CrossCursor)
+                self.setFocus()
+            else:
+                self.viewport().setCursor(Qt.CrossCursor if tool in (TOOL_REGION, TOOL_SYMBOL)
+                                          else Qt.BlankCursor)
 
     def set_brush_size(self, size: int):
         self.brush_size = int(size)
@@ -492,7 +580,23 @@ class Canvas(QGraphicsView):
             self.scene().removeItem(self._stroke_item)
         self._stroke_item = None
 
+    def event(self, ev):
+        # Esc/Enter/Ziffern beim Zeichnen gehören der Zeichenfläche, nicht den Fenster-Kürzeln
+        from PySide6.QtCore import QEvent
+        if ev.type() == QEvent.ShortcutOverride and self.tool in DRAW_TOOLS and self._draw_pts:
+            if ev.key() in (Qt.Key_Escape, Qt.Key_Return, Qt.Key_Enter, Qt.Key_Backspace) or \
+                    (ev.text() and (ev.text().isdigit() or ev.text() in ".,;")):
+                ev.accept()
+                return True
+        return super().event(ev)
+
     def keyPressEvent(self, ev):
+        if self.tool in DRAW_TOOLS and self._draw_key(ev):
+            return
+        if ev.key() == Qt.Key_Escape and self.tool in DRAW_TOOLS and self._draw_pts:
+            self.cancel_drawing()
+            self.drawInfo.emit("Abgebrochen – nächster Startpunkt.")
+            return
         if ev.key() == Qt.Key_Escape:
             if self._measure_pts is not None:
                 self._end_measure()
@@ -568,7 +672,8 @@ class Canvas(QGraphicsView):
             return
         if ev.button() == Qt.MiddleButton or (ev.button() == Qt.LeftButton and
                                                ev.modifiers() & Qt.ShiftModifier and
-                                               not self._rect_purpose):
+                                               not self._rect_purpose and
+                                               self.tool not in DRAW_TOOLS):
             self._panning = True
             self._pan_start = ev.position()
             self.viewport().setCursor(Qt.ClosedHandCursor)
@@ -577,6 +682,25 @@ class Canvas(QGraphicsView):
             self._crop_origin = ev.position().toPoint()
             self._rubber.setGeometry(self._crop_origin.x(), self._crop_origin.y(), 0, 0)
             self._rubber.show()
+            return
+        if self.tool in DRAW_TOOLS:
+            self.setFocus()
+            if ev.button() == Qt.LeftButton:
+                p = self._resolve_point(sp, ev.modifiers())
+                self._draw_click(p)
+            elif ev.button() == Qt.RightButton:
+                self._draw_finish()
+            return
+        if self.tool in PICK_TOOLS:
+            if ev.button() == Qt.LeftButton:
+                p = (sp.x(), sp.y())
+                e = cad.pick(self._snap_candidates(p, self._pick_radius()), p, self._pick_radius())
+                if e is not None:
+                    (self.trimRequested if self.tool == TOOL_TRIM
+                     else self.extendRequested).emit(e, p[0], p[1])
+                    self._clear_hover()
+                else:
+                    self.drawInfo.emit("Dort ist kein Objekt – bitte direkt auf eine Linie klicken.")
             return
         if self.tool in (TOOL_ERASE, TOOL_PEN) and ev.button() == Qt.LeftButton:
             self._stroke = [(sp.x(), sp.y())]
@@ -598,6 +722,10 @@ class Canvas(QGraphicsView):
         self.mouseMoved.emit(sp.x(), sp.y())
         if self.tool in (TOOL_ERASE, TOOL_PEN):
             self._place_brush_cursor(sp)
+        if self.tool in DRAW_TOOLS and not self._panning:
+            self._draw_move(self._resolve_point(sp, ev.modifiers()))
+        if self.tool in PICK_TOOLS and not self._panning:
+            self._update_hover(sp)
         if self._measure_item is not None and self._measure_pts:
             a = self._measure_pts[0]
             self._measure_item.setLine(a.x(), a.y(), sp.x(), sp.y())
@@ -644,3 +772,264 @@ class Canvas(QGraphicsView):
                  "symbol": self.symbolDrawn}[purpose].emit(x, y, w, h)
             return
         super().mouseReleaseEvent(ev)
+
+    # ================================================================ Zeichnen
+    def _snap_candidates(self, p, radius):
+        if self._snap_index is None:
+            self._snap_index = cad.SnapIndex(self.entities_provider())
+        return self._snap_index.query(p, radius)
+
+    def _px(self, screen_px: float) -> float:
+        """Bildschirmpixel → Szenenpixel (zoomunabhängige Größen)."""
+        return screen_px / max(1e-6, self.transform().m11())
+
+    def _pick_radius(self):
+        return self._px(8)
+
+    def _resolve_point(self, sp, modifiers):
+        """Mausposition → Punkt nach Fang bzw. Ortho; zeigt den Fangmarker."""
+        raw = (sp.x(), sp.y())
+        last = self._draw_pts[-1] if self._draw_pts else None
+        if self.tool == TOOL_ARC and len(self._draw_pts) == 2:
+            last = None
+        snap = None
+        if self.snap_enabled and self.snap_modes:
+            r = self._px(12)
+            snap = cad.find_snap(self._snap_candidates(raw, r), raw, r, self.snap_modes, last)
+        self._show_snap(snap)
+        if snap is not None:
+            return snap.point
+        ortho = self.ortho_enabled != bool(modifiers & Qt.ShiftModifier)
+        if ortho and last is not None and self.tool in (TOOL_LINE, TOOL_POLYLINE):
+            return cad.ortho(last, raw)
+        return raw
+
+    def _show_snap(self, snap):
+        if snap is None:
+            for it in (self._snap_item, self._snap_label):
+                if it is not None and it.scene():
+                    self.scene().removeItem(it)
+            self._snap_item = self._snap_label = None
+            return
+        if self._snap_item is None:
+            pen = QPen(SNAP_COLOR, 2)
+            pen.setCosmetic(True)
+            self._snap_item = QGraphicsPathItem()
+            self._snap_item.setPen(pen)
+            self._snap_item.setZValue(60)
+            self.scene().addItem(self._snap_item)
+            self._snap_label = QGraphicsSimpleTextItem()
+            self._snap_label.setBrush(QBrush(SNAP_COLOR))
+            self._snap_label.setFlag(QGraphicsItem.ItemIgnoresTransformations)
+            self._snap_label.setZValue(60)
+            self.scene().addItem(self._snap_label)
+        self._snap_item.setPath(snap_marker_path(snap.kind, snap.point, self._px(6)))
+        self._snap_label.setText(cad.SNAP_LABELS.get(snap.kind, ""))
+        self._snap_label.setPos(snap.point[0] + self._px(10), snap.point[1] + self._px(8))
+
+    def _ensure_preview(self):
+        if self._draw_preview is None:
+            pen = QPen(QColor(0, 200, 255), 1.6, Qt.DashLine)
+            pen.setCosmetic(True)
+            self._draw_preview = QGraphicsPathItem()
+            self._draw_preview.setPen(pen)
+            self._draw_preview.setZValue(50)
+            self.scene().addItem(self._draw_preview)
+        return self._draw_preview
+
+    def _shape_entities(self, pts, cur):
+        """Was entstünde mit den gesetzten Punkten plus cur (für Vorschau und Abschluss)."""
+        t = self.tool
+        allp = list(pts) + ([cur] if cur is not None else [])
+        if t == TOOL_LINE and len(allp) >= 2:
+            return [Line(allp[0], allp[1])]
+        if t == TOOL_POLYLINE and len(allp) >= 2:
+            return [Polyline(allp, False)]
+        if t == TOOL_RECT and len(allp) >= 2:
+            (x0, y0), (x1, y1) = allp[0], allp[1]
+            return [Polyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], True)]
+        if t == TOOL_CIRCLE and len(allp) >= 2:
+            r = math.dist(allp[0], allp[1])
+            return [Circle(allp[0], r)] if r > 1e-6 else []
+        if t == TOOL_ARC:
+            if len(allp) == 2:
+                return [Line(allp[0], allp[1])]
+            if len(allp) >= 3:
+                a = cad.arc_from_3_points(allp[0], allp[2], allp[1])
+                return [a] if a else [Line(allp[0], allp[1])]
+        return []
+
+    def _draw_move(self, p):
+        self._draw_cur = p
+        if not self._draw_pts:
+            self.drawInfo.emit(self._hint())
+            return
+        path = QPainterPath()
+        for e in self._shape_entities(self._draw_pts, p):
+            path.addPath(entity_path(e))
+        self._ensure_preview().setPath(path)
+        self.drawInfo.emit(self._measure_text(self._draw_pts[-1] if self.tool != TOOL_ARC
+                                              else self._draw_pts[0], p))
+
+    def _measure_text(self, a, b):
+        k = self.mm_per_px_provider() or 1.0
+        d = math.dist(a, b) * k
+        ang = math.degrees(math.atan2(-(b[1] - a[1]), b[0] - a[0])) % 360
+        if self.tool == TOOL_CIRCLE:
+            base = f"Radius {d:.2f} mm  (Ø {2 * d:.2f})"
+        elif self.tool == TOOL_RECT:
+            base = f"Breite {abs(b[0] - a[0]) * k:.2f} × Höhe {abs(b[1] - a[1]) * k:.2f} mm"
+        else:
+            base = f"Länge {d:.2f} mm   Winkel {ang:.1f}°"
+        typed = f"   Eingabe: {self._typed}▏ (Enter)" if self._typed else ""
+        return base + typed
+
+    def _hint(self):
+        return {TOOL_LINE: "Linie: Startpunkt klicken.",
+                TOOL_POLYLINE: "Polylinie: Startpunkt klicken.",
+                TOOL_RECT: "Rechteck: erste Ecke klicken.",
+                TOOL_CIRCLE: "Kreis: Mittelpunkt klicken.",
+                TOOL_ARC: "Bogen: Startpunkt klicken."}.get(self.tool, "")
+
+    def _draw_click(self, p):
+        t = self.tool
+        if self._draw_pts and math.dist(p, self._draw_pts[-1]) < 1e-6:
+            return
+        if t == TOOL_POLYLINE and len(self._draw_pts) >= 2 and \
+                math.dist(p, self._draw_pts[0]) < 1e-6:
+            self._emit([Polyline(list(self._draw_pts), True)])
+            return
+        self._draw_pts.append(p)
+        n = len(self._draw_pts)
+        if t == TOOL_LINE and n == 2:
+            self._emit(self._shape_entities(self._draw_pts, None))
+            self._draw_pts = [p]                      # weiterzeichnen ab Endpunkt
+            self.drawInfo.emit("Linie: nächster Punkt – oder Rechtsklick/Esc zum Beenden.")
+        elif t in (TOOL_RECT, TOOL_CIRCLE) and n == 2:
+            self._emit(self._shape_entities(self._draw_pts, None))
+            self.cancel_drawing()
+        elif t == TOOL_ARC and n == 3:
+            ents = self._shape_entities(self._draw_pts, None)
+            if ents and isinstance(ents[0], Arc):
+                self._emit(ents)
+                self.cancel_drawing()
+            else:
+                self._draw_pts.pop()
+                self.drawInfo.emit("Die drei Punkte liegen auf einer Geraden – anderen Punkt wählen.")
+        elif t == TOOL_ARC and n == 2:
+            self.drawInfo.emit("Bogen: Punkt auf dem Bogen klicken.")
+        elif t == TOOL_POLYLINE and n >= 2:
+            self.drawInfo.emit("Polylinie: weitere Punkte – Rechtsklick/Enter = fertig, "
+                               "Klick auf den Startpunkt = schließen.")
+
+    def _draw_finish(self):
+        if self.tool == TOOL_POLYLINE and len(self._draw_pts) >= 2:
+            self._emit([Polyline(list(self._draw_pts), False)])
+        self.cancel_drawing()
+        self.drawInfo.emit(self._hint())
+
+    def _emit(self, ents):
+        self._typed = ""
+        if ents:
+            self.entitiesDrawn.emit(ents)
+
+    def cancel_drawing(self):
+        self._draw_pts = []
+        self._typed = ""
+        if self._draw_preview is not None and self._draw_preview.scene():
+            self.scene().removeItem(self._draw_preview)
+        self._draw_preview = None
+        self._show_snap(None)
+
+    def _draw_key(self, ev) -> bool:
+        """Längen-/Radiuseingabe per Tastatur. True = Taste verbraucht."""
+        txt = ev.text()
+        key = ev.key()
+        if self._draw_pts and txt and (txt.isdigit() or txt in ".,;") and \
+                not ev.modifiers() & (Qt.ControlModifier | Qt.AltModifier):
+            self._typed += "." if txt == "," else txt
+        elif key == Qt.Key_Backspace and self._typed:
+            self._typed = self._typed[:-1]
+        elif key in (Qt.Key_Return, Qt.Key_Enter):
+            if self._typed:
+                self._apply_typed()
+            elif self.tool == TOOL_POLYLINE:
+                self._draw_finish()
+            return True
+        else:
+            return False
+        if self._draw_cur is not None:
+            self._draw_move(self._draw_cur)
+        return True
+
+    def _apply_typed(self):
+        k = self.mm_per_px_provider() or 1.0
+        txt, self._typed = self._typed, ""
+        try:
+            if self.tool == TOOL_RECT and ";" in txt:
+                w, h = (float(v) / k for v in txt.split(";")[:2])
+                a = self._draw_pts[0]
+                cur = self._draw_cur or (a[0] + 1, a[1] + 1)
+                sx = 1 if cur[0] >= a[0] else -1
+                sy = 1 if cur[1] >= a[1] else -1
+                self._draw_click((a[0] + sx * w, a[1] + sy * h))
+                return
+            val = float(txt.split(";")[0]) / k
+        except ValueError:
+            self.drawInfo.emit(f"„{txt}“ ist keine Zahl.")
+            return
+        if val <= 0 or not self._draw_pts:
+            return
+        base = self._draw_pts[0] if self.tool in (TOOL_CIRCLE, TOOL_ARC, TOOL_RECT) \
+            else self._draw_pts[-1]
+        toward = self._draw_cur or (base[0] + 1, base[1])
+        self._draw_click(cad.point_at_distance(base, toward, val))
+
+    # ---- Stutzen / Dehnen: Objekt unter der Maus hervorheben
+    def _update_hover(self, sp):
+        p = (sp.x(), sp.y())
+        r = self._pick_radius()
+        e = cad.pick(self._snap_candidates(p, r), p, r)
+        if e is None:
+            self._clear_hover()
+            self.drawInfo.emit("Stutzen: Teilstück anklicken, das wegfallen soll."
+                               if self.tool == TOOL_TRIM else
+                               "Dehnen: Linie nahe dem Ende anklicken, das verlängert werden soll.")
+            return
+        if self._hover_item is None:
+            col = QColor(255, 60, 60) if self.tool == TOOL_TRIM else QColor(60, 220, 120)
+            pen = QPen(col, 4)
+            pen.setCosmetic(True)
+            self._hover_item = QGraphicsPathItem()
+            self._hover_item.setPen(pen)
+            self._hover_item.setZValue(45)
+            self.scene().addItem(self._hover_item)
+        if self.tool == TOOL_TRIM:
+            _removed, added = cad.trim(self._trim_context(e), e, p)
+            keep = QPainterPath()
+            for a in added:
+                keep.addPath(entity_path(a))
+            full = entity_path(e)
+            # rot = das wegfallende Stück (Differenz annähernd über Strichpfade)
+            stroker = QPainterPathStroker()
+            stroker.setWidth(self._px(3))
+            gone = stroker.createStroke(full).subtracted(stroker.createStroke(keep))
+            self._hover_item.setPen(QPen(Qt.NoPen))
+            self._hover_item.setBrush(QBrush(QColor(255, 60, 60, 220)))
+            self._hover_item.setPath(gone)
+        else:
+            self._hover_item.setPath(entity_path(e))
+
+    def _trim_context(self, e):
+        """Objekte, die e schneiden können (über den Index, nicht die ganze Zeichnung)."""
+        b = cad._bbox(e, 1.0)
+        if b is None:
+            return [e]
+        cx, cy = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
+        r = max(b[2] - b[0], b[3] - b[1]) / 2 * 1.5 + 1
+        return self._snap_candidates((cx, cy), r)
+
+    def _clear_hover(self):
+        if self._hover_item is not None and self._hover_item.scene():
+            self.scene().removeItem(self._hover_item)
+        self._hover_item = None

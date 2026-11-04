@@ -27,6 +27,8 @@ Traceify wandelt gescannte Zeichnungen, Pläne, Skizzen und Logos in saubere CAD
 | **Raster bereinigen** | **Radierer** (E) für Flecken, Stempel und Lochungen, **Stift** (P) zum Nachziehen unterbrochener Linien – Pinselgröße in der Werkzeugleiste. |
 | **Bereiche** | Rechteck aufziehen (R) und festlegen: *ignorieren*, *CAD – Mittellinie*, *CNC – Umriss* oder *nur Text*. So wird z. B. der Plan als Linien, das Logo im Schriftfeld als Umriss und die Legende gar nicht übernommen. Rechtsklick auf einen Bereich ändert oder entfernt ihn. |
 | **Bearbeiten** | Objekte anklicken oder per Rahmen markieren und mit Entf löschen. Bei einem markierten Objekt erscheinen **Knoten zum Ziehen** (verbundene Linien wandern mit). **Ecke schließen** (C), **gerade ausrichten** (O, rechte Winkel bleiben verbunden), **Lücken schließen** (L), **zu Polylinie verbinden** (J), **auflösen** (X). Strg+Z macht alles rückgängig. Layer lassen sich ein- und ausblenden. |
+| **Zeichnen** | Senkrechte Leiste links: **Linie** (N), **Polylinie** (Umschalt+N), **Rechteck** (Umschalt+K), **Kreis** (K), **Bogen aus 3 Punkten** (A). **Fangpunkte** (F3) für Endpunkt, Mittelpunkt, Zentrum, Schnittpunkt, Lotfußpunkt und den nächsten Punkt, mit CAD-üblichen Symbolen; einzeln abschaltbar unter Zeichnen → Fangarten. **Ortho** (F7, oder Umschalt halten) zeichnet nur waagrecht oder senkrecht. **Maße per Tastatur**: Länge oder Radius in mm eintippen und Enter drücken, beim Rechteck „Breite;Höhe“. Länge und Winkel stehen live in der Statuszeile. Neue Objekte landen auf einem wählbaren Layer (Standard GEZEICHNET) und bleiben beim Neu-Konvertieren erhalten. Zeichnen geht auch ohne vorheriges Konvertieren. |
+| **Stutzen und Dehnen** | **Stutzen** (T): Teilstück anklicken, es wird bis zu den nächsten Schnittpunkten entfernt; das wegfallende Stück ist vorher rot markiert. Das geht bei Linien, Polylinien, Kreisen (werden zum Bogen) und Bögen. **Dehnen** (D): Linie nahe dem Ende anklicken, sie wird bis zum nächsten Objekt verlängert. |
 | **Maßstab** | Wird automatisch aus der Bild- oder PDF-DPI übernommen. Steht im Plan „M 1:100“ (oder „Maßstab 1:50“, „SCALE 1:20“), exportiert Traceify in **Originalgröße**. Alternativ klickst du zwei Punkte einer bekannten Strecke an und gibst die wahre Länge ein. |
 | **Export** | DXF (R12 bis R2018) mit den Layern LINIEN, BOEGEN, KREISE, POLYLINIEN, KONTUREN und TEXT, außerdem **DWG** (über den kostenlosen [ODA File Converter](https://www.opendesign.com/guestfiles/oda_file_converter), falls installiert), SVG und G-Code. Es werden nur sichtbare Layer exportiert. |
 | **G-Code** | Für Fräsen (Z-Zustellung in mehreren Durchgängen) oder Laser/Plasma (M3/M5). Echte G2/G3-Bögen, verkettete Wege und optimierte Fahrreihenfolge. **Fräserradius-Korrektur** außen, innen oder automatisch (Teile ausschneiden: Löcher zuerst und innen, Außenkontur zuletzt und außen), Gleich- oder Gegenlauf. **Haltestege** mit einstellbarer Breite und Höhe (beim Laser als Unterbrechung). **Vorschau** (Strg+Umschalt+G) mit Animation, Eilgängen, Stegen und Zeitschätzung. |
@@ -76,8 +78,10 @@ Die KI läuft **lokal** auf deinem Rechner über [Ollama](https://ollama.com). E
 2. Bei Bedarf drehen, zuschneiden oder begradigen (Menü Raster).
 3. Einen Modus oder eine Vorlage wählen, zum Beispiel „Technische Zeichnung“ oder „Logo / CNC-Umriss“.
 4. **Konvertieren** (F5). Das Ergebnis erscheint farbig über dem Bild.
-5. Überflüssige Objekte markieren und mit Entf entfernen.
+5. Überflüssige Objekte markieren und mit Entf entfernen. Fehlendes mit den Zeichenwerkzeugen links ergänzen, Überstände stutzen (T), zu kurze Linien dehnen (D).
 6. Exportieren: DXF mit Strg+E, G-Code mit Strg+G.
+
+Zeichnen: Klicken setzt Punkte, Esc bricht die laufende Form ab (zweimal Esc = zurück zur Auswahl), Rechtsklick beendet Linienzug und Polylinie. Die Zahl, die du während des Zeichnens tippst, ist eine Länge in mm (Komma oder Punkt); Enter setzt den Punkt in Mausrichtung.
 
 Navigation: Mausrad zoomt. Mit mittlerer Maustaste oder Umschalt+Ziehen verschiebst du die Ansicht, Strg+0 passt sie ein.
 

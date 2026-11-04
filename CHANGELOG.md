@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.9.0 – 04.11.2026
+### Neu: Zeichnen, Fangpunkte, Stutzen, Dehnen
+- **Zeichenwerkzeuge** in einer neuen senkrechten Leiste links und im Menü „Zeichnen“:
+  - **Linie** (N): Punkt für Punkt, die nächste Linie beginnt am Ende der letzten; Rechtsklick oder Esc beendet.
+  - **Polylinie** (Umschalt+N): Rechtsklick oder Enter beendet, ein Klick auf den Startpunkt schließt sie.
+  - **Rechteck** (Umschalt+K), **Kreis** (K) und **Bogen aus 3 Punkten** (A).
+  - Gummiband-Vorschau; **Länge und Winkel** (beim Kreis Radius und Ø, beim Rechteck Breite × Höhe) stehen live in der Statuszeile.
+  - **Maße per Tastatur:** Zahl in mm eintippen (Komma oder Punkt) und Enter drücken. Bei Linien wird so die Länge in Mausrichtung gesetzt, beim Kreis der Radius, beim Rechteck „Breite;Höhe“.
+  - Neue Objekte kommen auf einen **wählbaren Layer** (Standard GEZEICHNET, Eintippen legt einen neuen an). Sie **bleiben beim Neu-Konvertieren erhalten**.
+  - Zeichnen geht auch **ohne vorheriges Konvertieren**, also direkt auf dem Scan.
+  - Esc bricht nur die laufende Form ab; das zweite Esc führt zurück zur Auswahl.
+- **Fangpunkte** (F3): Endpunkt □, Mittelpunkt △, Zentrum ○, Schnittpunkt ✕, Lotfußpunkt ⊾ und nächster Punkt, jeweils mit Symbol und Beschriftung. Die Fangarten sind einzeln abschaltbar (Zeichnen → Fangarten). Ein räumlicher Index hält den Fang auch bei sehr großen Plänen flüssig.
+- **Ortho** (F7): nur waagrecht oder senkrecht zeichnen. **Umschalt** halten kehrt die Einstellung vorübergehend um.
+- **Stutzen** (T): Teilstück anklicken, es wird bis zu den nächsten Schnittpunkten entfernt. Das wegfallende Stück ist beim Überfahren rot markiert. Funktioniert bei Linien, Polylinien, Bögen und Kreisen (ein Kreis wird zum Bogen); ohne Schnittpunkt verschwindet das ganze Objekt.
+- **Dehnen** (D): Linie nahe dem Ende anklicken, das verlängert werden soll. Die Linie wächst bis zur nächsten Linie, Polylinie, zum nächsten Kreis oder Bogen.
+- Alles lässt sich mit Strg+Z rückgängig machen.
+
+### Schneller und genauer erkennen
+- **Großformate deutlich schneller:** Ein A0-Plan mit 400 dpi braucht auf 2 Kernen jetzt etwa 21 s statt 31 s (mit OCR).
+  - Die Skelettierung läuft in überlappenden Kacheln parallel und liefert dabei pixelgleiche Ergebnisse.
+  - Die OCR liest waagrechten und senkrechten Text gleichzeitig.
+  - Die Strichlinien-Suche arbeitet mit einem Raster statt mit „jede gegen jede“.
+- **Saubere Wandenden:** Dicke Linien bekommen an den Enden keine kurzen Fransen-Bögen mehr, und die Mittellinie reicht bis zur Stirnseite.
+- **Robustere Strichlinien:** Einzelne leicht schiefe Striche, etwa durch einen Scanfehler, verbiegen die zusammengefasste Linie nicht mehr. Lückenlänge und Strichlänge passen sich der jeweiligen Linie an.
+
+
 ## 0.8.0 – 04.11.2026
 ### Neu: Qualität, Symbole, KI-Stapel
 - **Qualitätsampel:** Nach jedem Konvertieren werden die Vektoren mit dem Scan verglichen:

@@ -190,3 +190,146 @@ def test_gui_tools(tmp_path, monkeypatch):
     assert w.drawing.by_type(Line)[0].p1 == (10.0, 10.0) or \
         (10.0, 10.0) in [e.p1 for e in w.drawing.by_type(Line)]
     w.close()
+
+
+def test_gui_draw_snap_trim_extend(tmp_path, monkeypatch):
+    """Zeichnen mit Fang, Länge per Tastatur, Stutzen, Dehnen, Rückgängig – mit echten Mausereignissen."""
+    from PySide6.QtTest import QTest
+    from traceify import config
+    from traceify.core.model import Arc, Circle, Line, Polyline
+    monkeypatch.setattr(config, "CONFIG_PATH", str(tmp_path / "config.json"))
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    from traceify.gui.main_window import MainWindow
+    w = MainWindow()
+    w.resize(1200, 900)
+    w.show()
+    img = np.full((600, 800), 255, np.uint8)
+    p = tmp_path / "leer.png"
+    cv2.imwrite(str(p), img)
+    w.open_file(str(p))
+    assert w.drawing is None
+    cv = w.canvas
+    vp = cv.viewport()
+    app.processEvents()
+    cv.zoom_100()
+    cv.centerOn(400, 300)
+    app.processEvents()
+    Qt = QtCore.Qt
+
+    def at(x, y):
+        return cv.mapFromScene(QtCore.QPointF(x, y))
+
+    def click(x, y, btn=Qt.LeftButton):
+        QTest.mouseMove(vp, at(x, y))
+        QTest.mouseClick(vp, btn, Qt.NoModifier, at(x, y))
+        app.processEvents()
+
+    w.a_snap.setChecked(True)
+    w.toggle_snap(True)
+    w.a_ortho_mode.setChecked(False)
+    w.toggle_ortho(False)
+    w.draw_layer.setCurrentText("Meine Linien")
+
+    # Linie 1 mit zwei Klicks (ohne Konvertierung – Zeichnung entsteht automatisch)
+    w.set_tool("line")
+    click(200, 200)
+    click(500, 200)
+    assert w.drawing is not None
+    l1 = w.drawing.by_type(Line)[-1]
+    assert l1.layer == "MEINE_LINIEN"
+    assert abs(l1.p1[0] - 200) < 1.5 and abs(l1.p2[0] - 500) < 1.5
+    QTest.keyClick(vp, Qt.Key_Escape)        # Esc bricht nur die Form ab, Werkzeug bleibt
+    app.processEvents()
+    assert w.canvas.tool == "line" and not w.canvas._draw_pts
+    QTest.keyClick(vp, Qt.Key_Escape)        # zweites Esc: zurück zur Auswahl
+    app.processEvents()
+    assert w.canvas.tool == "select"
+    w.set_tool("line")
+
+    # Linie 2: Start rastet auf dem Mittelpunkt von Linie 1 ein, Länge per Tastatur
+    click(352, 203)
+    w.toggle_ortho(True)                     # Ortho: exakt senkrecht trotz schiefer Maus
+    QTest.mouseMove(vp, at(358, 400))        # Richtung nach unten
+    app.processEvents()
+    mm = w.drawing.scale
+    QTest.keyClicks(cv, f"{100 * mm:.4f}".replace(".", ","))
+    QTest.keyClick(cv, Qt.Key_Return)
+    app.processEvents()
+    l2 = w.drawing.by_type(Line)[-1]
+    assert l2 is not l1
+    assert abs(l2.p1[0] - (l1.p1[0] + l1.p2[0]) / 2) < 1e-6 and abs(l2.p1[1] - l1.p1[1]) < 1e-6
+    assert abs(math_dist(l2.p1, l2.p2) - 100) < 1e-3
+    assert abs(l2.p1[0] - l2.p2[0]) < 1e-9
+    QTest.keyClick(cv, Qt.Key_Escape)
+    app.processEvents()
+    w.toggle_ortho(False)
+
+    # Kreis per Mittelpunkt + Radius-Klick
+    w.set_tool("circle")
+    click(650, 450)
+    click(690, 450)
+    c = w.drawing.by_type(Circle)[-1]
+    assert abs(c.radius - 40) < 1.5
+
+    # Bogen aus drei Punkten
+    w.set_tool("arc")
+    click(100, 450)
+    click(200, 450)
+    click(150, 500)
+    assert w.drawing.by_type(Arc)
+
+    # Polylinie, per Klick auf den Startpunkt geschlossen
+    w.set_tool("polyline")
+    for x, y in ((600, 100), (700, 100), (700, 180), (600, 100)):
+        click(x, y)
+    poly = w.drawing.by_type(Polyline)[-1]
+    assert poly.closed and len(poly.points) == 3
+
+    # Stutzen: rechte Hälfte von Linie 1 hinter der Kreuzung mit Linie 2 entfernen
+    w.set_tool("trim")
+    n_before = len(w.drawing.entities)
+    click(450, 200)
+    lines_y200 = [l for l in w.drawing.by_type(Line) if abs(l.p1[1] - 200) < 1e-6
+                  and abs(l.p2[1] - 200) < 1e-6]
+    assert len(lines_y200) == 1
+    xs = sorted([lines_y200[0].p1[0], lines_y200[0].p2[0]])
+    assert abs(xs[1] - l2.p1[0]) < 1e-6
+    w.undo()
+    assert len(w.drawing.entities) == n_before
+    assert any(abs(max(l.p1[0], l.p2[0]) - l1.p2[0]) < 1e-6 for l in w.drawing.by_type(Line))
+
+    # Dehnen: Linie 2 nach unten bis zu einer neuen Querlinie verlängern
+    w.set_tool("line")
+    click(250, 450)
+    click(450, 450)
+    QTest.keyClick(cv, Qt.Key_Escape)
+    w.set_tool("extend")
+    l2 = [l for l in w.drawing.by_type(Line) if abs(l.p1[0] - l.p2[0]) < 1e-6][0]
+    end = l2.p2
+    click(end[0], end[1] - 3)
+    assert abs(l2.p2[1] - 450) < 1e-6
+    w.undo()
+    l2b = [l for l in w.drawing.by_type(Line) if abs(l.p1[0] - l.p2[0]) < 1e-6][0]
+    assert abs(l2b.p2[1] - end[1]) < 1e-6
+
+    # Fang aus: Klick landet genau auf der Mausposition (gerundet auf Pixel)
+    w.a_snap.setChecked(False)
+    w.toggle_snap(False)
+    w.set_tool("line")
+    click(352, 205)
+    click(352, 260)
+    l3 = w.drawing.by_type(Line)[-1]
+    assert abs(l3.p1[1] - 205) < 1.5
+
+    # Gezeichnetes überlebt das Konvertieren
+    w.set_tool("select")
+    w.panel.ocr.setChecked(False)
+    w.run_convert()
+    wait(app, lambda: w.worker is None)
+    assert any(e.layer == "MEINE_LINIEN" for e in w.drawing.entities)
+    w.close()
+
+
+def math_dist(a, b):
+    import math
+    return math.dist(a, b)

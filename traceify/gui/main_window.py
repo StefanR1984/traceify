@@ -8,7 +8,7 @@ import traceback
 import numpy as np
 from PySide6.QtCore import QSettings, Qt, QThread, Signal
 from PySide6.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence, QPixmap
-from PySide6.QtWidgets import (QApplication, QDockWidget, QFileDialog,
+from PySide6.QtWidgets import (QApplication, QComboBox, QDockWidget, QFileDialog,
                                QInputDialog, QLabel, QListWidget, QListWidgetItem,
                                QMainWindow, QMessageBox, QProgressBar, QSlider,
                                QSpinBox, QToolBar, QVBoxLayout, QWidget)
@@ -24,7 +24,7 @@ from .canvas import Canvas
 from .ai_panel import AiPanel, FuncWorker, describe_action
 from .settings_panel import SettingsPanel
 
-UI_STATE_VERSION = 2  # erhöhen, wenn sich Leisten/Docks ändern – alte Anordnung wird verworfen
+UI_STATE_VERSION = 4  # erhöhen, wenn sich Leisten/Docks ändern – alte Anordnung wird verworfen
 
 FILE_FILTER = ("Bilder & PDF (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp *.pdf);;"
                "Alle Dateien (*)")
@@ -83,6 +83,12 @@ class MainWindow(QMainWindow):
         self.canvas.nodeEditFinished.connect(self.on_node_edit_finished)
         self.canvas.toolCancelled.connect(lambda: self.set_tool("select"))
         self.canvas.entities_provider = lambda: self.drawing.entities if self.drawing else []
+        self.canvas.mm_per_px_provider = lambda: (self.drawing.scale if self.drawing
+                                                  else self.img_scale)
+        self.canvas.entitiesDrawn.connect(self.on_entities_drawn)
+        self.canvas.trimRequested.connect(self.on_trim)
+        self.canvas.extendRequested.connect(self.on_extend)
+        self.canvas.drawInfo.connect(lambda t: self.statusBar().showMessage(t))
         self.regions = []
         self.canvas.measured.connect(self.on_measured)
         self.canvas.mouseMoved.connect(self.on_mouse)
@@ -135,9 +141,13 @@ class MainWindow(QMainWindow):
         self.dock_ai = dock
         self.ai_workers = []
 
+        self.user_layers = set()   # Layer mit selbst gezeichneten Objekten
         self._build_actions()
         self._build_menus()
         self._build_toolbar()
+        self.canvas.snap_enabled = self.a_snap.isChecked()
+        self.canvas.ortho_enabled = self.a_ortho_mode.isChecked()
+        self.on_snap_modes()
 
         self.progress = QProgressBar()
         self.progress.setMaximumWidth(220)
@@ -224,9 +234,43 @@ class MainWindow(QMainWindow):
         self.a_symbol_lib = A("Symbol-Bibliothek anwenden", self.apply_symbol_library,
                               tip="Alle gespeicherten Symbole in diesem Plan suchen")
         self.a_symbol_folder = A("Symbol-Bibliothek öffnen (Ordner)", self.open_symbol_folder)
+        # Zeichnen (Vektoren)
+        self.a_draw_line = A("Linie", lambda: self.set_tool("line"), "N",
+                             "Linien zeichnen – Fangpunkte, Länge per Tastatur (mm + Enter)",
+                             checkable=True)
+        self.a_draw_poly = A("Polylinie", lambda: self.set_tool("polyline"), "Shift+N",
+                             "Zusammenhängenden Linienzug zeichnen; Klick auf den Start schließt",
+                             checkable=True)
+        self.a_draw_rect = A("Rechteck", lambda: self.set_tool("rect"), "Shift+K",
+                             "Zwei Ecken klicken – oder „Breite;Höhe“ eintippen", checkable=True)
+        self.a_draw_circle = A("Kreis", lambda: self.set_tool("circle"), "K",
+                               "Mittelpunkt, dann Radius (klicken oder eintippen)", checkable=True)
+        self.a_draw_arc = A("Bogen (3 Punkte)", lambda: self.set_tool("arc"), "A",
+                            "Startpunkt, Endpunkt, dann ein Punkt auf dem Bogen", checkable=True)
+        self.a_trim = A("Stutzen", lambda: self.set_tool("trim"), "T",
+                        "Teilstück zwischen zwei Schnittpunkten entfernen", checkable=True)
+        self.a_extend = A("Dehnen", lambda: self.set_tool("extend"), "D",
+                          "Linie bis zum nächsten Objekt verlängern", checkable=True)
+        self.a_snap = A("Fangpunkte", self.toggle_snap, "F3",
+                        "Endpunkt, Mitte, Zentrum, Schnittpunkt … einrasten", checkable=True)
+        self.a_snap.setChecked(self.qs.value("snap_on", "true") != "false")
+        self.a_ortho_mode = A("Ortho (nur waagrecht/senkrecht)", self.toggle_ortho, "F7",
+                              "Beim Zeichnen nur waagrecht/senkrecht – Umschalt kehrt es "
+                              "vorübergehend um", checkable=True)
+        self.a_ortho_mode.setChecked(self.qs.value("ortho_on", "false") == "true")
+        self.snap_mode_actions = {}
+        saved_modes = self.qs.value("snap_modes", "")
+        from ..core.cad import SNAP_LABELS
+        for key, label in SNAP_LABELS.items():
+            a = QAction(label, self, checkable=True)
+            a.setChecked(not saved_modes or key in str(saved_modes).split(","))
+            a.toggled.connect(self.on_snap_modes)
+            self.snap_mode_actions[key] = a
+
         self.tool_group = QActionGroup(self)
         for a in (self.a_tool_select, self.a_tool_erase, self.a_tool_pen, self.a_tool_region,
-                  self.a_tool_symbol):
+                  self.a_tool_symbol, self.a_draw_line, self.a_draw_poly, self.a_draw_rect,
+                  self.a_draw_circle, self.a_draw_arc, self.a_trim, self.a_extend):
             self.tool_group.addAction(a)
         self.a_tool_select.setChecked(True)
         self.a_regions_clear = A("Alle Bereiche entfernen", self.clear_regions)
@@ -301,6 +345,15 @@ class MainWindow(QMainWindow):
                   self.a_delete, None, self.a_corner, self.a_ortho, self.a_gaps, self.a_join,
                   self.a_explode, None, self.a_connected):
             m.addSeparator() if a is None else m.addAction(a)
+
+        m = self.menuBar().addMenu("&Zeichnen")
+        for a in (self.a_draw_line, self.a_draw_poly, self.a_draw_rect, self.a_draw_circle,
+                  self.a_draw_arc, None, self.a_trim, self.a_extend, None, self.a_snap,
+                  self.a_ortho_mode):
+            m.addSeparator() if a is None else m.addAction(a)
+        sm = m.addMenu("Fangarten")
+        for a in self.snap_mode_actions.values():
+            sm.addAction(a)
 
         m = self.menuBar().addMenu("&Raster")
         for a in (self.a_tool_erase, self.a_tool_pen, None, self.a_tool_region,
@@ -426,6 +479,30 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         tb.addAction(self.a_undo)
 
+        for a, t in {self.a_draw_line: "╱ Linie", self.a_draw_poly: "Polylinie",
+                     self.a_draw_rect: "▭ Rechteck", self.a_draw_circle: "◯ Kreis",
+                     self.a_draw_arc: "◠ Bogen", self.a_trim: "✂ Stutzen",
+                     self.a_extend: "⇥ Dehnen", self.a_snap: "⌖ Fang",
+                     self.a_ortho_mode: "┼ Ortho"}.items():
+            a.setIconText(t)
+        tb = QToolBar("Zeichnen")
+        tb.setObjectName("toolbar_draw")
+        tb.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        tb.setOrientation(Qt.Vertical)
+        self.addToolBar(Qt.LeftToolBarArea, tb)
+        for a in (self.a_draw_line, self.a_draw_poly, self.a_draw_rect, self.a_draw_circle,
+                  self.a_draw_arc, None, self.a_trim, self.a_extend, None, self.a_snap,
+                  self.a_ortho_mode):
+            tb.addSeparator() if a is None else tb.addAction(a)
+        tb.addWidget(QLabel(" Layer:"))
+        self.draw_layer = QComboBox()
+        self.draw_layer.setEditable(True)
+        self.draw_layer.setMinimumContentsLength(8)
+        self.draw_layer.setMaximumWidth(120)
+        self.draw_layer.setToolTip("Layer für neu gezeichnete Objekte (eintippen = neuer Layer)")
+        self.draw_layer.addItem(self.qs.value("draw_layer", "GEZEICHNET"))
+        tb.addWidget(self.draw_layer)
+
     def update_actions(self):
         has_img = self.gray is not None
         has_vec = self.drawing is not None and bool(self.drawing.entities)
@@ -437,6 +514,11 @@ class MainWindow(QMainWindow):
         for a in (self.a_corner, self.a_ortho, self.a_gaps, self.a_join, self.a_explode,
                   self.a_quality, self.a_markers, self.a_next_problem, self.a_tool_symbol,
                   self.a_symbol_lib):
+            a.setEnabled(has_vec and not busy)
+        for a in (self.a_draw_line, self.a_draw_poly, self.a_draw_rect, self.a_draw_circle,
+                  self.a_draw_arc):
+            a.setEnabled(has_img and not busy)
+        for a in (self.a_trim, self.a_extend):
             a.setEnabled(has_vec and not busy)
         for a in (self.a_dxf, self.a_dwg, self.a_svg, self.a_nc, self.a_preview, self.a_delete,
                   self.a_select_all,
@@ -481,6 +563,7 @@ class MainWindow(QMainWindow):
         self.gray, self.img_scale = gray, scale
         self.binary = None
         self.drawing = None
+        self.user_layers = set()
         self.undo_stack.clear()
         self.quality = None
         self._show_quality()
@@ -557,9 +640,15 @@ class MainWindow(QMainWindow):
 
     def on_converted(self, res):
         self._worker_finished()
-        if self.drawing is not None and self.drawing.entities:
-            self.undo_stack.append(("drawing", self.drawing))
+        old = self.drawing
+        if old is not None and old.entities:
+            self.undo_stack.append(("drawing", old))
         self.drawing = res.drawing
+        if old is not None and self.user_layers:
+            # Selbst Gezeichnetes überlebt das Neu-Konvertieren (eigene Layer)
+            auto = set(self.drawing.layers())
+            keep = [e for e in old.entities if e.layer in self.user_layers and e.layer not in auto]
+            self.drawing.entities.extend(keep)
         self.binary = res.binary
         self.canvas.set_entities(self.drawing.entities)
         self.canvas.set_vectors_visible(self.a_show_vec.isChecked())
@@ -619,6 +708,11 @@ class MainWindow(QMainWindow):
                 pm.fill(QColor(*layer_color(layer)[1]))
                 it.setIcon(QIcon(pm))
                 self.layer_list.addItem(it)
+            cur = self.draw_layer.currentText()
+            for layer in self.drawing.layers():
+                if self.draw_layer.findText(layer) < 0:
+                    self.draw_layer.addItem(layer)
+            self.draw_layer.setCurrentText(cur)
         self.layer_list.blockSignals(False)
         self.update_status()
 
@@ -862,8 +956,13 @@ class MainWindow(QMainWindow):
     def set_tool(self, tool):
         acts = {"select": self.a_tool_select, "erase": self.a_tool_erase,
                 "pen": self.a_tool_pen, "region": self.a_tool_region,
-                "symbol": self.a_tool_symbol}
+                "symbol": self.a_tool_symbol, "line": self.a_draw_line,
+                "polyline": self.a_draw_poly, "rect": self.a_draw_rect,
+                "circle": self.a_draw_circle, "arc": self.a_draw_arc,
+                "trim": self.a_trim, "extend": self.a_extend}
         if tool != "select" and self.gray is None:
+            tool = "select"
+        if tool in ("trim", "extend") and not (self.drawing and self.drawing.entities):
             tool = "select"
         if tool == "symbol" and not self.drawing:
             tool = "select"
@@ -882,8 +981,102 @@ class MainWindow(QMainWindow):
                "region": "Bereich: Rechteck aufziehen und Behandlung wählen. "
                          "Rechtsklick auf einen Bereich = ändern/entfernen. Esc = fertig.",
                "symbol": "Symbol: Rechteck eng um EIN Beispielsymbol ziehen (z. B. eine "
-                         "Steckdose). Esc = fertig."}[tool]
+                         "Steckdose). Esc = fertig.",
+               "line": "Linie: Startpunkt klicken. Länge eintippen + Enter, Umschalt = Ortho, "
+                       "F3 = Fang an/aus.",
+               "polyline": "Polylinie: Punkte klicken, Rechtsklick/Enter = fertig.",
+               "rect": "Rechteck: erste Ecke klicken, dann zweite – oder „Breite;Höhe“ "
+                       "eintippen.",
+               "circle": "Kreis: Mittelpunkt klicken, dann Radius klicken oder eintippen.",
+               "arc": "Bogen: Startpunkt, Endpunkt, dann einen Punkt auf dem Bogen.",
+               "trim": "Stutzen: Teilstück anklicken, das wegfallen soll (rot markiert).",
+               "extend": "Dehnen: Linie nahe dem Ende anklicken, das verlängert werden soll."}[tool]
         self.statusBar().showMessage(msg)
+
+    # -------------------------------------------------------------- Zeichnen
+    def toggle_snap(self, on):
+        self.canvas.snap_enabled = bool(on)
+        self.qs.setValue("snap_on", "true" if on else "false")
+        self.statusBar().showMessage("Fangpunkte " + ("an." if on else "aus."))
+
+    def toggle_ortho(self, on):
+        self.canvas.ortho_enabled = bool(on)
+        self.qs.setValue("ortho_on", "true" if on else "false")
+        self.statusBar().showMessage("Ortho " + ("an." if on else "aus."))
+
+    def on_snap_modes(self, *_):
+        modes = {k for k, a in self.snap_mode_actions.items() if a.isChecked()}
+        self.canvas.snap_modes = modes
+        self.qs.setValue("snap_modes", ",".join(sorted(modes)) or "-")
+
+    def _ensure_drawing(self):
+        if self.drawing is None and self.gray is not None:
+            h, w = self.gray.shape[:2]
+            self.drawing = Drawing(w, h, self.img_scale, [], self.path or "")
+            self.canvas.set_raster_opacity(self.opacity.value() / 100)
+        return self.drawing
+
+    def _current_draw_layer(self):
+        name = (self.draw_layer.currentText() or "GEZEICHNET").strip().upper().replace(" ", "_")
+        self.qs.setValue("draw_layer", name)
+        return name or "GEZEICHNET"
+
+    def on_entities_drawn(self, ents):
+        if self._ensure_drawing() is None:
+            return
+        layer = self._current_draw_layer()
+        self.user_layers.add(layer)
+        if self.draw_layer.findText(layer) < 0:
+            self.draw_layer.addItem(layer)
+        for e in ents:
+            e.layer = layer
+        self._mark_quality_stale()
+        self.undo_stack.append(("entities", list(self.drawing.entities)))
+        self.drawing.entities.extend(ents)
+        self.canvas.add_entities(ents)
+        self.refresh_layers()
+        self.update_actions()
+
+    def on_trim(self, entity, x, y):
+        from ..core import cad
+        if not self.drawing:
+            return
+        removed, added = cad.trim(self.drawing.entities, entity, (x, y))
+        if not removed:
+            self.statusBar().showMessage("Dieses Objekt lässt sich nicht stutzen.")
+            return
+        self._mark_quality_stale()
+        self.undo_stack.append(("entities", list(self.drawing.entities)))
+        ids = {id(e) for e in removed}
+        self.drawing.entities = [e for e in self.drawing.entities if id(e) not in ids] + added
+        self.canvas.remove_entity_items(removed)
+        self.canvas.add_entities(added)
+        self.refresh_layers()
+        self.update_actions()
+        self.statusBar().showMessage("Gestutzt (Strg+Z = zurück). Nächstes Teilstück anklicken "
+                                     "oder Esc.")
+
+    def on_extend(self, entity, x, y):
+        import copy
+        from ..core import cad
+        from ..core.model import Line
+        if not self.drawing:
+            return
+        if not isinstance(entity, Line):
+            self.statusBar().showMessage("Dehnen geht bei einzelnen Linien – Polylinien vorher "
+                                         "auflösen (X).")
+            return
+        snap = list(self.drawing.entities)
+        snap[next(i for i, e in enumerate(snap) if e is entity)] = copy.copy(entity)
+        if not cad.extend(self.drawing.entities, entity, (x, y)):
+            self.statusBar().showMessage("In dieser Richtung liegt kein Objekt, bis zu dem die "
+                                         "Linie reichen könnte.")
+            return
+        self._mark_quality_stale()
+        self.undo_stack.append(("entities", snap))
+        self.canvas.refresh_entities([entity])
+        self.update_actions()
+        self.statusBar().showMessage("Gedehnt (Strg+Z = zurück).")
 
     def on_brush_size(self, v):
         self.qs.setValue("brush_size", int(v))
@@ -1695,6 +1888,12 @@ class MainWindow(QMainWindow):
             "Knoten ziehen, Ecke schließen (C), gerade ausrichten (O), Lücken schließen (L), "
             "Strg+Z macht rückgängig. Layer links ein-/ausblenden (nur sichtbare werden "
             "exportiert).<br>"
+            "<b>Zeichnen</b> – Leiste links: Linie (N), Polylinie (Umschalt+N), Rechteck "
+            "(Umschalt+K), Kreis (K), Bogen (A). Fangpunkte F3, Ortho F7 (oder Umschalt "
+            "halten). Länge/Radius in mm eintippen + Enter, Rechteck „Breite;Höhe“. Esc bricht "
+            "die Form ab, Rechtsklick beendet den Linienzug.<br>"
+            "<b>Stutzen</b> (T) entfernt das angeklickte Teilstück bis zu den Schnittpunkten, "
+            "<b>Dehnen</b> (D) verlängert eine Linie bis zum nächsten Objekt.<br>"
             "<b>6. Maßstab</b> – automatisch aus der DPI oder per »Maßstab kalibrieren« an "
             "einer bekannten Strecke.<br>"
             "<b>7. Export</b> – DXF (Strg+E), DWG, G-Code (Strg+G) oder SVG.<br><br>"
@@ -1705,7 +1904,7 @@ class MainWindow(QMainWindow):
             "<b>Vektor-PDFs</b> aus CAD-Programmen werden automatisch erkannt und direkt "
             "übernommen. Steht „M 1:100“ im Plan, wird in Originalgröße exportiert.<br><br>"
             "Navigation: Mausrad = Zoom, mittlere Maustaste oder Umschalt+Ziehen = "
-            "Verschieben, Strg+0 = Einpassen."))
+            "Verschieben (beim Zeichnen nur mittlere Maustaste), Strg+0 = Einpassen."))
 
     def show_about(self):
         QMessageBox.about(self, "Über Traceify",
