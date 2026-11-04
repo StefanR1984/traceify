@@ -29,7 +29,13 @@ def main(argv=None) -> int:
     p.add_argument("--ki-regeln", default="", metavar="TEXT",
                    help="Regeln in Klartext für die KI, z. B. \"Logos als G-Code mit 2 mm Tiefe, "
                         "Notizen überspringen\"")
-    p.add_argument("--ki-modell", default=None, help="Ollama-Modell für --ki")
+    p.add_argument("--ki-modell", default=None, help="KI-Modell für --ki")
+    p.add_argument("--ki-server", choices=["ollama", "vllm", "openai"], default=None,
+                   help="KI-Server für diesen Lauf (vllm = OpenAI-kompatibel); sonst wie in "
+                        "den Einstellungen")
+    p.add_argument("--ki-url", default=None,
+                   help="Adresse des KI-Servers, z. B. http://gpu-server:8000/v1")
+    p.add_argument("--ki-schluessel", default=None, help="API-Schlüssel (vLLM --api-key)")
     a = p.parse_args(argv)
 
     s = load_settings(a.einstellungen) if a.einstellungen else ConvertSettings()
@@ -48,7 +54,8 @@ def main(argv=None) -> int:
 
     res = batch_convert(a.eingabe, a.ausgabe, fmts, s, GcodeSettings(cut_depth=a.tiefe),
                         recursive=a.rekursiv, progress=prog, ai=a.ki or bool(a.ki_regeln),
-                        rules=a.ki_regeln, ai_model=a.ki_modell, on_item=item_done)
+                        rules=a.ki_regeln, ai_model=a.ki_modell, on_item=item_done,
+                        ai_server=_ai_server(a))
     errors = [r for r in res if r.error]
     for r in errors:
         print(f"FEHLER {os.path.basename(r.source)}: {r.error}", file=sys.stderr)
@@ -57,3 +64,17 @@ def main(argv=None) -> int:
           + (f", {skipped} übersprungen" if skipped else "") + ".")
     return 1 if errors else 0
 
+
+def _ai_server(a) -> dict:
+    """KI-Server aus den Kommandozeilen-Optionen (nur für diesen Lauf)."""
+    out = {}
+    kind = {"vllm": "openai"}.get(a.ki_server, a.ki_server)
+    if kind:
+        out["ki_server"] = kind
+    if a.ki_url:
+        out["openai_url" if (kind or "") == "openai" else "ollama_url"] = a.ki_url
+    if a.ki_schluessel:
+        out["openai_key"] = a.ki_schluessel
+    if a.ki_modell:
+        out["openai_model" if kind == "openai" else "ollama_model"] = a.ki_modell
+    return out

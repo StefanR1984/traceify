@@ -36,6 +36,7 @@ class StyleSettings:
     walls_outline: bool = False     # dicke Linien (Wände) als Umriss statt Mittellinie
     straighten: bool = True         # Schräglage erkennen, fast achsparallele Linien ausrichten
     straighten_tol: float = 3.0     # bis zu dieser Abweichung (Grad) wird ausgerichtet
+    close_gaps_mm: float = 0.8      # Linienenden bis zu diesem Abstand ans nächste Objekt führen
     color_count: int = 0            # 0 = automatisch, sonst feste Anzahl Farben
 
 

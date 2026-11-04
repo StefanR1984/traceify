@@ -103,11 +103,14 @@ def batch_convert(src: str, out_dir: str, formats=(".dxf",),
                   progress: Optional[Callable[[int, int, str], None]] = None,
                   should_stop: Optional[Callable[[], bool]] = None,
                   ai: bool = False, rules: str = "", ai_model: Optional[str] = None,
-                  on_item: Optional[Callable[[BatchItem], None]] = None) -> List[BatchItem]:
+                  on_item: Optional[Callable[[BatchItem], None]] = None,
+                  ai_server: Optional[dict] = None) -> List[BatchItem]:
     """Konvertiert einen Ordner (oder eine Dateiliste) – mehrseitige PDFs seitenweise.
 
-    ai=True: Die KI (Ollama) sieht sich jede Datei an und wählt Einstellungen; mit `rules`
-    (Klartext) bestimmen deine Regeln, was je Datei passiert – auch Formate oder Überspringen.
+    ai=True: Die KI (Ollama oder vLLM) sieht sich jede Datei an und wählt Einstellungen; mit
+    `rules` (Klartext) bestimmen deine Regeln, was je Datei passiert – auch Formate oder
+    Überspringen. ai_server: abweichender KI-Server für diesen Lauf, z. B.
+    {"ki_server": "openai", "openai_url": "http://gpu:8000/v1"}.
     """
     import copy
     settings = settings or ConvertSettings()
@@ -115,7 +118,7 @@ def batch_convert(src: str, out_dir: str, formats=(".dxf",),
     client = None
     if ai or (rules and rules.strip()):
         from .ai import default_client
-        client, model0 = default_client()
+        client, model0 = default_client(ai_server)
         ai_model = ai_model or model0
         ai = True
     sources = loader.list_inputs(src, recursive) if isinstance(src, str) and os.path.isdir(src) \

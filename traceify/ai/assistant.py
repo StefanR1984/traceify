@@ -320,7 +320,7 @@ ACTIONS_DOC = """Verfügbare Aktionen (nur verwenden, wenn der Nutzer etwas ver�
          ocr (bool), ocr_sprache ("deu+eng" …), massstab_mm_pro_px (Zahl),
          strichlinien (bool), strichstaerken (bool), dicke_linien_layer (bool),
          waende_umriss (bool), schraffur_layer (bool), schraege_texte (bool),
-         gerade_ausrichten (bool),
+         gerade_ausrichten (bool), luecken_mm (0–5 mm, 0=aus),
          farben_trennen (bool), anzahl_farben (0=auto), massstab_aus_plan (bool), pdf_vektoren (bool),
          vorschub (mm/min), fraestiefe (mm), zustellung (mm), maschine ("fraese"|"laser"),
          fraeser_durchmesser (mm), radiuskorrektur ("keine"|"aussen"|"innen"|"auto"),

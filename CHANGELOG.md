@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.14.0 – 04.11.2026
+### vLLM
+- **Verbindung testen** im Dialog *KI-Server*: zeigt sofort Serverversion (z. B. „vLLM 0.11.0“) und die angebotenen Modelle oder den Fehler.
+- **Kommandozeile:** `--ki-server vllm|ollama`, `--ki-url`, `--ki-schluessel` (zusammen mit `--ki` / `--ki-regeln` / `--ki-modell`) gelten nur für diesen Lauf und ändern die gespeicherten Einstellungen nicht. In der Python-API heißt das `batch_convert(..., ai_server={...})`.
+
+### Genauer
+- **Zahlen mit Dezimalpunkt:** Die Texterkennung entfleckt schwächer als die Linienerkennung (neue Einstellung `ocr.despeckle`, Standard 3 px²). So bleiben Punkte und Kommas in „143.50 qm“ erhalten. Auf dem A1-Testplan stimmen jetzt 47 statt 41 Wörter mit Scan2CAD überein.
+- **Auch kurze Linien werden ausgerichtet:** Stücke, deren Enden höchstens 1,5 px neben der Achse liegen, werden beim Ausrichten mitgenommen, auch wenn ihr Winkel im Scan größer wirkt. Der Anteil exakt waagrechter/senkrechter Linien steigt bei den Testplänen z. B. von 39 auf 43 %, von 41 auf 44 % und von 46 auf 48 % (Scan2CAD: 49 bzw. 51 %).
+- **Kleine Lücken schließen** (neu, Standard 0,8 mm, einstellbar oder „aus“): Linienenden, die knapp vor einem anderen Objekt enden, werden bis dorthin verlängert. Ecken und T-Stöße sind damit geschlossen, Türöffnungen bleiben offen. Offene Enden bei den Testplänen: 8–28 % weniger.
+- KI-Stapelregeln und Chat kennen `luecken_mm`.
+
+
 ## 0.13.0 – 04.11.2026
 ### Neu: vLLM und andere OpenAI-kompatible KI-Server
 - Statt Ollama kann die KI jetzt auch über **vLLM** laufen, etwa auf einem eigenen GPU-Server im Netz. Das geht ebenso mit jedem anderen Server, der die OpenAI-Schnittstelle anbietet (LM Studio, llama.cpp-Server, LocalAI).

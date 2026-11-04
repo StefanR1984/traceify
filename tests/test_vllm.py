@@ -193,6 +193,8 @@ def test_gui_vllm_server_waehlen_und_chat(tmp_path, fake_vllm, monkeypatch):
         dlg.kind.setCurrentIndex(dlg.kind.findData("openai"))
         assert dlg.openai_url.isEnabled() and not dlg.ollama_url.isEnabled()
         dlg.openai_url.setText(fake_vllm)
+        assert dlg.test_connection()
+        assert "vLLM 0.11.0" in dlg.test_result.text()
         dlg.accept()
     QTimer.singleShot(50, fill)
     p.btn_server.click()
@@ -213,3 +215,43 @@ def test_gui_vllm_server_waehlen_und_chat(tmp_path, fake_vllm, monkeypatch):
         w.wait(5000)
     p.deleteLater()
     app.processEvents()
+
+
+def test_cli_ki_server_optionen():
+    from argparse import Namespace
+
+    from traceify.cli import _ai_server
+    a = Namespace(ki_server="vllm", ki_url="http://gpu:8000/v1", ki_schluessel="k",
+                  ki_modell="Qwen/Qwen2.5-VL-7B-Instruct")
+    assert _ai_server(a) == {"ki_server": "openai", "openai_url": "http://gpu:8000/v1",
+                             "openai_key": "k", "openai_model": "Qwen/Qwen2.5-VL-7B-Instruct"}
+    b = Namespace(ki_server=None, ki_url=None, ki_schluessel=None, ki_modell=None)
+    assert _ai_server(b) == {}
+
+
+def test_default_client_mit_ueberschreibung(tmp_path, monkeypatch):
+    from traceify import config
+    from traceify.ai import default_client
+    monkeypatch.setattr(config, "CONFIG_PATH", str(tmp_path / "config.json"))
+    config.save({"ki_server": "ollama", "ollama_model": "gemma3:4b"})
+    c, m = default_client({"ki_server": "openai", "openai_url": "http://x:8000",
+                           "openai_model": "M"})
+    assert c.kind == "openai" and c.url == "http://x:8000/v1" and m == "M"
+    assert config.load()["ki_server"] == "ollama"      # nichts gespeichert
+
+
+def test_batch_mit_vllm(tmp_path, fake_vllm):
+    """KI-Stapel über vLLM (wie per Kommandozeile mit --ki-server vllm)."""
+    import cv2
+    import numpy as np
+
+    from traceify.api import batch_convert
+    img = np.full((300, 400), 255, np.uint8)
+    cv2.rectangle(img, (30, 30), (370, 270), 0, 3)
+    src = tmp_path / "in"
+    src.mkdir()
+    cv2.imwrite(str(src / "a.png"), img)
+    res = batch_convert(str(src), str(tmp_path / "out"), ai=True,
+                        ai_server={"ki_server": "openai", "openai_url": fake_vllm,
+                                   "openai_model": "Qwen/Qwen2.5-VL-7B-Instruct"})
+    assert res and not res[0].error and res[0].outputs

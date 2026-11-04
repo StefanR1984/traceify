@@ -93,24 +93,33 @@ def _set_end(e, idx, p):
         e.points[idx] = p
 
 
-def orthogonalize(ents: list, tol_deg: float = 3.0, join_tol: float = 2.0) -> int:
+def orthogonalize(ents: list, tol_deg: float = 3.0, join_tol: float = 2.0,
+                  min_px: float = 0.0, max_deg: float = 20.0) -> int:
     """Richtet fast waagrechte/senkrechte Linien exakt aus. Gibt die Anzahl geänderter Linien zurück.
 
     Vorher verbundene Endpunkte bleiben verbunden (Ecke = x der Senkrechten, y der Waagrechten).
+    min_px: kurze Linien, deren Enden höchstens so viele Pixel von der Achse abweichen, werden
+    auch ausgerichtet (ihr Winkel ist im Scan unsicher) – bis höchstens max_deg.
     """
     lines = [e for e in ents if isinstance(e, Line)]
     pts = _endpoints(lines)
     groups = _clusters(pts, join_tol)
     kind = {}
     n = 0
+
+    def near(dev: float, L: float) -> bool:
+        if dev <= tol_deg:
+            return True
+        return min_px > 0 and dev <= max_deg and L * math.sin(math.radians(dev)) <= min_px
     for l in lines:
         a = _angle(l)
-        if min(a, 180 - a) <= tol_deg:
+        L = math.dist(l.p1, l.p2)
+        if near(min(a, 180 - a), L) and min(a, 180 - a) <= abs(a - 90):
             y = (l.p1[1] + l.p2[1]) / 2
             l.p1, l.p2 = (l.p1[0], y), (l.p2[0], y)
             kind[id(l)] = "h"
             n += 1
-        elif abs(a - 90) <= tol_deg:
+        elif near(abs(a - 90), L):
             x = (l.p1[0] + l.p2[0]) / 2
             l.p1, l.p2 = (x, l.p1[1]), (x, l.p2[1])
             kind[id(l)] = "v"

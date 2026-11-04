@@ -339,3 +339,50 @@ def test_ortho_zeichnen_folgt_schraeglage():
     p = cad.ortho((0.0, 0.0), (100.0, 3.0), angle_deg=2.0)
     assert math.degrees(math.atan2(p[1], p[0])) == pytest.approx(2.0)
     assert cad.ortho((0.0, 0.0), (100.0, 3.0)) == (100.0, 0.0)
+
+
+# ----------------------------------------------------------------- 0.14.0
+def test_kurze_linie_mit_unsicherem_winkel_wird_ausgerichtet():
+    from traceify.core.edit import orthogonalize
+    short = Line((0.0, 0.0), (8.0, 1.0))          # 7° schief, Ende nur 1 px daneben
+    long_ = Line((0.0, 50.0), (100.0, 60.0))      # 5,7° schief, 10 px daneben – bleibt
+    assert orthogonalize([short, long_], tol_deg=3.0, min_px=1.5) == 1
+    assert short.p1[1] == short.p2[1]
+    assert long_.p1[1] != long_.p2[1]
+    diag = Line((0.0, 0.0), (3.0, 3.0))           # kurz, aber schräg (45°) – bleibt
+    assert orthogonalize([diag], tol_deg=3.0, min_px=1.5) == 0
+
+
+def test_kleine_luecken_schliessen():
+    wall = Line((0.0, 0.0), (0.0, 100.0))
+    t = Line((3.0, 50.0), (80.0, 50.0))            # endet 3 px vor der Wand
+    far = Line((20.0, 80.0), (80.0, 80.0))          # 20 px Abstand – bleibt (z. B. Tür)
+    n = cad.close_gaps([wall, t, far], 5.0)
+    assert n == 1
+    assert t.p1 == pytest.approx((0.0, 50.0))
+    assert far.p1 == (20.0, 80.0)
+    assert cad.close_gaps([wall, t, far], 5.0) == 0    # schon geschlossen
+
+
+def test_luecken_schliessen_in_pipeline_und_abschaltbar():
+    img = np.zeros((300, 400), np.uint8)
+    cv2.line(img, (50, 50), (50, 250), 255, 3)
+    cv2.line(img, (56, 150), (350, 150), 255, 3)     # Lücke 4 px zur Senkrechten (0,4 mm)
+    s = tf.ConvertSettings()
+    s.ocr.enabled = False
+    d = tf.convert(255 - img, s, 0.1).drawing
+    assert benchmark.free_ends(d.entities) == 3
+    s.style.close_gaps_mm = 0
+    d2 = tf.convert(255 - img, s, 0.1).drawing
+    assert benchmark.free_ends(d2.entities) == 4
+
+
+@pytest.mark.skipif(not tesseract_available(), reason="Tesseract nicht installiert")
+def test_ocr_behaelt_dezimalpunkt():
+    img = np.full((200, 700), 255, np.uint8)
+    cv2.putText(img, "143.50 qm", (60, 120), cv2.FONT_HERSHEY_SIMPLEX, 1.2, 0, 2)
+    s = tf.ConvertSettings()
+    s.preprocess.despeckle = 40                      # starkes Entflecken für die Linien
+    d = tf.convert(img, s, 25.4 / 200).drawing
+    assert any("143.50" in t.text or "143,50" in t.text for t in d.by_type(Text)), \
+        [t.text for t in d.by_type(Text)]

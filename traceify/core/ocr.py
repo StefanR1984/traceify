@@ -28,6 +28,8 @@ class OcrSettings:
     free_angles: bool = True       # übrig gebliebene Schrift in beliebigem Winkel nachlesen
     max_height_ratio: float = 0.08  # Textzeilen höher als 8 % der Bildhöhe ignorieren
     max_char_mm: float = 15.0      # größere Objekte (Linien, Flächen) vor der OCR ausblenden
+    despeckle: int = 3             # Flecken entfernen nur bis zu dieser Fläche (px²) – kleiner als
+                                   # bei den Linien, damit Dezimalpunkte und Kommas erhalten bleiben
     erase_padding: int = 2
 
 

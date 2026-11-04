@@ -135,6 +135,11 @@ class SettingsPanel(QScrollArea):
                                    "Export heraus")
         self.straighten.setChecked(True)
         f.addRow(self.straighten)
+        self.close_gaps = _spin(0.0, 5.0, 0.8, 0.1, 1, " mm")
+        self.close_gaps.setSpecialValueText("aus")
+        self.close_gaps.setToolTip("Linienenden, die knapp vor einem anderen Objekt enden, werden "
+                                   "bis dorthin verlängert (Ecken und T-Stöße schließen)")
+        f.addRow("Kleine Lücken schließen bis:", self.close_gaps)
         self.hatch = QCheckBox("Schraffur erkennen (Layer SCHRAFFUR)")
         self.hatch.setToolTip("Schräge Schraffurlinien (z. B. in Wänden) kommen auf einen eigenen "
                               "Layer und lassen sich im CAD mit einem Klick ausblenden")
@@ -322,6 +327,7 @@ class SettingsPanel(QScrollArea):
         st.walls_outline = self.walls_outline.isChecked()
         st.hatch_layer = self.hatch.isChecked()
         st.straighten = self.straighten.isChecked()
+        st.close_gaps_mm = self.close_gaps.value()
         st.color_layers = self.color_layers.isChecked()
         st.color_count = self.color_count.value()
         s.symbols_auto = self.symbols_auto.isChecked()
@@ -365,6 +371,7 @@ class SettingsPanel(QScrollArea):
         self.walls_outline.setChecked(s.style.walls_outline)
         self.hatch.setChecked(s.style.hatch_layer)
         self.straighten.setChecked(s.style.straighten)
+        self.close_gaps.setValue(s.style.close_gaps_mm)
         self.color_layers.setChecked(s.style.color_layers)
         self.color_count.setValue(s.style.color_count)
         self.symbols_auto.setChecked(s.symbols_auto)
@@ -425,6 +432,7 @@ class SettingsPanel(QScrollArea):
             checks[n].setChecked(b(value))
             return f"{name}: {'an' if checks[n].isChecked() else 'aus'}"
         nums = {"toleranz": self.tolerance, "schwellwert": self.threshold, "flecken": self.despeckle,
+                "luecken_mm": self.close_gaps,
                 "luecken_schliessen": self.thicken, "glaetten": self.smooth,
                 "min_laenge": self.min_length, "eckenwinkel": self.corner,
                 "vorschub": self.feed, "fraestiefe": self.depth, "zustellung": self.step_down,

@@ -49,6 +49,14 @@ class ServerDialog(QDialog):
         hint.setWordWrap(True)
         hint.setStyleSheet("color: gray; font-size: 11px;")
         f.addRow(hint)
+        row = QHBoxLayout()
+        self.btn_test = QPushButton("Verbindung testen")
+        self.btn_test.clicked.connect(self.test_connection)
+        row.addWidget(self.btn_test)
+        self.test_result = QLabel("")
+        self.test_result.setWordWrap(True)
+        row.addWidget(self.test_result, 1)
+        f.addRow(row)
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
@@ -61,6 +69,27 @@ class ServerDialog(QDialog):
         self.ollama_url.setEnabled(not o)
         for w in (self.openai_url, self.openai_key):
             w.setEnabled(o)
+
+    def test_connection(self):
+        """Server mit den eingetragenen Werten ansprechen und Modelle anzeigen."""
+        from PySide6.QtWidgets import QApplication
+        cfg = dict(config.load())
+        cfg.update(self.values())
+        cfg["ollama_timeout"] = 10
+        self.test_result.setText("prüfe …")
+        QApplication.processEvents()
+        try:
+            c = make_client(cfg)
+            ver = c.version()
+            names = c.model_names()
+        except Exception as exc:  # noqa: BLE001
+            self.test_result.setText(f'<span style="color:#c0392b">✗ {html.escape(str(exc))}'
+                                     '</span>')
+            return False
+        shown = ", ".join(names[:4]) + (" …" if len(names) > 4 else "")
+        self.test_result.setText(f'<span style="color:#1a8a4a">✓ {html.escape(ver)}</span> – '
+                                 + (html.escape(shown) if names else "keine Modelle"))
+        return True
 
     def values(self) -> dict:
         return {"ki_server": self.kind.currentData(),

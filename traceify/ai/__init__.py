@@ -33,8 +33,11 @@ def model_key(cfg: dict) -> str:
     return "openai_model" if (cfg.get("ki_server") or "ollama") == "openai" else "ollama_model"
 
 
-def default_client():
+def default_client(overrides: dict = None):
+    """Client und Modell aus der Konfiguration; overrides (z. B. aus der Kommandozeile)
+    gelten nur für diesen Aufruf und werden nicht gespeichert."""
     from .. import config
     cfg = config.load()
+    cfg.update({k: v for k, v in (overrides or {}).items() if v not in (None, "")})
     model = cfg.get(model_key(cfg)) or ("gemma3:4b" if model_key(cfg) == "ollama_model" else "")
     return make_client(cfg), model

@@ -47,6 +47,14 @@ def _regions(settings) -> List[Region]:
     return [r for r in out if r.mode in REGION_MODES and r.w > 0 and r.h > 0]
 
 
+def _ignore(bw: np.ndarray, regions) -> np.ndarray:
+    """Bereiche „ignorieren“ im Binärbild leeren."""
+    for r in regions:
+        if r.mode == REGION_IGNORE:
+            bw[r.slices(bw.shape)] = 0
+    return bw
+
+
 def _anchor(e):
     """Repräsentativer Punkt eines Objekts (für Bereichszuordnung)."""
     from .model import Arc, Circle, Line, Polyline
@@ -160,6 +168,11 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         step(25, "Texterkennung (OCR) …")
         ocr_src = 255 - bw  # sauberes Schwarz-auf-Weiß-Bild für Tesseract
         ppm = 1.0 / dpi_scale
+        pp_ocr = settings.preprocess
+        if settings.ocr.despeckle < pp_ocr.despeckle and not pp_ocr.deskew:
+            # schwächer entflecken: Punkte und Kommas in Zahlen (11,50) bleiben erhalten
+            pp_ocr = replace(pp_ocr, despeckle=max(0, settings.ocr.despeckle))
+            ocr_src = 255 - _ignore(to_binary(gray, pp_ocr), regions)
         # grober Scan: Original vergrößern und neu aufbereiten – kleine Schrift wird so
         # deutlich besser gelesen; die Linien bleiben in Originalauflösung. (Mit
         # Schräglagenkorrektur passen die Koordinaten nicht zum Original – dann nicht.)
@@ -167,7 +180,7 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         if zoom > 1:
             import cv2
             up = cv2.resize(gray, None, fx=zoom, fy=zoom, interpolation=cv2.INTER_LINEAR)
-            ocr_src = 255 - to_binary(up, settings.preprocess)
+            ocr_src = 255 - to_binary(up, replace(pp_ocr, despeckle=pp_ocr.despeckle * zoom * zoom))
             for r in regions:
                 if r.mode == REGION_IGNORE:
                     sy, sx = r.slices(bw.shape)
@@ -225,6 +238,9 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         step(90, "Linien ausrichten …")
         skew = straighten(ents, gray.shape[1], gray.shape[0], settings.style.straighten_tol,
                           join_tol=max(2.0, settings.vectorize.snap_distance))
+    if settings.style.close_gaps_mm > 0 and settings.vectorize.mode == MODE_CENTERLINE:
+        from .cad import close_gaps
+        close_gaps(ents, settings.style.close_gaps_mm / dpi_scale)
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + texts, source=source)

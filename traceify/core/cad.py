@@ -489,6 +489,70 @@ def _extend_arc(others, arc: Arc, click: Point) -> bool:
     return True
 
 
+def close_gaps(ents: list, dist: float) -> int:
+    """Kleine Lücken schließen: freie Linienenden, die in ihrer Richtung nach höchstens
+    ``dist`` auf ein anderes Objekt treffen, werden bis dorthin verlängert (T-Stöße und Ecken,
+    die im Scan knapp nicht zusammenkommen). Gibt die Zahl der verlängerten Enden zurück.
+
+    Ein Ende gilt als frei, wenn kein anderes Objekt näher als 1 px liegt."""
+    if dist <= 0:
+        return 0
+    prims = [(pr, e) for e in ents if not isinstance(e, (Text, Insert)) for pr in primitives(e)]
+    cell = max(32.0, 4 * dist)
+    grid = {}
+    for k, (pr, _) in enumerate(prims):
+        if isinstance(pr, Seg):
+            xs, ys = (pr.a[0], pr.b[0]), (pr.a[1], pr.b[1])
+        else:
+            xs, ys = (pr.c[0] - pr.r, pr.c[0] + pr.r), (pr.c[1] - pr.r, pr.c[1] + pr.r)
+        for gx in range(int((min(xs) - dist) // cell), int((max(xs) + dist) // cell) + 1):
+            for gy in range(int((min(ys) - dist) // cell), int((max(ys) + dist) // cell) + 1):
+                grid.setdefault((gx, gy), []).append(k)
+
+    def nearby(p, owner):
+        seen = set()
+        for k in grid.get((int(p[0] // cell), int(p[1] // cell)), ()):
+            pr, src = prims[k]
+            if src is not owner and id(src) not in seen:
+                seen.add(id(src))
+                yield src
+
+    def touching(p, owner) -> bool:
+        for src in nearby(p, owner):
+            for pr in primitives(src):
+                q = closest_on_seg(pr.a, pr.b, p) if isinstance(pr, Seg) else closest_on_circ(pr, p)
+                if math.dist(p, q) <= 1.0:
+                    return True
+        return False
+    n = 0
+    for e in ents:
+        if isinstance(e, Line):
+            ends = [(e.p1, e.p2, False), (e.p2, e.p1, True)]       # (Ende, anderes Ende, …)
+        elif isinstance(e, Polyline) and not e.closed and len(e.points) >= 2:
+            ends = [(e.points[0], e.points[1], False), (e.points[-1], e.points[-2], True)]
+        else:
+            continue
+        for end, prev, last in ends:
+            L = math.dist(prev, end)
+            if L < 1e-6 or touching(end, e):
+                continue
+            t = _extend_ray(list(nearby(end, e)), prev, end, True)
+            if t is None or (t - 1.0) * L > dist:
+                continue
+            p = _lerp(prev, end, t)
+            if isinstance(e, Line):
+                if last:
+                    e.p2 = p
+                else:
+                    e.p1 = p
+            elif last:
+                e.points[-1] = p
+            else:
+                e.points[0] = p
+            n += 1
+    return n
+
+
 def pick(ents: Iterable, p: Point, radius: float):
     """Objekt, dessen Kontur dem Punkt am nächsten liegt (innerhalb radius)."""
     best, bd = None, radius

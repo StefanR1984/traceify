@@ -75,23 +75,17 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - PDF-DPI 0 = automatisch (`loader.resolve_dpi`): Scan-PDFs in Originalauflösung, sonst 300.
 
 ## Offene Ideen
-Stand 0.12.0 – Prüfstand mit 9 Bauplan-Scans (96–150 dpi), Vergleich mit Scan2CAD bei
+Stand 0.14.0 – Prüfstand mit 9 Bauplan-Scans (96–150 dpi), Vergleich mit Scan2CAD bei
 image-11 und image-4 (Scans liefert der Nutzer bei Bedarf, nicht im Repo).
-Umgesetzt in 0.12.0: schräge Texte, KI für Handschrift, Ecken statt Bögen, Schraffur-Layer,
-Wände als Umriss, Schräglage ausgleichen, Dehnen für Polylinien/Bögen, Prüfstand-Kennzahlen,
-Workflow „Integration (echt)“ für Ollama/ODA.
+Werte 0.14.0: image-11 47/129 Wörter wie Scan2CAD, Ortho 48 % (S2C 51 %), Abdeckung 98 % (S2C 86 %);
+image-4 Ortho 43 % (S2C 49 %), Handschrift nur per KI.
 
-1. **OCR weiter verbessern** – Scan2CAD liest noch mehr (image-11: 41 von 129 Wörtern gleich).
-   Ideen: Zahlen mit Dezimalpunkt (Punkte gehen beim Entflecken verloren), Wörter über
-   Zeilenumbrüche zusammenfassen, Tesseract-Whitelist für Maßzahlen.
-2. **Handschrift** – KI-Lesen ist nur mit Attrappe und im Workflow „Integration (echt)“ mit
-   kleinem Modell getestet; mit echten Plänen (image-4) ausprobieren und Prompt nachschärfen.
-3. **Ortho-Anteil** – Traceify 34–46 % gegen Scan2CAD ~50 % (image-4/-11). Ausrichten auch für
-   Polylinien und kurze Linien zwischen ausgerichteten Ecken.
-4. **Offene Enden** – viele kurze Reste an Schraffur und Text; evtl. „Lücken schließen“ automatisch
-   nur für Enden, die fast eine Linie treffen (bis 1 mm).
-5. **Schraffur als DXF-HATCH** statt Einzellinien (Fläche aus Wandumriss + Muster ANSI31).
-6. Workflow „Integration (echt)“: ODA-Download-Link wird von der Website gelesen – bricht, wenn
-   sich die Seite ändert. Ollama läuft dort aus dem portablen ZIP (Installer hängt).
-7. vLLM nur gegen nachgebauten Server getestet (Runner ohne GPU) – mit echtem vLLM-Server des
-   Nutzers ausprobieren.
+1. **OCR** – Scan2CAD liest weiter mehr (Kommas in „NFL 13,12“ gehen oft verloren, Wörter an
+   Zeilenenden getrennt). Ideen: Tesseract-Whitelist für Maßzahlen, Zeilen zusammenfassen.
+2. **Handschrift / vLLM** – KI-Lesen und vLLM nur mit Attrappen getestet; der Nutzer hat den echten
+   Test (Workflow „Integration (echt)“) vorerst ausgelassen – nicht ungefragt starten.
+3. **Schraffur als DXF-HATCH** statt Einzellinien – braucht ein Flächen-Objekt im Modell (GUI,
+   SVG, G-Code mitziehen); Umriss z. B. über shapely aus gepufferten Schraffurlinien.
+4. **Ausrichten von Polylinien** (bisher nur Linien).
+5. Workflow „Integration (echt)“: ODA-Download-Link wird nicht gefunden (Seite geändert); Ollama aus
+   dem portablen ZIP lief.

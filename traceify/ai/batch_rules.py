@@ -25,7 +25,7 @@ from .ollama_client import OllamaClient, OllamaError, parse_json
 SETTING_NAMES = """modus ("mittellinie" = CAD-Strichzeichnung | "umriss" = CNC-Kontur/Logo),
 vorlage (%s), toleranz (px), flecken (px²), luecken_schliessen (px), invertieren, adaptiv,
 begradigen, ocr, ocr_sprache, boegen, kreise, nur_polylinien, strichlinien, strichstaerken,
-dicke_linien_layer, waende_umriss, schraffur_layer, schraege_texte, gerade_ausrichten,
+dicke_linien_layer, waende_umriss, schraffur_layer, schraege_texte, gerade_ausrichten, luecken_mm (mm, 0=aus),
 farben_trennen,
 anzahl_farben, massstab_aus_plan, symbole_automatisch,
 maschine ("fraese"|"laser"), vorschub (mm/min), fraestiefe (mm), zustellung (mm),
@@ -124,6 +124,7 @@ def apply_named(s: ConvertSettings, g: GcodeSettings, name: str, value) -> str:
         setattr(obj, attr, _b(value))
         return f"{n}={'an' if _b(value) else 'aus'}"
     nums = {"toleranz": (s.vectorize, "tolerance", float), "flecken": (s.preprocess, "despeckle", int),
+            "luecken_mm": (s.style, "close_gaps_mm", float),
             "luecken_schliessen": (s.preprocess, "thicken", int),
             "glaetten": (s.preprocess, "smooth", int), "schwellwert": (s.preprocess, "threshold", int),
             "min_laenge": (s.vectorize, "min_length", float),
