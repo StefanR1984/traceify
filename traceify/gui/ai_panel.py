@@ -36,6 +36,7 @@ class AiPanel(QWidget):
     """Signale gehen an das Hauptfenster, das die eigentlichen Aktionen ausführt."""
     suggestRequested = Signal()
     correctTextsRequested = Signal()
+    unreadRequested = Signal()
     reviewRequested = Signal()
     chatRequested = Signal(str, bool)     # Text, Bild mitsenden
     actionsConfirmed = Signal(list)
@@ -89,9 +90,13 @@ class AiPanel(QWidget):
         self.btn_suggest.clicked.connect(self.suggestRequested)
         self.btn_texts = QPushButton("🔤  Erkannte Texte mit KI prüfen")
         self.btn_texts.clicked.connect(self.correctTextsRequested)
+        self.btn_unread = QPushButton("✍  Unerkannte Schrift mit KI lesen")
+        self.btn_unread.setToolTip("Stellen, die wie Schrift aussehen, aber von der OCR nicht "
+                                   "gelesen wurden (z. B. Handschrift), vom Bildmodell lesen lassen")
+        self.btn_unread.clicked.connect(self.unreadRequested)
         self.btn_review = QPushButton("✅  Ergebnis bewerten && verbessern")
         self.btn_review.clicked.connect(self.reviewRequested)
-        for btn in (self.btn_suggest, self.btn_texts, self.btn_review):
+        for btn in (self.btn_suggest, self.btn_texts, self.btn_unread, self.btn_review):
             btn.setStyleSheet("text-align: left; padding: 5px;")
             lay.addWidget(btn)
 
@@ -170,7 +175,8 @@ class AiPanel(QWidget):
 
     def set_busy(self, on: bool):
         self.busy.setVisible(on)
-        for b in (self.btn_send, self.btn_suggest, self.btn_texts, self.btn_review):
+        for b in (self.btn_send, self.btn_suggest, self.btn_texts, self.btn_unread,
+                  self.btn_review):
             b.setEnabled(not on)
 
     def say(self, who: str, text_html: str):

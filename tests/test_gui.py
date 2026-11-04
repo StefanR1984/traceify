@@ -38,7 +38,9 @@ class FakeOllama(BaseHTTPRequestHandler):
             return self._send({})
         props = (body.get("format") or {}).get("properties", {}) \
             if isinstance(body.get("format"), dict) else {}
-        if "vorlage" in props:
+        if "kopf" in props:            # unerkannte Schrift lesen
+            c = {"text": "Keller", "sicher": True, "kopf": False}
+        elif "vorlage" in props:
             c = {"art": "Grundriss", "vorlage": "Grundriss / Architektur", "modus": "mittellinie",
                  "invertieren": False, "ungleichmaessig_beleuchtet": False, "schraeg": False,
                  "verrauscht": False, "enthaelt_text": False, "begruendung": "Test"}
@@ -369,6 +371,95 @@ def test_gui_draw_snap_trim_extend(tmp_path, monkeypatch):
     w.run_convert()
     wait(app, lambda: w.worker is None)
     assert any(e.layer == "MEINE_LINIEN" for e in w.drawing.entities)
+    w.close()
+
+
+def test_gui_dehnen_polylinie_und_bogen(tmp_path, monkeypatch):
+    """Dehnen per Mausklick bei offener Polylinie und Bogen."""
+    from PySide6.QtTest import QTest
+    from traceify import config
+    from traceify.core.model import Arc, Drawing, Line, Polyline
+    monkeypatch.setattr(config, "CONFIG_PATH", str(tmp_path / "config.json"))
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    from traceify.gui.main_window import MainWindow
+    w = MainWindow()
+    w.resize(1200, 900)
+    w.show()
+    p = tmp_path / "leer.png"
+    cv2.imwrite(str(p), np.full((600, 800), 255, np.uint8))
+    w.open_file(str(p))
+    wall = Line((600.0, 50.0), (600.0, 550.0))
+    poly = Polyline([(100.0, 100.0), (300.0, 150.0), (450.0, 150.0)])
+    arc = Arc((300.0, 400.0), 100.0, 180.0, 270.0)       # links unten bis oben (Bild)
+    floor = Line((150.0, 480.0), (450.0, 480.0))       # schneidet den Kreis bei 53° und 127°
+    w.drawing = Drawing(width=800, height=600, scale=0.25,
+                        entities=[wall, poly, arc, floor])
+    w.canvas.set_entities(w.drawing.entities)
+    w.update_actions()
+    cv, vp = w.canvas, w.canvas.viewport()
+    app.processEvents()
+    cv.zoom_100()
+    cv.centerOn(400, 300)
+    app.processEvents()
+    Qt = QtCore.Qt
+
+    def click(x, y):
+        pt = cv.mapFromScene(QtCore.QPointF(x, y))
+        QTest.mouseMove(vp, pt)
+        QTest.mouseClick(vp, Qt.LeftButton, Qt.NoModifier, pt)
+        app.processEvents()
+
+    w.a_snap.setChecked(False)
+    w.toggle_snap(False)
+    w.set_tool("extend")
+    click(445, 150)                          # nahe am Ende der Polylinie
+    assert abs(poly.points[-1][0] - 600) < 1e-6 and abs(poly.points[-1][1] - 150) < 1e-6
+    # Bogen: Startpunkt (180°, links) anklicken – er wächst entlang des Kreises nach unten
+    # bis zur Linie floor
+    click(202, 395)
+    assert abs(arc.start_angle - 126.87) < 0.1 and arc.end_angle == 270.0
+    w.undo()
+    assert w.drawing.entities[2].start_angle == 180.0
+    w.close()
+
+
+def test_gui_unerkannte_schrift_mit_ki(tmp_path, fake_ollama, monkeypatch):
+    """Handschrift ohne OCR-Treffer: KI liest sie, Übernahme ersetzt die Linien durch Text."""
+    from traceify import config
+    from traceify.core.model import Text
+    monkeypatch.setattr(config, "CONFIG_PATH", str(tmp_path / "config.json"))
+    config.save({"ollama_url": fake_ollama, "ollama_model": "gemma3:4b", "ki": None})
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    from traceify.gui.main_window import MainWindow
+    img = np.full((600, 900), 255, np.uint8)
+    cv2.rectangle(img, (40, 40), (860, 560), 0, 5)
+    cv2.putText(img, "Keller", (300, 320), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 2.4, 0, 4)
+    p = tmp_path / "hand.png"
+    cv2.imwrite(str(p), img)
+    w = MainWindow()
+    w.show()
+    w.panel.ocr.setChecked(False)
+    w.open_file(str(p))
+    w.run_convert()
+    wait(app, lambda: w.worker is None and w.drawing is not None)
+    n_before = len(w.drawing.entities)
+    wait(app, lambda: "verbunden" in w.ai_panel.status.text())
+    shown = []
+
+    def fake_review(fixes):
+        shown.extend(fixes)
+        # wie „OK“ im Dialog: alle neuen Texte übernehmen
+        from traceify.ai.assistant import entities_in_region
+        for f in fixes:
+            gone = {id(e) for e in entities_in_region(w.drawing.entities, f.region)}
+            w.drawing.entities = [e for e in w.drawing.entities if id(e) not in gone]
+            w.drawing.entities.append(f.entity)
+    monkeypatch.setattr(w, "_review_text_fixes", fake_review)
+    w.ai_panel.btn_unread.click()
+    wait(app, lambda: not w.ai_panel.workers)
+    assert shown and all(f.is_new for f in shown)
+    assert any(isinstance(e, Text) and e.text == "Keller" for e in w.drawing.entities)
+    assert len(w.drawing.entities) < n_before      # Buchstaben-Linien sind ersetzt
     w.close()
 
 

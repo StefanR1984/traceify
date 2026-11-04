@@ -386,7 +386,7 @@ def _split_tabs(p: ToolPath):
 # ------------------------------------------------------------------ Bewegungen
 def plan(d: Drawing, s: GcodeSettings, visible_layers=None) -> ToolpathResult:
     warnings: list = []
-    paths = collect_paths(d, visible_layers)
+    paths = collect_paths(d.export_view(), visible_layers)   # Schräglage herausdrehen
     paths = compensate(paths, s, warnings)
     paths = orient(paths, s)
     paths = order(paths, s)

@@ -2,6 +2,8 @@
 
 * suggest_settings – Bild ansehen, Zeichnungsart erkennen, Einstellungen vorschlagen
 * correct_texts    – OCR-Ergebnisse Ausschnitt für Ausschnitt mit einem Bildmodell prüfen
+* read_unrecognized – Schrift, die die OCR nicht lesen konnte (Handschrift), vom Bildmodell
+                     lesen lassen
 * Assistant.ask    – Chat in natürlicher Sprache; die KI antwortet mit Text UND
                      ausführbaren Aktionen (Einstellungen ändern, Layer löschen, …)
 """
@@ -152,22 +154,43 @@ class TextFix:
     old: str
     new: str
     sure: bool
+    is_new: bool = False            # neuer Text (bisher nicht erkannt)
+    region: Optional[tuple] = None  # (cx, cy, länge, höhe, winkel) – Bereich der Schrift
 
 
-def _text_box(t: Text, shape) -> tuple:
-    """Grobe Bildbox (x0, y0, x1, y1) um einen Text."""
-    H, W = shape
+def _rotated_crop(gray: np.ndarray, cx: float, cy: float, length: float, height: float,
+                  angle_img: float, pad: float = 0.4) -> np.ndarray:
+    """Ausschnitt um (cx, cy), so gedreht, dass die Zeile waagrecht liegt.
+
+    angle_img: Leserichtung im Bild in Grad (y nach unten, 0 = nach rechts)."""
+    p = pad * height
+    w, h = int(length + 2 * p) + 2, int(height + 2 * p) + 2
+    M = cv2.getRotationMatrix2D((cx, cy), angle_img, 1.0)
+    M[0, 2] += w / 2 - cx
+    M[1, 2] += h / 2 - cy
+    return cv2.warpAffine(gray, M, (w, h), flags=cv2.INTER_LINEAR, borderValue=255)
+
+
+def _text_crop(gray: np.ndarray, t: Text) -> np.ndarray:
+    """Waagrecht gedrehter Ausschnitt um einen erkannten Text (beliebiger Winkel)."""
+    import math
     n = max(1, len(t.text))
     h = t.height / 0.8
-    w = h * 0.62 * n
+    L = h * 0.62 * n
+    a = math.radians(t.angle)                 # CAD-Winkel, gegen den Uhrzeigersinn
+    ux, uy = math.cos(a), -math.sin(a)        # Leserichtung im Bild
+    nx, ny = -uy, ux                          # zur Grundlinie hin („unten“)
     x, y = t.position
-    if abs(t.angle - 90) < 1:
-        x0, y0, x1, y1 = x - h, y - w, x, y
-    else:
-        x0, y0, x1, y1 = x, y - h, x + w, y
-    pad = 0.4 * h
-    return (int(max(0, x0 - pad)), int(max(0, y0 - pad)),
-            int(min(W, x1 + pad)), int(min(H, y1 + pad)))
+    cx = x + ux * L / 2 - nx * h / 2
+    cy = y + uy * L / 2 - ny * h / 2
+    return _rotated_crop(gray, cx, cy, L, h, -t.angle)
+
+
+def _prepare(crop: np.ndarray) -> np.ndarray:
+    # Kleine Ausschnitte vergrößern – Bildmodelle lesen dann besser
+    scale = max(1.0, 64 / max(1, crop.shape[0]))
+    crop = cv2.resize(crop, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    return cv2.copyMakeBorder(crop, 16, 16, 16, 16, cv2.BORDER_CONSTANT, value=255)
 
 
 def correct_texts(client: OllamaClient, model: str, gray: np.ndarray, d: Drawing,
@@ -181,16 +204,10 @@ def correct_texts(client: OllamaClient, model: str, gray: np.ndarray, d: Drawing
             break
         if progress:
             progress(i, len(texts), t.text)
-        x0, y0, x1, y1 = _text_box(t, gray.shape)
-        crop = gray[y0:y1, x0:x1]
+        crop = _text_crop(gray, t)
         if crop.size == 0:
             continue
-        if abs(t.angle - 90) < 1:
-            crop = np.ascontiguousarray(np.rot90(crop, -1))
-        # Kleine Ausschnitte vergrößern – Bildmodelle lesen dann besser
-        scale = max(1.0, 64 / max(1, crop.shape[0]))
-        crop = cv2.resize(crop, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-        crop = cv2.copyMakeBorder(crop, 16, 16, 16, 16, cv2.BORDER_CONSTANT, value=255)
+        crop = _prepare(crop)
         msg = {"role": "user", "content": READ_PROMPT.format(old=t.text),
                "images": [encode_image(crop, 768)]}
         try:
@@ -205,6 +222,94 @@ def correct_texts(client: OllamaClient, model: str, gray: np.ndarray, d: Drawing
     return fixes
 
 
+UNREAD_PROMPT = ("Dieser Ausschnitt stammt aus einer technischen Zeichnung oder einem Bauplan und "
+                 "enthält vermutlich Schrift, oft von Hand geschrieben (Raumnamen, Maße). Lies sie "
+                 "exakt ab, Zeichen für Zeichen; nichts erfinden, nichts übersetzen. Die Schrift kann "
+                 "auch auf dem Kopf stehen – dann kopf = true. Antworte als JSON: text = gelesener "
+                 "Text, sicher = ob du sicher bist, kopf = steht die Schrift auf dem Kopf. "
+                 "Ist keine Schrift zu sehen (nur Linien, Schraffur, Symbole), gib text = \"\".")
+UNREAD_SCHEMA = {"type": "object",
+                 "properties": {"text": {"type": "string"}, "sicher": {"type": "boolean"},
+                                "kopf": {"type": "boolean"}},
+                 "required": ["text", "sicher", "kopf"]}
+
+
+def unread_candidates(bw: np.ndarray, d: Drawing, px_per_mm: float, limit: int = 60):
+    """Schriftähnliche Bereiche, an denen noch kein Text steht (Kandidaten für die KI)."""
+    from ..core.benchmark import text_box
+    from ..core.ocr import text_layer
+    from ..core.textlines import find_candidates
+    layer = text_layer(bw, px_per_mm, 15.0)
+    boxes = [text_box(t, pad=1.0) for t in d.by_type(Text)]
+    return find_candidates(layer, px_per_mm, boxes, max_candidates=limit)
+
+
+def read_unrecognized(client: OllamaClient, model: str, gray: np.ndarray, bw: np.ndarray,
+                      d: Drawing, px_per_mm: float,
+                      progress: Optional[Callable[[int, int, str], None]] = None,
+                      should_stop: Optional[Callable[[], bool]] = None,
+                      limit: int = 60) -> List[TextFix]:
+    """Lässt das Bildmodell schriftähnliche Stellen lesen, an denen die OCR nichts fand.
+
+    Gibt Vorschläge für neue Texte zurück (TextFix mit is_new=True); übernommen werden sie
+    erst nach Bestätigung."""
+    import math
+    cands = unread_candidates(bw, d, px_per_mm, limit)
+    out = []
+    for i, c in enumerate(cands):
+        if should_stop and should_stop():
+            break
+        if progress:
+            progress(i, len(cands), f"Stelle {i + 1}")
+        crop = _prepare(_rotated_crop(gray, c.center[0], c.center[1], c.length, c.height,
+                                      c.angle))
+        msg = {"role": "user", "content": UNREAD_PROMPT, "images": [encode_image(crop, 768)]}
+        try:
+            res = parse_json(client.chat(model, [msg], fmt=UNREAD_SCHEMA, temperature=0.0))
+        except OllamaError:
+            continue
+        txt = str(res.get("text", "")).strip()
+        if not txt:
+            continue
+        a = c.angle + (180.0 if res.get("kopf") else 0.0)       # Leserichtung im Bild
+        r = math.radians(a)
+        ux, uy = math.cos(r), math.sin(r)
+        nx, ny = -uy, ux
+        bx = c.center[0] - ux * c.length / 2 + nx * c.height / 2
+        by = c.center[1] - uy * c.length / 2 + ny * c.height / 2
+        t = Text(txt, (float(bx), float(by)), float(c.height) * 0.8, (-a) % 360.0)
+        out.append(TextFix(t, "", txt, bool(res.get("sicher", False)), True,
+                           (c.center[0], c.center[1], c.length, c.height, c.angle)))
+    if progress:
+        progress(len(cands), len(cands), "Fertig")
+    return out
+
+
+def entities_in_region(ents: list, region: tuple, margin: float = 0.15) -> list:
+    """Objekte (keine Texte), die vollständig im gedrehten Rechteck einer Schriftstelle liegen."""
+    import math
+    from ..core.edit import entity_points
+    cx, cy, L, h, ang = region
+    r = math.radians(ang)
+    ux, uy = math.cos(r), math.sin(r)
+    hl, hh = L / 2 + margin * h, h / 2 + margin * h
+
+    def inside(p):
+        dx, dy = p[0] - cx, p[1] - cy
+        return abs(dx * ux + dy * uy) <= hl and abs(-dx * uy + dy * ux) <= hh
+    out = []
+    for e in ents:
+        if isinstance(e, Text):
+            continue
+        try:
+            pts = entity_points(e)
+        except Exception:
+            continue
+        if pts and all(inside(p) for p in pts):
+            out.append(e)
+    return out
+
+
 # ------------------------------------------------------------- Chat
 ACTIONS_DOC = """Verfügbare Aktionen (nur verwenden, wenn der Nutzer etwas verändert haben möchte):
 {"aktion":"einstellung","name":NAME,"wert":WERT}
@@ -214,6 +319,8 @@ ACTIONS_DOC = """Verfügbare Aktionen (nur verwenden, wenn der Nutzer etwas ver�
          boegen (bool), kreise (bool), nur_polylinien (bool), min_laenge (px), eckenwinkel (Grad),
          ocr (bool), ocr_sprache ("deu+eng" …), massstab_mm_pro_px (Zahl),
          strichlinien (bool), strichstaerken (bool), dicke_linien_layer (bool),
+         waende_umriss (bool), schraffur_layer (bool), schraege_texte (bool),
+         gerade_ausrichten (bool),
          farben_trennen (bool), anzahl_farben (0=auto), massstab_aus_plan (bool), pdf_vektoren (bool),
          vorschub (mm/min), fraestiefe (mm), zustellung (mm), maschine ("fraese"|"laser"),
          fraeser_durchmesser (mm), radiuskorrektur ("keine"|"aussen"|"innen"|"auto"),
@@ -227,7 +334,8 @@ ACTIONS_DOC = """Verfügbare Aktionen (nur verwenden, wenn der Nutzer etwas ver�
 {"aktion":"begradigen"}
 {"aktion":"exportieren","format":"dxf"|"dwg"|"svg"|"nc"} – Speichern-Dialog öffnen
 {"aktion":"gcode_vorschau"}                     – G-Code-Vorschau mit Zeitschätzung öffnen
-Layer heißen: LINIEN, BOEGEN, KREISE, POLYLINIEN, KONTUREN, TEXT.""" % ", ".join(PRESET_NAMES)
+Layer heißen: LINIEN, BOEGEN, KREISE, POLYLINIEN, KONTUREN, TEXT, DICKE_LINIEN, WAENDE,
+SCHRAFFUR, STRICHLINIEN.""" % ", ".join(PRESET_NAMES)
 
 SYSTEM_PROMPT = """Du bist der KI-Assistent in Traceify, einer Desktop-Software, die gescannte Zeichnungen,
 Bilder und PDFs in DXF (CAD), SVG und G-Code (CNC) umwandelt. Du hilfst auf Deutsch, duzt den Nutzer

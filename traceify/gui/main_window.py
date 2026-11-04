@@ -129,6 +129,7 @@ class MainWindow(QMainWindow):
         self.ai_panel = AiPanel()
         self.ai_panel.suggestRequested.connect(self.ai_suggest)
         self.ai_panel.correctTextsRequested.connect(self.ai_correct_texts)
+        self.ai_panel.unreadRequested.connect(self.ai_read_unrecognized)
         self.ai_panel.reviewRequested.connect(self.ai_review)
         self.ai_panel.chatRequested.connect(self.ai_chat)
         self.ai_panel.actionsConfirmed.connect(self.execute_actions)
@@ -311,6 +312,8 @@ class MainWindow(QMainWindow):
         self.a_ai_suggest = A("Bild analysieren && Einstellungen wählen", self.ai_suggest,
                               "Ctrl+Shift+A")
         self.a_ai_texts = A("Erkannte Texte mit KI prüfen", self.ai_correct_texts)
+        self.a_ai_unread = A("Unerkannte Schrift mit KI lesen", self.ai_read_unrecognized,
+                             tip="Handschrift und andere Schrift, die die OCR nicht lesen konnte")
         self.a_ai_review = A("Ergebnis bewerten && verbessern", self.ai_review)
         self.a_ai_show = A("KI-Assistent anzeigen", self.show_ai, "Ctrl+Shift+K")
         self.a_report = A("Problem melden …", self.report_problem,
@@ -386,7 +389,8 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_components)
 
         m = self.menuBar().addMenu("&KI")
-        for a in (self.a_ai_show, None, self.a_ai_suggest, self.a_ai_texts, self.a_ai_review):
+        for a in (self.a_ai_show, None, self.a_ai_suggest, self.a_ai_texts, self.a_ai_unread,
+                  self.a_ai_review):
             m.addSeparator() if a is None else m.addAction(a)
         m.addSeparator()
         m.addAction(self.a_components)
@@ -504,6 +508,11 @@ class MainWindow(QMainWindow):
         tb.addWidget(self.draw_layer)
 
     def update_actions(self):
+        try:   # Ortho beim Zeichnen folgt der erkannten Schräglage des Scans
+            self.canvas.ortho_angle = float((self.drawing.meta.get("schraeglage") or 0)
+                                            if self.drawing else 0)
+        except (TypeError, ValueError):
+            self.canvas.ortho_angle = 0.0
         has_img = self.gray is not None
         has_vec = self.drawing is not None and bool(self.drawing.entities)
         busy = self.worker is not None
@@ -522,7 +531,7 @@ class MainWindow(QMainWindow):
             a.setEnabled(has_vec and not busy)
         for a in (self.a_dxf, self.a_dwg, self.a_svg, self.a_nc, self.a_preview, self.a_delete,
                   self.a_select_all,
-                  self.a_select_layer, self.a_ai_texts, self.a_ai_review):
+                  self.a_select_layer, self.a_ai_texts, self.a_ai_unread, self.a_ai_review):
             a.setEnabled(has_vec and not busy)
         self.panel.btn_convert.setEnabled(has_img and not busy)
         self.a_undo.setEnabled(bool(self.undo_stack) and not busy)
@@ -740,6 +749,9 @@ class MainWindow(QMainWindow):
             txt += f"<br>Zeichnungsmaßstab: <b>{d.meta['massstab']}</b> ({d.meta.get('massstab_quelle', '')})"
         if d.meta.get("quelle"):
             txt += f"<br>Quelle: {d.meta['quelle']}"
+        if d.meta.get("schraeglage"):
+            txt += (f"<br>Schräglage des Scans: <b>{float(d.meta['schraeglage']):.2f}°</b> "
+                    "(wird beim Export ausgeglichen)")
         counts = d.symbol_counts()
         if counts:
             txt += "<br><br><b>Symbole</b><br>" + "<br>".join(
@@ -1059,18 +1071,18 @@ class MainWindow(QMainWindow):
     def on_extend(self, entity, x, y):
         import copy
         from ..core import cad
-        from ..core.model import Line
+        from ..core.model import Arc, Line, Polyline
         if not self.drawing:
             return
-        if not isinstance(entity, Line):
-            self.statusBar().showMessage("Dehnen geht bei einzelnen Linien – Polylinien vorher "
-                                         "auflösen (X).")
+        if not isinstance(entity, (Line, Arc, Polyline)) or \
+                (isinstance(entity, Polyline) and entity.closed):
+            self.statusBar().showMessage("Dehnen geht bei Linien, offenen Polylinien und Bögen.")
             return
         snap = list(self.drawing.entities)
-        snap[next(i for i, e in enumerate(snap) if e is entity)] = copy.copy(entity)
+        snap[next(i for i, e in enumerate(snap) if e is entity)] = copy.deepcopy(entity)
         if not cad.extend(self.drawing.entities, entity, (x, y)):
-            self.statusBar().showMessage("In dieser Richtung liegt kein Objekt, bis zu dem die "
-                                         "Linie reichen könnte.")
+            self.statusBar().showMessage("In dieser Richtung liegt kein Objekt, bis zu dem das "
+                                         "Objekt reichen könnte.")
             return
         self._mark_quality_stale()
         self.undo_stack.append(("entities", snap))
@@ -1230,9 +1242,17 @@ class MainWindow(QMainWindow):
         from ..core.model import Line
         if not self.drawing:
             return
+        from ..core.edit import rotate
         targets, is_sel = self._targets(Line)
         self._snapshot()
-        n = orthogonalize(targets, tol_deg=3.0, join_tol=max(1.5, self.panel.snap.value()))
+        skew = self.canvas.ortho_angle            # an der Schräglage des Scans ausrichten
+        c = (self.drawing.width / 2.0, self.drawing.height / 2.0)
+        work = [rotate(l, c, -skew) for l in targets] if skew else targets
+        n = orthogonalize(work, tol_deg=3.0, join_tol=max(1.5, self.panel.snap.value()))
+        if skew:
+            for l, w_ in zip(targets, work):
+                r = rotate(w_, c, skew)
+                l.p1, l.p2 = r.p1, r.p2
         if not n:
             self.undo_stack.pop()
         self.canvas.refresh_entities(targets)
@@ -1556,6 +1576,33 @@ class MainWindow(QMainWindow):
         w.progress.connect(lambda _i, m: self.statusBar().showMessage("KI liest Texte: " + m))
         self.show_ai()
 
+    def ai_read_unrecognized(self):
+        if not self._ai_ready() or not self.drawing or self.gray is None:
+            return
+        from ..ai import read_unrecognized
+        from ..core import preprocess
+        panel, gray, drawing = self.ai_panel, self.gray, self.drawing
+        bw = self.binary if self.binary is not None and self.binary.shape == gray.shape \
+            else preprocess.to_binary(gray, self.panel.settings().preprocess)
+        ppm = 1.0 / self.img_scale
+        model = panel.model_name
+        panel.say("system", f"Suche Schrift, die die OCR nicht lesen konnte, und lasse sie von "
+                            f"{model} lesen …")
+
+        def job(w):
+            return read_unrecognized(panel.client, model, gray, bw, drawing, ppm,
+                                     lambda i, n, t: w.progress.emit(i, f"{i}/{n} {t}"),
+                                     lambda: w.stop_requested)
+
+        def done(fixes):
+            if not fixes:
+                panel.say("ki", "Keine weitere Schrift gefunden.")
+                return
+            self._review_text_fixes(fixes)
+        w = self.ai_panel.run_bg(job, done)
+        w.progress.connect(lambda _i, m: self.statusBar().showMessage("KI liest Schrift: " + m))
+        self.show_ai()
+
     def _review_text_fixes(self, fixes):
         from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QTableWidget,
                                        QTableWidgetItem)
@@ -1567,7 +1614,7 @@ class MainWindow(QMainWindow):
         tab = QTableWidget(len(fixes), 3)
         tab.setHorizontalHeaderLabels(["Bisher (OCR)", "Neu (KI)", "KI sicher"])
         for r, f in enumerate(fixes):
-            a = QTableWidgetItem(f.old)
+            a = QTableWidgetItem(f.old if not f.is_new else "(nicht erkannt)")
             a.setFlags(a.flags() & ~Qt.ItemIsEditable)
             a.setFlags(a.flags() | Qt.ItemIsUserCheckable)
             a.setCheckState(Qt.Checked if f.sure else Qt.Unchecked)
@@ -1586,14 +1633,33 @@ class MainWindow(QMainWindow):
         if dlg.exec() != QDialog.Accepted:
             return
         self.undo_stack.append(("entities", [self._clone(e) for e in self.drawing.entities]))
-        n = 0
+        n, n_new, n_del = 0, 0, 0
         for r, f in enumerate(fixes):
-            if tab.item(r, 0).checkState() == Qt.Checked:
-                f.entity.text = tab.item(r, 1).text()
+            if tab.item(r, 0).checkState() != Qt.Checked:
+                continue
+            f.entity.text = tab.item(r, 1).text()
+            if not f.is_new:
                 n += 1
+                continue
+            if not f.entity.text.strip():
+                continue
+            # neue Schrift: Linien-Wirrwarr der Buchstaben durch den CAD-Text ersetzen
+            if f.region:
+                from ..ai.assistant import entities_in_region
+                gone = {id(e) for e in entities_in_region(self.drawing.entities, f.region)}
+                n_del += len(gone)
+                self.drawing.entities = [e for e in self.drawing.entities if id(e) not in gone]
+            self.drawing.entities.append(f.entity)
+            n_new += 1
         self.canvas.set_entities(self.drawing.entities)
         self.refresh_layers()
-        self.ai_panel.say("ki", f"{n} Texte korrigiert (Strg+Z macht es rückgängig).")
+        parts = []
+        if n:
+            parts.append(f"{n} Texte korrigiert")
+        if n_new:
+            parts.append(f"{n_new} neue Texte eingefügt ({n_del} Linienstücke der Schrift entfernt)")
+        self.ai_panel.say("ki", (", ".join(parts) or "Nichts übernommen")
+                          + " (Strg+Z macht es rückgängig).")
         self.update_actions()
 
     @staticmethod
@@ -1984,7 +2050,8 @@ class MainWindow(QMainWindow):
             "halten). Länge/Radius in mm eintippen + Enter, Rechteck „Breite;Höhe“. Esc bricht "
             "die Form ab, Rechtsklick beendet den Linienzug.<br>"
             "<b>Stutzen</b> (T) entfernt das angeklickte Teilstück bis zu den Schnittpunkten, "
-            "<b>Dehnen</b> (D) verlängert eine Linie bis zum nächsten Objekt.<br>"
+            "<b>Dehnen</b> (D) verlängert eine Linie, offene Polylinie oder einen Bogen bis zum "
+            "nächsten Objekt.<br>"
             "<b>6. Maßstab</b> – automatisch aus der DPI oder per »Maßstab kalibrieren« an "
             "einer bekannten Strecke.<br>"
             "<b>7. Export</b> – DXF (Strg+E), DWG, G-Code (Strg+G) oder SVG.<br><br>"
@@ -1996,7 +2063,11 @@ class MainWindow(QMainWindow):
             "übernommen. Steht „M 1:100“ im Plan, wird in Originalgröße exportiert. "
             "<b>Gescannte PDFs</b> öffnen in ihrer Originalauflösung (PDF-Render-DPI "
             "»automatisch«).<br><br>"
-            "<b>Texte</b> werden in allen vier Richtungen erkannt, auch auf dem Kopf.<br><br>"
+            "<b>Texte</b> werden in allen vier Richtungen erkannt, auch auf dem Kopf und schräg. "
+            "Handschrift liest die KI (KI → Unerkannte Schrift mit KI lesen).<br>"
+            "<b>Schräglage</b> des Scans wird erkannt, Linien werden ausgerichtet und beim "
+            "Export gerade gedreht. Schraffur kommt auf den Layer SCHRAFFUR, Wände auf Wunsch "
+            "als Umriss auf WAENDE.<br><br>"
             "<b>Updates</b> – Klick auf »⬆ Update verfügbar« unten rechts, dann »Jetzt "
             "installieren«: Traceify lädt, prüft und installiert das Update und startet neu."
             "<br><br>"

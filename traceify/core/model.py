@@ -27,6 +27,8 @@ LAYER_FILL = "FLAECHEN"
 LAYER_DASHED = "STRICHLINIEN"
 LAYER_THICK = "DICKE_LINIEN"
 LAYER_SYMBOLS = "SYMBOLE"
+LAYER_HATCH = "SCHRAFFUR"
+LAYER_WALLS = "WAENDE"
 
 LAYER_COLORS = {  # AutoCAD Color Index + RGB für die GUI
     LAYER_LINES: (7, (30, 30, 30)),
@@ -39,6 +41,8 @@ LAYER_COLORS = {  # AutoCAD Color Index + RGB für die GUI
     LAYER_DASHED: (4, (0, 150, 170)),
     LAYER_THICK: (250, (0, 0, 0)),
     LAYER_SYMBOLS: (30, (215, 110, 0)),
+    LAYER_HATCH: (9, (150, 150, 170)),
+    LAYER_WALLS: (250, (20, 20, 20)),
 }
 
 LINETYPES = ("CONTINUOUS", "DASHED", "DASHDOT", "DOT", "CENTER", "HIDDEN")
@@ -165,6 +169,23 @@ class Drawing:
             else:
                 out.append(e)
         return out
+
+    def export_view(self) -> "Drawing":
+        """Zeichnung für den Export: eine erkannte Schräglage des Scans wird herausgedreht.
+
+        Ohne Schräglage wird die Zeichnung selbst zurückgegeben."""
+        try:
+            skew = float(self.meta.get("schraeglage", 0) or 0)
+        except (TypeError, ValueError):
+            skew = 0.0
+        if abs(skew) < 1e-6:
+            return self
+        from .edit import rotate
+        c = (self.width / 2.0, self.height / 2.0)
+        meta = {k: v for k, v in self.meta.items() if k != "schraeglage"}
+        return Drawing(self.width, self.height, self.scale,
+                       [rotate(e, c, -skew) for e in self.entities], self.source, meta,
+                       self.blocks)
 
     def to_mm(self, p: Point) -> Point:
         """Bildkoordinate -> CAD-Koordinate in mm (y gespiegelt)."""

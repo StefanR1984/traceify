@@ -1,0 +1,78 @@
+name: Integration (echt)
+
+# Testet Traceify mit echtem Ollama (KI) und echtem ODA File Converter (DWG) auf Windows.
+# Nur manuell starten (Actions -> Integration (echt) -> Run workflow) - der Lauf lädt
+# mehrere GB (KI-Modell) und dauert je nach Modell 15-40 Minuten.
+
+on:
+  workflow_dispatch:
+    inputs:
+      modell:
+        description: "Ollama-Modell, das getestet wird"
+        required: false
+        default: "gemma3:4b"
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+  QT_QPA_PLATFORM: offscreen
+  TRACEIFY_ECHT: "1"
+  TRACEIFY_MODELL: ${{ github.event.inputs.modell || 'gemma3:4b' }}
+
+jobs:
+  echt:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Abhaengigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Ollama installieren und starten
+        run: |
+          $setup = "$env:RUNNER_TEMP\OllamaSetup.exe"
+          Invoke-WebRequest -Uri "https://ollama.com/download/OllamaSetup.exe" -OutFile $setup
+          Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/NORESTART","/SUPPRESSMSGBOXES" -Wait
+          $exe = Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama.exe"
+          if (-not (Test-Path $exe)) { throw "ollama.exe nicht gefunden" }
+          Start-Process -FilePath $exe -ArgumentList "serve" -WindowStyle Hidden
+          $ok = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            try { Invoke-RestMethod "http://127.0.0.1:11434/api/version" | Out-Host; $ok = $true; break }
+            catch { Start-Sleep -Seconds 2 }
+          }
+          if (-not $ok) { throw "Ollama-Server startet nicht" }
+          & $exe pull $env:TRACEIFY_MODELL
+          if ($LASTEXITCODE -ne 0) { throw "Modell konnte nicht geladen werden" }
+          & $exe list
+
+      - name: ODA File Converter installieren
+        run: |
+          $page = Invoke-WebRequest -Uri "https://www.opendesign.com/guestfiles/oda_file_converter" -UseBasicParsing
+          $m = [regex]::Matches($page.Content, "ODAFileConverter_QT6_vc1[0-9]_amd64dll_[0-9.]+\.msi") | Select-Object -ExpandProperty Value -Unique
+          if (-not $m) { throw "Kein Download-Link fuer den ODA File Converter gefunden" }
+          $name = ($m | Sort-Object)[-1]
+          Write-Host "Lade $name"
+          $msi = "$env:RUNNER_TEMP\$name"
+          Invoke-WebRequest -Uri "https://www.opendesign.com/guestfiles/get?filename=$name" -OutFile $msi
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/qn", "/norestart" -Wait
+          Get-ChildItem "C:\Program Files\ODA" -Recurse -Filter ODAFileConverter.exe | Select-Object FullName | Out-Host
+
+      - name: Tests mit echtem Ollama und ODA
+        run: python -m pytest -v tests/test_echt.py

@@ -273,9 +273,20 @@ def find_snap(ents: Iterable, p: Point, radius: float, modes=None,
     return min(cands, key=lambda c: (_PRIORITY[c.kind], math.dist(c.point, p)))
 
 
-def ortho(base: Point, p: Point) -> Point:
-    """Nur waagrecht oder senkrecht von base aus."""
-    return (p[0], base[1]) if abs(p[0] - base[0]) >= abs(p[1] - base[1]) else (base[0], p[1])
+def ortho(base: Point, p: Point, angle_deg: float = 0.0) -> Point:
+    """Nur waagrecht oder senkrecht von base aus – bezogen auf Achsen, die um angle_deg
+    (Bildsystem) gedreht sind, z. B. die Schräglage eines Scans."""
+    if abs(angle_deg) < 1e-9:
+        return (p[0], base[1]) if abs(p[0] - base[0]) >= abs(p[1] - base[1]) \
+            else (base[0], p[1])
+    a = math.radians(angle_deg)
+    ux, uy = math.cos(a), math.sin(a)          # „waagrecht“
+    vx, vy = -uy, ux                           # „senkrecht“
+    dx, dy = p[0] - base[0], p[1] - base[1]
+    su, sv = dx * ux + dy * uy, dx * vx + dy * vy
+    if abs(su) >= abs(sv):
+        return (base[0] + su * ux, base[1] + su * uy)
+    return (base[0] + sv * vx, base[1] + sv * vy)
 
 
 def point_at_distance(base: Point, toward: Point, dist: float) -> Point:
@@ -392,33 +403,89 @@ def trim(ents: list, target, click: Point) -> Tuple[list, list]:
     return [], []
 
 
-def extend(ents: list, target: Line, click: Point) -> bool:
-    """Verlängert das dem Klick nähere Ende von target bis zum nächsten Objekt. True bei Erfolg."""
-    if not isinstance(target, Line):
-        return False
-    others = [e for e in ents if e is not target and not isinstance(e, (Text, Insert))]
-    at_end = math.dist(click, target.p2) < math.dist(click, target.p1)
+def _extend_ray(others, a: Point, b: Point, forward: bool) -> Optional[float]:
+    """Nächster Schnittparameter der Geraden a→b mit anderen Objekten jenseits von b
+    (forward) bzw. vor a (rückwärts)."""
     best = None
     for e in others:
         for pr in primitives(e):
             if isinstance(pr, Seg):
-                r = line_line(target.p1, target.p2, pr.a, pr.b, infinite_a=True)
+                r = line_line(a, b, pr.a, pr.b, infinite_a=True)
                 cands = [r[1]] if r else []
             else:
-                cands = [t for _, t in line_circle(target.p1, target.p2, pr, infinite=True)]
+                cands = [t for _, t in line_circle(a, b, pr, infinite=True)]
             for t in cands:
-                if at_end and t > 1 + 1e-6 and (best is None or t < best):
+                if forward and t > 1 + 1e-6 and (best is None or t < best):
                     best = t
-                if not at_end and t < -1e-6 and (best is None or t > best):
+                if not forward and t < -1e-6 and (best is None or t > best):
                     best = t
+    return best
+
+
+def _lerp(a: Point, b: Point, t: float) -> Point:
+    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+
+
+def extend(ents: list, target, click: Point) -> bool:
+    """Verlängert das dem Klick nähere Ende von target bis zum nächsten Objekt. True bei Erfolg.
+
+    Linien und offene Polylinien wachsen in Richtung ihres End-Segments, Bögen entlang
+    ihres Kreises."""
+    others = [e for e in ents if e is not target and not isinstance(e, (Text, Insert))]
+    if isinstance(target, Line):
+        at_end = math.dist(click, target.p2) < math.dist(click, target.p1)
+        t = _extend_ray(others, target.p1, target.p2, at_end)
+        if t is None:
+            return False
+        p = _lerp(target.p1, target.p2, t)
+        if at_end:
+            target.p2 = p
+        else:
+            target.p1 = p
+        return True
+    if isinstance(target, Polyline) and not target.closed and len(target.points) >= 2:
+        pts = target.points
+        at_end = math.dist(click, pts[-1]) < math.dist(click, pts[0])
+        a, b = (pts[-2], pts[-1]) if at_end else (pts[0], pts[1])
+        t = _extend_ray(others, a, b, True) if at_end else _extend_ray(others, a, b, False)
+        if t is None:
+            return False
+        p = _lerp(a, b, t)
+        if at_end:
+            pts[-1] = p
+        else:
+            pts[0] = p
+        return True
+    if isinstance(target, Arc):
+        return _extend_arc(others, target, click)
+    return False
+
+
+def _extend_arc(others, arc: Arc, click: Point) -> bool:
+    full = Circ(arc.center, arc.radius, None, None, arc)
+    p_start = _arc_point(full, arc.start_angle)
+    p_end = _arc_point(full, arc.end_angle)
+    at_end = math.dist(click, p_end) < math.dist(click, p_start)
+    span = (arc.end_angle - arc.start_angle) % 360
+    best = None
+    for e in others:
+        for pr in primitives(e):
+            if isinstance(pr, Seg):
+                hits = [p for p, _ in line_circle(pr.a, pr.b, full)]
+            else:
+                hits = circle_circle(full, pr)
+            for p in hits:
+                ang = _ang(arc.center, p)
+                travel = (ang - arc.end_angle) % 360 if at_end else (arc.start_angle - ang) % 360
+                # nur echte Verlängerung, ohne den Bogen selbst zu überlappen
+                if 1e-6 < travel < 360 - span - 1e-6 and (best is None or travel < best):
+                    best = travel
     if best is None:
         return False
-    p = (target.p1[0] + (target.p2[0] - target.p1[0]) * best,
-         target.p1[1] + (target.p2[1] - target.p1[1]) * best)
     if at_end:
-        target.p2 = p
+        arc.end_angle = (arc.end_angle + best) % 360
     else:
-        target.p1 = p
+        arc.start_angle = (arc.start_angle - best) % 360
     return True
 
 

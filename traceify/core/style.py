@@ -15,7 +15,8 @@ from typing import List
 import cv2
 import numpy as np
 
-from .model import Arc, Circle, LAYER_DASHED, LAYER_THICK, Line, Polyline, Text
+from .model import (Arc, Circle, LAYER_DASHED, LAYER_HATCH, LAYER_THICK, LAYER_WALLS, Line,
+                    Polyline, Text)
 
 RHO_CELL = 60.0   # px – Zellengröße für die Vorauswahl (Abstand der Trägergeraden)
 ISO_PENS = [0.13, 0.18, 0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0]
@@ -31,7 +32,124 @@ class StyleSettings:
     thick_layer: bool = True        # dicke Linien auf eigenen Layer
     thick_ratio: float = 1.7        # ab x-facher Normalstärke „dick“
     color_layers: bool = False      # Farben auf Layer trennen
+    hatch_layer: bool = True        # Schraffurlinien erkennen und auf Layer SCHRAFFUR legen
+    walls_outline: bool = False     # dicke Linien (Wände) als Umriss statt Mittellinie
+    straighten: bool = True         # Schräglage erkennen, fast achsparallele Linien ausrichten
+    straighten_tol: float = 3.0     # bis zu dieser Abweichung (Grad) wird ausgerichtet
     color_count: int = 0            # 0 = automatisch, sonst feste Anzahl Farben
+
+
+# ------------------------------------------------------------------ Schraffur
+def detect_hatch(ents: list, mm_per_px: float, min_count: int = 5,
+                 max_len_mm: float = 40.0, max_spacing_mm: float = 20.0) -> int:
+    """Schräge Schraffur erkennen: Gruppen paralleler, kurzer Linien in regelmäßigem Abstand.
+
+    Die Linien bleiben erhalten, kommen aber auf den Layer SCHRAFFUR – im CAD lassen sie
+    sich so mit einem Klick ausblenden oder löschen. Gibt die Anzahl der Linien zurück.
+    Nur schräge Richtungen (10–80°): waagrechte/senkrechte Scharen sind meist Wände,
+    Treppenstufen oder Fliesenraster.
+    """
+    ppm = 1.0 / mm_per_px if mm_per_px > 0 else 1.0
+    max_len, max_sp, min_sp = max_len_mm * ppm, max_spacing_mm * ppm, 0.25 * ppm
+    cand = []
+    for e in ents:
+        if not isinstance(e, Line) or e.layer == LAYER_DASHED:
+            continue
+        dx, dy = e.p2[0] - e.p1[0], e.p2[1] - e.p1[1]
+        L = math.hypot(dx, dy)
+        if L < 0.6 * ppm or L > max_len:
+            continue
+        a = math.degrees(math.atan2(dy, dx)) % 180.0
+        if not (10 <= a <= 80 or 100 <= a <= 170):
+            continue
+        mx, my = (e.p1[0] + e.p2[0]) / 2, (e.p1[1] + e.p2[1]) / 2
+        cand.append((e, a, mx, my, L))
+    if len(cand) < min_count:
+        return 0
+    par = list(range(len(cand)))
+    nearest = [math.inf] * len(cand)     # Abstand zur nächsten parallelen Nachbarlinie
+    adj = [[] for _ in cand]
+
+    def find(i):
+        while par[i] != i:
+            par[i] = par[par[i]]
+            i = par[i]
+        return i
+    cell = max(max_len, max_sp)
+    grid = {}
+    for k, c in enumerate(cand):
+        grid.setdefault((int(c[2] // cell), int(c[3] // cell)), []).append(k)
+    for k, (e, a, mx, my, L1) in enumerate(cand):
+        gx, gy = int(mx // cell), int(my // cell)
+        for ddx in (-1, 0, 1):
+            for ddy in (-1, 0, 1):
+                for j in grid.get((gx + ddx, gy + ddy), ()):
+                    if j <= k:
+                        continue
+                    _, a2, mx2, my2, L2 = cand[j]
+                    dA = (a2 - a + 90.0) % 180.0 - 90.0
+                    # kurze Striche haben im Scan eine unsichere Richtung
+                    tol = max(4.0, math.degrees(math.atan2(3.0, min(L1, L2))))
+                    if abs(dA) > min(tol, 16.0) or not (0.4 <= L1 / L2 <= 2.5):
+                        continue
+                    r = math.radians(a + dA / 2)          # gemeinsame Richtung
+                    ux, uy = math.cos(r), math.sin(r)
+                    vx, vy = mx2 - mx, my2 - my
+                    d = abs(-vx * uy + vy * ux)            # Abstand quer zur Schraffur
+                    along = abs(vx * ux + vy * uy)         # Versatz entlang der Schraffur
+                    # Schraffurlinien liegen dichter, als sie lang sind
+                    if not (min_sp <= d <= min(max_sp, 1.2 * max(L1, L2))) or \
+                            along > (L1 + L2) / 2 + ppm:
+                        continue
+                    par[find(k)] = find(j)
+                    nearest[k] = min(nearest[k], d)
+                    nearest[j] = min(nearest[j], d)
+                    adj[k].append(j)
+                    adj[j].append(k)
+    groups = {}
+    for k in range(len(cand)):
+        groups.setdefault(find(k), []).append(k)
+    n = 0
+    for g in groups.values():
+        if len(g) < min_count:
+            continue
+        # regelmäßiger Abstand: je Linie zur nächsten parallelen Nachbarin, verglichen mit
+        # dem Abstand in ihrer direkten Umgebung (Ausreißer bleiben normale Linien)
+        hits = []
+        for k in g:
+            local = [nearest[j] for j in adj[k]] + [nearest[k]]
+            med = float(np.median(local))
+            if 0.5 * med <= nearest[k] <= 1.8 * med:
+                hits.append(k)
+        if len(hits) < min_count:
+            continue
+        for k in hits:
+            cand[k][0].layer = LAYER_HATCH
+            n += 1
+    return n
+
+
+def walls_to_outline(ents: list, mask: np.ndarray, mm_per_px: float, tolerance: float = 1.5
+                     ) -> list:
+    """Dicke Linien (Layer DICKE_LINIEN) durch ihren Umriss ersetzen – Wände als Doppellinie.
+
+    Die Fläche der dicken Striche wird aus dem Scan genommen (nur dort, wo die dicken Linien
+    liegen) und als geschlossene Polylinien auf den Layer WAENDE gelegt."""
+    from .quality import render_entities
+    from .vectorize import MODE_OUTLINE, VectorizeSettings, vectorize
+    thick = [e for e in ents if e.layer == LAYER_THICK and isinstance(e, (Line, Polyline, Arc))]
+    if not thick:
+        return ents
+    area = render_entities(thick, mask.shape, width_px=3, texts=False, mm_per_px=mm_per_px)
+    area = cv2.dilate(area, np.ones((5, 5), np.uint8))
+    walls = cv2.bitwise_and((mask > 0).astype(np.uint8) * 255, area)
+    outl = vectorize(walls, VectorizeSettings(mode=MODE_OUTLINE, tolerance=tolerance,
+                                              contour_smooth=0, detect_circles=False))
+    for e in outl:
+        e.layer = LAYER_WALLS
+        e.lineweight = 0.0
+    gone = {id(e) for e in thick}
+    return [e for e in ents if id(e) not in gone] + outl
 
 
 # ------------------------------------------------------------------ Strichlinien

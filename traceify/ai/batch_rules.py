@@ -25,7 +25,9 @@ from .ollama_client import OllamaClient, OllamaError, parse_json
 SETTING_NAMES = """modus ("mittellinie" = CAD-Strichzeichnung | "umriss" = CNC-Kontur/Logo),
 vorlage (%s), toleranz (px), flecken (px²), luecken_schliessen (px), invertieren, adaptiv,
 begradigen, ocr, ocr_sprache, boegen, kreise, nur_polylinien, strichlinien, strichstaerken,
-dicke_linien_layer, farben_trennen, anzahl_farben, massstab_aus_plan, symbole_automatisch,
+dicke_linien_layer, waende_umriss, schraffur_layer, schraege_texte, gerade_ausrichten,
+farben_trennen,
+anzahl_farben, massstab_aus_plan, symbole_automatisch,
 maschine ("fraese"|"laser"), vorschub (mm/min), fraestiefe (mm), zustellung (mm),
 fraeser_durchmesser (mm), radiuskorrektur ("keine"|"aussen"|"innen"|"auto"), haltestege (Anzahl),
 steg_breite (mm), steg_hoehe (mm)""" % ", ".join(PRESETS)
@@ -110,6 +112,10 @@ def apply_named(s: ConvertSettings, g: GcodeSettings, name: str, value) -> str:
              "strichlinien": (s.style, "detect_dashed"),
              "strichstaerken": (s.style, "measure_widths"),
              "dicke_linien_layer": (s.style, "thick_layer"),
+             "waende_umriss": (s.style, "walls_outline"),
+             "schraffur_layer": (s.style, "hatch_layer"),
+             "schraege_texte": (s.ocr, "free_angles"),
+             "gerade_ausrichten": (s.style, "straighten"),
              "farben_trennen": (s.style, "color_layers"),
              "massstab_aus_plan": (s, "auto_scale"), "symbole_automatisch": (s, "symbols_auto"),
              "pdf_vektoren": (s.pdf, "enabled")}

@@ -324,6 +324,7 @@ class Canvas(QGraphicsView):
         self.snap_enabled = True
         self.snap_modes = set(cad.SNAP_LABELS)
         self.ortho_enabled = False
+        self.ortho_angle = 0.0      # Schräglage des Scans (Grad, Bild) – Ortho folgt ihr
         self.mm_per_px_provider = lambda: 1.0
         self._snap_index = None
         self._draw_pts: list = []
@@ -801,7 +802,7 @@ class Canvas(QGraphicsView):
             return snap.point
         ortho = self.ortho_enabled != bool(modifiers & Qt.ShiftModifier)
         if ortho and last is not None and self.tool in (TOOL_LINE, TOOL_POLYLINE):
-            return cad.ortho(last, raw)
+            return cad.ortho(last, raw, self.ortho_angle)
         return raw
 
     def _show_snap(self, snap):

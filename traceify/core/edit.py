@@ -196,6 +196,35 @@ def translate(e, dx: float, dy: float):
     return e
 
 
+def rotate(e, center: Point, deg: float):
+    """Gibt eine um center gedrehte Kopie zurück (Grad im Bildsystem, y nach unten:
+    positiv = im Uhrzeigersinn auf dem Bildschirm)."""
+    e = copy.copy(e)
+    a = math.radians(deg)
+    ca, sa = math.cos(a), math.sin(a)
+
+    def R(p):
+        x, y = p[0] - center[0], p[1] - center[1]
+        return (center[0] + x * ca - y * sa, center[1] + x * sa + y * ca)
+    if isinstance(e, Line):
+        e.p1, e.p2 = R(e.p1), R(e.p2)
+    elif isinstance(e, Circle):
+        e.center = R(e.center)
+    elif isinstance(e, Arc):
+        e.center = R(e.center)
+        e.start_angle = (e.start_angle + deg) % 360
+        e.end_angle = (e.end_angle + deg) % 360
+    elif isinstance(e, Polyline):
+        e.points = [R(p) for p in e.points]
+    elif isinstance(e, Text):
+        e.position = R(e.position)
+        e.angle = (e.angle - deg) % 360          # Textwinkel zählt gegen den Uhrzeigersinn
+    elif isinstance(e, Insert):
+        e.position = R(e.position)
+        e.rotation = (e.rotation - deg) % 360
+    return e
+
+
 def entity_points(e) -> List[Point]:
     """Bearbeitbare Knoten eines Objekts."""
     if isinstance(e, Line):

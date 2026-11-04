@@ -1,12 +1,12 @@
 """KI-Funktionen über eine lokale Ollama-Installation."""
-from .assistant import (Assistant, apply_suggestion, correct_texts,
-                        describe_state, encode_image, render_overlay, suggest_settings)
+from .assistant import (Assistant, apply_suggestion, correct_texts, describe_state,
+                        encode_image, read_unrecognized, render_overlay, suggest_settings)
 from .ollama_client import (RECOMMENDED_MODELS, OllamaClient, OllamaError,
                             parse_json)
 
 __all__ = ["Assistant", "OllamaClient", "OllamaError", "RECOMMENDED_MODELS", "apply_suggestion",
            "correct_texts", "default_client", "describe_state", "encode_image", "parse_json",
-           "render_overlay", "suggest_settings"]
+           "read_unrecognized", "render_overlay", "suggest_settings"]
 
 
 def default_client():

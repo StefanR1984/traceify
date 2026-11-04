@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.12.0 – 04.11.2026
+### Neu
+- **Schräge Texte:** Beschriftungen in beliebigem Winkel (z. B. 45° an schrägen Wänden) werden gefunden, geradegerückt und gelesen. Traceify sucht dazu schriftähnliche Zeichengruppen, die die normale Erkennung übrig gelassen hat, bestimmt ihre Lage und liest alle in einem Tesseract-Durchgang, jeweils in beiden Leserichtungen. Strichlinien und Fliesenraster werden dabei ausgeschlossen. Abschaltbar unter „Schräge Texte nachlesen“. Auf dem A1-Testplan sind jetzt 41 statt 33 Wörter gleich wie bei Scan2CAD, z. B. „Dusche“, „BR 900“ und „Pos 01“.
+- **Unerkannte Schrift mit KI lesen** (KI-Panel und Menü KI): Traceify sucht Stellen, die wie Schrift aussehen, aber von der OCR nicht gelesen wurden (typisch Handschrift wie „Privat Keller“), und lässt sie vom Bildmodell lesen, auch auf dem Kopf. Die Vorschläge erscheinen in einer Liste. Übernommene Texte ersetzen die Linien der Buchstaben, alles mit Strg+Z rückgängig.
+- **Erkannte Texte mit KI prüfen** schneidet jetzt auch gedrehte und schräge Texte richtig aus.
+- **Schräglage ausgleichen:** Traceify erkennt, wie schief der Scan liegt (bei den Testplänen 0,5–1,3°), richtet fast waagrechte und senkrechte Linien exakt an diesen Achsen aus und dreht die Schräglage beim Export (DXF, DWG, SVG, G-Code) heraus. Auf dem Scan bleiben die Vektoren deckungsgleich, Ecken bleiben verbunden. Ortho beim Zeichnen und „Gerade ausrichten“ (O) folgen der Schräglage. Anteil exakt waagrechter/senkrechter Linien bei den Testplänen: z. B. 66 % statt 16 % und 39 % statt 17 %. Abschaltbar unter „Linien gerade ausrichten“.
+- **Schraffur-Layer:** Schräge Schraffuren (parallele Linien in regelmäßigem Abstand, z. B. in Wänden) kommen auf den Layer SCHRAFFUR und lassen sich im CAD mit einem Klick ausblenden oder löschen. Treppenstufen, Wandkanten und Handschrift bleiben unberührt.
+- **Wände als Umriss** (Option): Dicke Linien werden als geschlossene Umrisse (Doppellinie) auf den Layer WAENDE gelegt statt als Mittellinie mit Strichstärke.
+- **Dehnen** funktioniert jetzt auch bei offenen Polylinien (in Richtung des End-Segments) und bei Bögen (entlang ihres Kreises).
+- **Prüfstand:** neue Kennzahlen „Ortho“ (Anteil exakt waagrechter/senkrechter Linien im Export) und „Offene Enden“.
+- **Test mit echtem Ollama und ODA File Converter:** neuer Workflow *Integration (echt)*. Er wird nur manuell gestartet, installiert beides auf einem Windows-Runner und prüft Einstellungsvorschlag, Chat, KI-Lesen von Handschrift und den DWG-Export hin und zurück.
+
+### Verbessert
+- **Weniger unnötige Bögen:** Passen zwei Linien mit Ecke mindestens so gut wie ein Bogen, wird die Ecke genommen. Vom Skelett abgerundete Rechteckecken werden so wieder echte Ecken. Bei den Testplänen gibt es 55–60 % weniger Bögen (z. B. 413 statt 904) bei gleicher Abdeckung.
+- Die KI-Regeln für den Stapel und der Chat kennen die neuen Einstellungen (`waende_umriss`, `schraffur_layer`, `schraege_texte`, `gerade_ausrichten`).
+
+
 ## 0.11.0 – 04.11.2026
 ### Getestet mit echten Scans
 Grundlage dieser Version ist ein Prüfstand mit 9 echten Bauplan-Scans (96–150 dpi, sauber bis stark verrauscht, teils handschriftlich, teils gedreht) und ein Vergleich mit Scan2CAD.

@@ -25,6 +25,7 @@ class OcrSettings:
     min_confidence: int = 60
     vertical_text: bool = True     # zusätzlich um 90° gedrehte Texte suchen
     upside_down: bool = True       # auch auf dem Kopf stehende Texte (180°/270°) suchen
+    free_angles: bool = True       # übrig gebliebene Schrift in beliebigem Winkel nachlesen
     max_height_ratio: float = 0.08  # Textzeilen höher als 8 % der Bildhöhe ignorieren
     max_char_mm: float = 15.0      # größere Objekte (Linien, Flächen) vor der OCR ausblenden
     erase_padding: int = 2
@@ -247,6 +248,20 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
             texts.append(Text(txt, (X + Wd, Y), height, 180.0))
         else:          # läuft von oben nach unten; Basislinie links
             texts.append(Text(txt, (X, Y), height, 270.0))
+    if s.free_angles and px_per_mm > 0:
+        # schräge Beschriftungen u. Ä., die keine der vier Richtungen gefunden hat
+        from . import textlines
+        layer = 255 - src
+        found_c = textlines.find_candidates(layer, px_per_mm, boxes,
+                                            max_char_mm=min(12.0, s.max_char_mm))
+        tt, bb = textlines.read_candidates(found_c, layer, s)
+        for t, b in zip(tt, bb):
+            if any(_overlap(b, o) > 0.3 for o in boxes):
+                continue
+            t.position = (t.position[0] / zoom, t.position[1] / zoom)
+            t.height /= zoom
+            texts.append(t)
+            boxes.append(b)
     if zoom != 1:
         boxes = [(x // zoom, y // zoom, -(-w // zoom), -(-h // zoom)) for x, y, w, h in boxes]
     return texts, boxes

@@ -74,27 +74,21 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - PDF-DPI 0 = automatisch (`loader.resolve_dpi`): Scan-PDFs in Originalauflösung, sonst 300.
 
 ## Offene Ideen
-Stand 0.11.0 – Prüfstand mit 9 Bauplan-Scans (96–150 dpi), Vergleich mit Scan2CAD bei
-image-11 und image-4. Traceify: weniger Objekte, mehr Abdeckung; Scan2CAD: klar bessere OCR,
-kaum Bögen. Die Scans liefert der Nutzer bei Bedarf (nicht im Repo).
+Stand 0.12.0 – Prüfstand mit 9 Bauplan-Scans (96–150 dpi), Vergleich mit Scan2CAD bei
+image-11 und image-4 (Scans liefert der Nutzer bei Bedarf, nicht im Repo).
+Umgesetzt in 0.12.0: schräge Texte, KI für Handschrift, Ecken statt Bögen, Schraffur-Layer,
+Wände als Umriss, Schräglage ausgleichen, Dehnen für Polylinien/Bögen, Prüfstand-Kennzahlen,
+Workflow „Integration (echt)“ für Ollama/ODA.
 
-1. **Schräge Texte erkennen** – Scan2CAD liest auch Texte unter 40–50° (z. B. „Pos 13 Labor“,
-   „BR 850“ in image-11). Traceify sucht nur 0/90/180/270°. Idee: Textzeilen über die Lage
-   der Zeichen-Komponenten finden, Winkel schätzen, Ausschnitt geraderücken, dann lesen.
-2. **Handschrift besser lesen** – image-4: Traceify 3 von 22 Wörtern („Gang“, „Koks“,
-   „Garage“), Scan2CAD auch „Privat Keller“, „Heizraum“, „Faßkeller“. Ideen: KI-Texterkennung
-   (Ollama-Bildmodell) gezielt auf schriftähnliche, von Tesseract nicht gelesene Bereiche;
-   Tesseract mit anderen Einstellungen (psm, Vorverarbeitung) probieren.
-3. **Weniger unnötige Bögen** – z. B. 904 statt 51 bei image-11. Ursachen: nicht erkannte
-   Buchstaben (o, e, c) werden kleine Bögen; Rechteckecken/kurze Kanten werden als Bogen statt
-   als Ecke mit zwei Linien angepasst.
-4. **Wände als echte CAD-Objekte** – dicke Wände kommen als Mittellinie mit Strichstärke,
-   Schraffuren als Hunderte Einzellinien. Optionen: Wand als Doppellinie (Außenkanten);
-   Schraffurflächen erkennen und als DXF-Schraffur oder Block ausgeben (Scan2CAD: HATCH-Blöcke).
-5. **Prüfstand ausbauen** – weitere Vergleichs-DXFs des Nutzers einbinden (bisher nur image-11
-   und image-4); Kennzahlen für Linienqualität ergänzen (Anteil exakt waagrechter/senkrechter
-   Linien, freie Linienenden). Achtung: Abdeckung ist nur bei gleicher Auflösung vergleichbar.
-6. **Windows-Probe-Build für 0.11.0** steht noch aus (Workflow-Start war in der Sitzung nicht
-   erlaubt) – Nutzer startet ihn selbst oder gibt frei.
-7. Dehnen bisher nur für einzelne Linien (nicht Polylinien/Bögen).
-8. Echter ODA-Konverter (DWG) und echtes Ollama sind nur mit Attrappen getestet.
+1. **OCR weiter verbessern** – Scan2CAD liest noch mehr (image-11: 41 von 129 Wörtern gleich).
+   Ideen: Zahlen mit Dezimalpunkt (Punkte gehen beim Entflecken verloren), Wörter über
+   Zeilenumbrüche zusammenfassen, Tesseract-Whitelist für Maßzahlen.
+2. **Handschrift** – KI-Lesen ist nur mit Attrappe und im Workflow „Integration (echt)“ mit
+   kleinem Modell getestet; mit echten Plänen (image-4) ausprobieren und Prompt nachschärfen.
+3. **Ortho-Anteil** – Traceify 34–46 % gegen Scan2CAD ~50 % (image-4/-11). Ausrichten auch für
+   Polylinien und kurze Linien zwischen ausgerichteten Ecken.
+4. **Offene Enden** – viele kurze Reste an Schraffur und Text; evtl. „Lücken schließen“ automatisch
+   nur für Enden, die fast eine Linie treffen (bis 1 mm).
+5. **Schraffur als DXF-HATCH** statt Einzellinien (Fläche aus Wandumriss + Muster ANSI31).
+6. Workflow „Integration (echt)“: ODA-Download-Link wird von der Website gelesen – bricht, wenn
+   sich die Seite ändert.

@@ -33,6 +33,7 @@ def _arc_path(e: Arc, s: float) -> str:
 
 
 def export_svg(d: Drawing, path: str, visible_layers=None) -> None:
+    d = d.export_view()          # Schräglage des Scans herausdrehen
     s = d.scale
     W, H = d.width * s, d.height * s
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.2f}mm" height="{H:.2f}mm" '

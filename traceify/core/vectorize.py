@@ -347,6 +347,10 @@ class Fitter:
                 if span >= 359:
                     return [Circle((float(c[0]), float(c[1])), float(c[2]))] if s.detect_circles else \
                         self._split(pts, i, depth)
+                if span >= s.min_arc_angle and span < 150 and self._corner_better(pts, i, c[3]):
+                    # zwei gerade Stücke mit Ecke passen mindestens so gut wie der Bogen
+                    # (typisch: Rechteckecke, die das Skelett leicht abrundet)
+                    return self._split(pts, i, depth)
                 if span >= s.min_arc_angle:
                     if span < 60 and dev <= 2 * s.tolerance:
                         # flache Mini-Bögen sind fast immer Scanrauschen (z. B. eine Kante,
@@ -356,6 +360,22 @@ class Fitter:
                         a0, a1 = a1, a0
                     return [Arc((float(c[0]), float(c[1])), float(c[2]), a0 % 360, a1 % 360)]
         return self._split(pts, i, depth)
+
+    def _corner_better(self, pts: np.ndarray, i: int, arc_res: float) -> bool:
+        """Passen zwei Linien (Ecke am Punkt i) besser als der Kreisbogen?"""
+        if i < 2 or i > len(pts) - 3:
+            return False
+        d1, _ = _line_dev(pts[: i + 1])
+        d2, _ = _line_dev(pts[i:])
+        lines_res = max(d1, d2)
+        if lines_res > self.s.tolerance:
+            return False
+        v1, v2 = pts[i] - pts[0], pts[-1] - pts[i]
+        n1, n2 = np.hypot(*v1), np.hypot(*v2)
+        if n1 < 1e-6 or n2 < 1e-6:
+            return False
+        turn = math.degrees(math.acos(max(-1.0, min(1.0, float(v1 @ v2) / (n1 * n2)))))
+        return turn >= 20 and lines_res <= arc_res + 0.25
 
     def _split(self, pts, i, depth):
         if depth > 60 or i <= 0 or i >= len(pts) - 1:

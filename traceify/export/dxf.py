@@ -78,6 +78,7 @@ def _add(layout, e, P, s: float, version: str, layer_override=None) -> None:
 
 def export_dxf(d: Drawing, path: str, version: str = "R2010",
                visible_layers=None) -> None:
+    d = d.export_view()          # Schräglage des Scans herausdrehen
     version = DXF_VERSIONS.get(version, "R2010")
     doc = ezdxf.new(version, setup=True)
     doc.units = units.MM

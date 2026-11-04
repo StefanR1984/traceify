@@ -12,7 +12,7 @@ from .pdf_vector import PdfVectorSettings, has_vectors, import_page
 from .preprocess import PreprocessSettings, to_binary
 from .scale_detect import find_scale, format_scale
 from .style import (StyleSettings, classify_thick, classify_thick_mm, cleanup, detect_dashed,
-                    measure_widths)
+                    detect_hatch, measure_widths, walls_to_outline)
 from .vectorize import MODE_CENTERLINE, MODE_OUTLINE, VectorizeSettings, vectorize
 
 REGION_IGNORE = "ignorieren"
@@ -124,15 +124,19 @@ def _style_post(ents: list, mask: np.ndarray, paper_mm_per_px: float, settings) 
     st = settings.style
     if settings.vectorize.mode != MODE_CENTERLINE:
         return ents
-    if st.measure_widths or st.thick_layer:
+    if st.measure_widths or st.thick_layer or st.walls_outline:
         measure_widths(ents, mask, paper_mm_per_px)
-        if st.thick_layer:
+        if st.thick_layer or st.walls_outline:
             classify_thick(ents, st)
+        if st.walls_outline:
+            ents = walls_to_outline(ents, mask, paper_mm_per_px, settings.vectorize.tolerance)
         if not st.measure_widths:
             for e in ents:
                 e.lineweight = 0.0
     if st.detect_dashed:
         ents = detect_dashed(ents, st)
+    if st.hatch_layer:
+        detect_hatch(ents, paper_mm_per_px)
     cleanup(ents)
     return ents
 
@@ -215,9 +219,17 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         part = vectorize(np.ascontiguousarray(sub), replace(settings.vectorize, mode=r.mode))
         ents += [translate(e, sx.start, sy.start) for e in part]
 
+    skew = None
+    if settings.style.straighten and settings.vectorize.mode == MODE_CENTERLINE:
+        from .straighten import straighten
+        step(90, "Linien ausrichten …")
+        skew = straighten(ents, gray.shape[1], gray.shape[0], settings.style.straighten_tol,
+                          join_tol=max(2.0, settings.vectorize.snap_distance))
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + texts, source=source)
+    if skew is not None and abs(skew) >= 0.05:
+        d.meta["schraeglage"] = repr(float(skew))   # volle Genauigkeit für den Export
     if settings.symbols_auto:
         from .symbols import apply_library, load_library
         lib = load_library()

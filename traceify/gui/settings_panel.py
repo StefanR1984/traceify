@@ -125,6 +125,21 @@ class SettingsPanel(QScrollArea):
         f.addRow(self.thick)
         self.thick_ratio = _spin(1.2, 5.0, 1.7, 0.1, 1, " ×")
         f.addRow("Dick ab:", self.thick_ratio)
+        self.walls_outline = QCheckBox("Wände als Umriss (Doppellinie) statt Mittellinie")
+        self.walls_outline.setToolTip("Dicke Linien werden als geschlossene Umrisse auf den Layer "
+                                      "WAENDE gelegt – wie gezeichnete Wände im CAD")
+        f.addRow(self.walls_outline)
+        self.straighten = QCheckBox("Linien gerade ausrichten (Schräglage ausgleichen)")
+        self.straighten.setToolTip("Erkennt, wie schief der Scan liegt, richtet fast waagrechte/"
+                                   "senkrechte Linien exakt aus und dreht die Schräglage beim "
+                                   "Export heraus")
+        self.straighten.setChecked(True)
+        f.addRow(self.straighten)
+        self.hatch = QCheckBox("Schraffur erkennen (Layer SCHRAFFUR)")
+        self.hatch.setToolTip("Schräge Schraffurlinien (z. B. in Wänden) kommen auf einen eigenen "
+                              "Layer und lassen sich im CAD mit einem Klick ausblenden")
+        self.hatch.setChecked(True)
+        f.addRow(self.hatch)
         self.color_layers = QCheckBox("Farben auf eigene Layer trennen")
         self.color_layers.setToolTip("Farbige Pläne: jede Farbe wird ein Layer (FARBE_ROT, …)")
         f.addRow(self.color_layers)
@@ -154,6 +169,14 @@ class SettingsPanel(QScrollArea):
         self.ocr_vertical = QCheckBox("Auch senkrechten Text suchen")
         self.ocr_vertical.setChecked(True)
         f.addRow(self.ocr_vertical)
+        self.ocr_upside = QCheckBox("Auch Text auf dem Kopf suchen")
+        self.ocr_upside.setChecked(True)
+        f.addRow(self.ocr_upside)
+        self.ocr_free = QCheckBox("Schräge Texte nachlesen")
+        self.ocr_free.setToolTip("Schrift in beliebigem Winkel, die die normale Erkennung "
+                                 "nicht gefunden hat, wird geradegerückt und nachgelesen")
+        self.ocr_free.setChecked(True)
+        f.addRow(self.ocr_free)
         if not tesseract_available():
             self.ocr.setChecked(False)
             self.ocr.setEnabled(False)
@@ -287,6 +310,8 @@ class SettingsPanel(QScrollArea):
         o.language = self.ocr_lang.currentText().strip() or "eng"
         o.min_confidence = self.ocr_conf.value()
         o.vertical_text = self.ocr_vertical.isChecked()
+        o.upside_down = self.ocr_upside.isChecked()
+        o.free_angles = self.ocr_free.isChecked()
         s.scale = None if self.scale_auto.isChecked() else self.mmpx.value()
         s.auto_scale = self.auto_scale.isChecked()
         st = s.style
@@ -294,6 +319,9 @@ class SettingsPanel(QScrollArea):
         st.measure_widths = self.widths.isChecked()
         st.thick_layer = self.thick.isChecked()
         st.thick_ratio = self.thick_ratio.value()
+        st.walls_outline = self.walls_outline.isChecked()
+        st.hatch_layer = self.hatch.isChecked()
+        st.straighten = self.straighten.isChecked()
         st.color_layers = self.color_layers.isChecked()
         st.color_count = self.color_count.value()
         s.symbols_auto = self.symbols_auto.isChecked()
@@ -326,12 +354,17 @@ class SettingsPanel(QScrollArea):
         self.ocr_lang.setCurrentText(o.language)
         self.ocr_conf.setValue(o.min_confidence)
         self.ocr_vertical.setChecked(o.vertical_text)
+        self.ocr_upside.setChecked(o.upside_down)
+        self.ocr_free.setChecked(o.free_angles)
         self.scale_auto.setChecked(s.scale is None)
         self.auto_scale.setChecked(s.auto_scale)
         self.dashed.setChecked(s.style.detect_dashed)
         self.widths.setChecked(s.style.measure_widths)
         self.thick.setChecked(s.style.thick_layer)
         self.thick_ratio.setValue(s.style.thick_ratio)
+        self.walls_outline.setChecked(s.style.walls_outline)
+        self.hatch.setChecked(s.style.hatch_layer)
+        self.straighten.setChecked(s.style.straighten)
         self.color_layers.setChecked(s.style.color_layers)
         self.color_count.setValue(s.style.color_count)
         self.symbols_auto.setChecked(s.symbols_auto)
@@ -384,6 +417,8 @@ class SettingsPanel(QScrollArea):
                   "boegen": self.arcs, "kreise": self.circles, "nur_polylinien": self.polylines,
                   "ocr": self.ocr, "strichlinien": self.dashed, "strichstaerken": self.widths,
                   "dicke_linien_layer": self.thick, "farben_trennen": self.color_layers,
+                  "waende_umriss": self.walls_outline, "schraffur_layer": self.hatch,
+                  "schraege_texte": self.ocr_free, "gerade_ausrichten": self.straighten,
                   "massstab_aus_plan": self.auto_scale, "pdf_vektoren": self.pdf_vectors,
                   "symbole_automatisch": self.symbols_auto}
         if n in checks:
