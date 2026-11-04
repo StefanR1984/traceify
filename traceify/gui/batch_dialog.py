@@ -15,11 +15,14 @@ from ..core import loader
 
 class BatchWorker(QThread):
     progress = Signal(int, int, str)
+    itemDone = Signal(object)
     finishedWith = Signal(list)
 
-    def __init__(self, sources, out_dir, formats, settings, gcode, dxf_version, pdf_dpi):
+    def __init__(self, sources, out_dir, formats, settings, gcode, dxf_version, pdf_dpi,
+                 ai=False, rules=""):
         super().__init__()
         self.args = (sources, out_dir, formats, settings, gcode, dxf_version, pdf_dpi)
+        self.ai, self.rules = ai, rules
         self._stop = False
 
     def stop(self):
@@ -29,7 +32,8 @@ class BatchWorker(QThread):
         sources, out_dir, formats, settings, gcode, ver, dpi = self.args
         res = batch_convert(sources, out_dir, formats, settings, gcode, dxf_version=ver,
                             pdf_dpi=dpi, progress=lambda i, n, m: self.progress.emit(i, n, m),
-                            should_stop=lambda: self._stop)
+                            should_stop=lambda: self._stop, ai=self.ai, rules=self.rules,
+                            on_item=lambda it: self.itemDone.emit(it))
         self.finishedWith.emit(res)
 
 
@@ -83,6 +87,23 @@ class BatchDialog(QDialog):
         form.addRow("Formate:", w)
         lay.addLayout(form)
 
+        from PySide6.QtWidgets import QGroupBox
+        g = QGroupBox("KI (Ollama) – optional")
+        gl = QVBoxLayout(g)
+        self.ai = QCheckBox("KI sieht sich jede Datei an und wählt die Einstellungen")
+        gl.addWidget(self.ai)
+        self.rules = QPlainTextEdit()
+        self.rules.setPlaceholderText(
+            "Regeln in Klartext, z. B.:\n"
+            "Grundrisse als DXF mit Maßstab aus dem Plan und dicken Wänden auf eigenem Layer.\n"
+            "Logos als CNC-Umriss, G-Code mit 2 mm Frästiefe, 3 mm Fräser, außen korrigiert.\n"
+            "Handschriftliche Notizen und Fotos überspringen.")
+        self.rules.setMaximumHeight(90)
+        self.rules.setEnabled(False)
+        self.ai.toggled.connect(self.rules.setEnabled)
+        gl.addWidget(self.rules)
+        lay.addWidget(g)
+
         self.bar = QProgressBar()
         lay.addWidget(self.bar)
         self.log = QPlainTextEdit()
@@ -131,7 +152,17 @@ class BatchDialog(QDialog):
             return
         sg, gg, vg, dg = self._get
         self.log.clear()
-        self.worker = BatchWorker(sources, self.out_dir.text(), fmts, sg(), gg(), vg(), dg())
+        use_ai = self.ai.isChecked()
+        if use_ai:
+            from ..ai import default_client
+            client, _ = default_client()
+            if not client.available():
+                QMessageBox.warning(self, "Stapel", "Ollama ist nicht erreichbar – bitte im "
+                                    "KI-Assistenten starten oder KI hier abwählen.")
+                return
+        self.worker = BatchWorker(sources, self.out_dir.text(), fmts, sg(), gg(), vg(), dg(),
+                                  ai=use_ai, rules=self.rules.toPlainText().strip())
+        self.worker.itemDone.connect(self.on_item)
         self.worker.progress.connect(self.on_progress)
         self.worker.finishedWith.connect(self.on_done)
         self.btn_start.setEnabled(False)
@@ -149,13 +180,18 @@ class BatchDialog(QDialog):
         if msg != "Fertig":
             self.log.appendPlainText(f"[{i + 1}/{n}] {msg}")
 
+    def on_item(self, it):
+        if it.note:
+            self.log.appendPlainText("   " + it.note)
+        if it.error:
+            self.log.appendPlainText(f"   FEHLER: {it.error}")
+
     def on_done(self, results):
-        ok = [r for r in results if not r.error]
-        for r in results:
-            if r.error:
-                self.log.appendPlainText(f"FEHLER {os.path.basename(r.source)}: {r.error}")
-        self.log.appendPlainText(f"\nFertig: {len(ok)} von {len(results)} erfolgreich → "
-                                 f"{self.out_dir.text()}")
+        ok = [r for r in results if not r.error and not r.skipped]
+        skipped = sum(1 for r in results if r.skipped)
+        self.log.appendPlainText(f"\nFertig: {len(ok)} von {len(results)} erfolgreich"
+                                 + (f", {skipped} übersprungen" if skipped else "")
+                                 + f" → {self.out_dir.text()}")
         self.btn_start.setEnabled(True)
         self.btn_stop.setEnabled(False)
         self.worker = None

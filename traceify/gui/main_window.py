@@ -75,6 +75,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.canvas)
         self.canvas.cropSelected.connect(self.on_crop)
         self.canvas.regionDrawn.connect(self.on_region_drawn)
+        self.canvas.symbolDrawn.connect(self.on_symbol_drawn)
+        self.canvas.drawing_provider = lambda: self.drawing
         self.canvas.regionMenuRequested.connect(self.on_region_menu)
         self.canvas.brushStroke.connect(self.on_brush_stroke)
         self.canvas.nodeEditStarted.connect(self.on_node_edit_started)
@@ -141,7 +143,16 @@ class MainWindow(QMainWindow):
         self.progress.setMaximumWidth(220)
         self.progress.setVisible(False)
         self.pos_label = QLabel("")
+        from PySide6.QtWidgets import QPushButton
+        self.quality_btn = QPushButton("")
+        self.quality_btn.setFlat(True)
+        self.quality_btn.setVisible(False)
+        self.quality_btn.clicked.connect(lambda: self.a_markers.trigger())
+        self.statusBar().addPermanentWidget(self.quality_btn)
         self.statusBar().addPermanentWidget(self.pos_label)
+        self.quality = None
+        self.quality_stale = False
+        self._problem_idx = -1
         self.statusBar().addPermanentWidget(self.progress)
         self.statusBar().showMessage("Datei öffnen (Strg+O) oder hierher ziehen.")
         self.setAcceptDrops(True)
@@ -207,8 +218,15 @@ class MainWindow(QMainWindow):
         self.a_tool_region = A("Bereich festlegen", lambda: self.set_tool("region"), "R",
                                "Rechteck aufziehen: eigener Modus oder ignorieren",
                                checkable=True)
+        self.a_tool_symbol = A("Symbol festlegen und suchen", lambda: self.set_tool("symbol"), "Y",
+                               "Rechteck um ein Beispielsymbol ziehen – alle gleichen werden "
+                               "als CAD-Block eingesetzt", checkable=True)
+        self.a_symbol_lib = A("Symbol-Bibliothek anwenden", self.apply_symbol_library,
+                              tip="Alle gespeicherten Symbole in diesem Plan suchen")
+        self.a_symbol_folder = A("Symbol-Bibliothek öffnen (Ordner)", self.open_symbol_folder)
         self.tool_group = QActionGroup(self)
-        for a in (self.a_tool_select, self.a_tool_erase, self.a_tool_pen, self.a_tool_region):
+        for a in (self.a_tool_select, self.a_tool_erase, self.a_tool_pen, self.a_tool_region,
+                  self.a_tool_symbol):
             self.tool_group.addAction(a)
         self.a_tool_select.setChecked(True)
         self.a_regions_clear = A("Alle Bereiche entfernen", self.clear_regions)
@@ -258,6 +276,10 @@ class MainWindow(QMainWindow):
         self.a_update = A("Nach Updates suchen …", lambda: self.check_updates(manual=True))
         self.a_update_auto = A("Beim Start nach Updates suchen", self.toggle_update_auto,
                                checkable=True)
+        self.a_quality = A("Qualität prüfen", self.check_quality, "Ctrl+Shift+Q",
+                           "Vergleicht Vektoren mit dem Scan: Abdeckung, Genauigkeit, Problemstellen")
+        self.a_markers = A("Problemstellen anzeigen", self.toggle_markers, "Q", checkable=True)
+        self.a_next_problem = A("Nächste Problemstelle", self.next_problem, "F8")
         self.a_help = A("Kurzanleitung", self.show_help, "F1")
         self.a_about = A("Über Traceify", self.show_about)
 
@@ -298,6 +320,14 @@ class MainWindow(QMainWindow):
         m = self.menuBar().addMenu("&Werkzeuge")
         m.addAction(self.a_batch)
         m.addAction(self.a_calib)
+        m.addSeparator()
+        m.addAction(self.a_tool_symbol)
+        m.addAction(self.a_symbol_lib)
+        m.addAction(self.a_symbol_folder)
+        m.addSeparator()
+        m.addAction(self.a_quality)
+        m.addAction(self.a_markers)
+        m.addAction(self.a_next_problem)
 
         m.addSeparator()
         m.addAction(self.a_components)
@@ -367,6 +397,7 @@ class MainWindow(QMainWindow):
     def _build_edit_toolbar(self):
         for a, t in {self.a_tool_select: "↖ Auswahl", self.a_tool_erase: "Radierer",
                      self.a_tool_pen: "Stift", self.a_tool_region: "▭ Bereich",
+                     self.a_tool_symbol: "⌘ Symbol",
                      self.a_corner: "Ecke", self.a_ortho: "Ausrichten",
                      self.a_gaps: "Lücken", self.a_join: "Verbinden",
                      self.a_explode: "Auflösen", self.a_delete: "Löschen",
@@ -387,6 +418,7 @@ class MainWindow(QMainWindow):
         self.brush_spin.valueChanged.connect(self.on_brush_size)
         tb.addWidget(self.brush_spin)
         tb.addAction(self.a_tool_region)
+        tb.addAction(self.a_tool_symbol)
         tb.addSeparator()
         for a in (self.a_corner, self.a_ortho, self.a_gaps, self.a_join, self.a_explode,
                   self.a_delete):
@@ -402,7 +434,9 @@ class MainWindow(QMainWindow):
                   self.a_invert, self.a_calib, self.a_show_bin, self.a_ai_suggest,
                   self.a_tool_erase, self.a_tool_pen, self.a_tool_region, self.a_regions_clear):
             a.setEnabled(has_img and not busy)
-        for a in (self.a_corner, self.a_ortho, self.a_gaps, self.a_join, self.a_explode):
+        for a in (self.a_corner, self.a_ortho, self.a_gaps, self.a_join, self.a_explode,
+                  self.a_quality, self.a_markers, self.a_next_problem, self.a_tool_symbol,
+                  self.a_symbol_lib):
             a.setEnabled(has_vec and not busy)
         for a in (self.a_dxf, self.a_dwg, self.a_svg, self.a_nc, self.a_preview, self.a_delete,
                   self.a_select_all,
@@ -448,6 +482,10 @@ class MainWindow(QMainWindow):
         self.binary = None
         self.drawing = None
         self.undo_stack.clear()
+        self.quality = None
+        self._show_quality()
+        self.canvas.set_markers([])
+        self.a_markers.setChecked(False)
         self.regions = []
         self.canvas.set_regions([], {})
         self.set_tool("select")
@@ -531,6 +569,8 @@ class MainWindow(QMainWindow):
             self.canvas.set_raster(255 - self.binary, keep_view=True)
             self.canvas.set_raster_opacity(self.opacity.value() / 100)
         self.refresh_layers()
+        self.text_boxes = list(getattr(res, "text_boxes", []) or [])
+        self.check_quality(silent=True)
         pend = getattr(self, "_pending_export", None)
         if pend:
             self._pending_export = None
@@ -606,6 +646,10 @@ class MainWindow(QMainWindow):
             txt += f"<br>Zeichnungsmaßstab: <b>{d.meta['massstab']}</b> ({d.meta.get('massstab_quelle', '')})"
         if d.meta.get("quelle"):
             txt += f"<br>Quelle: {d.meta['quelle']}"
+        counts = d.symbol_counts()
+        if counts:
+            txt += "<br><br><b>Symbole</b><br>" + "<br>".join(
+                f"{k}: <b>{v}</b>" for k, v in counts.items())
         if sel:
             txt += f"<br><br><b>{sel} ausgewählt</b> (Entf = löschen)"
         self.stats_label.setText(txt)
@@ -622,6 +666,7 @@ class MainWindow(QMainWindow):
         if not sel or not self.drawing:
             return
         self.undo_stack.append(("entities", list(self.drawing.entities)))
+        self._mark_quality_stale()
         ids = {id(e) for e in sel}
         self.drawing.entities = [e for e in self.drawing.entities if id(e) not in ids]
         self.canvas.remove_entity_items(sel)
@@ -665,12 +710,168 @@ class MainWindow(QMainWindow):
         self.refresh_layers()
         self.update_actions()
 
+    # --------------------------------------------------------------- Symbole
+    def _current_binary(self):
+        if self.binary is not None and self.binary.shape == self.gray.shape:
+            return self.binary
+        return preprocess.to_binary(self.gray, self.panel.settings().preprocess)
+
+    def on_symbol_drawn(self, x, y, w, h):
+        from ..core import symbols as S
+        from .symbol_dialog import SymbolDialog
+        if not self.drawing or self.gray is None:
+            return
+        bw = self._current_binary()
+        H, W = bw.shape
+        crop = bw[max(0, y):min(H, y + h), max(0, x):min(W, x + w)]
+        if crop.size == 0 or not crop.any():
+            self.statusBar().showMessage("Im markierten Rechteck ist nichts zu sehen.")
+            return
+        n = len(self.drawing.symbol_counts()) + 1
+        dlg = SymbolDialog(self, 255 - crop, f"Symbol {n}", self.ai_panel)
+        if not dlg.exec():
+            return
+        name, thr, rots, save = dlg.values()
+        tpl = S.make_template(name, bw, self.drawing, x, y, w, h)
+        if not tpl.entities:
+            QMessageBox.information(self, "Symbol", "Im Rechteck liegen keine Vektoren – bitte "
+                                    "zuerst konvertieren oder das Rechteck größer ziehen.")
+            return
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            matches = S.find_matches(bw, tpl, thr, rots)
+            self._snapshot()
+            count = S.apply_matches(self.drawing, tpl, matches)
+            if save:
+                S.save_template(tpl)
+        finally:
+            QApplication.restoreOverrideCursor()
+        if not count:
+            self.undo_stack.pop()
+        self.canvas.set_entities(self.drawing.entities)
+        self.canvas.set_vectors_visible(self.a_show_vec.isChecked())
+        self.refresh_layers()
+        self.update_actions()
+        self.statusBar().showMessage(f"„{name}“: {count} Stück gefunden und als Block eingesetzt"
+                                     + (" (in der Bibliothek gespeichert)" if save else "")
+                                     + ". Strg+Z = zurück.")
+
+    def apply_symbol_library(self):
+        from ..core import symbols as S
+        if not self.drawing:
+            return
+        lib = S.load_library()
+        if not lib:
+            QMessageBox.information(self, "Symbol-Bibliothek",
+                                    "Die Bibliothek ist noch leer. Lege Symbole mit dem Werkzeug "
+                                    "„Symbol“ (Y) fest.")
+            return
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            self._snapshot()
+            n, per = S.apply_library(self.drawing, self._current_binary(), lib)
+        finally:
+            QApplication.restoreOverrideCursor()
+        if not n:
+            self.undo_stack.pop()
+        self.canvas.set_entities(self.drawing.entities)
+        self.refresh_layers()
+        self.statusBar().showMessage(f"Bibliothek: {n} Symbole eingesetzt"
+                                     + (" – " + ", ".join(f"{k} ×{v}" for k, v in per.items())
+                                        if per else "."))
+
+    def open_symbol_folder(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from ..core.symbols import library_dir
+        QDesktopServices.openUrl(QUrl.fromLocalFile(library_dir()))
+
+    # -------------------------------------------------------------- Qualität
+    def check_quality(self, silent=False):
+        from ..core.quality import assess
+        from ..core.vectorize import MODE_OUTLINE
+        if not self.drawing or self.gray is None:
+            return
+        bw = self.binary if self.binary is not None and self.binary.shape == self.gray.shape \
+            else preprocess.to_binary(self.gray, self.panel.settings().preprocess)
+        ignore = [r for r in self.regions if r.mode == "ignorieren"]
+        if ignore:
+            bw = bw.copy()
+            for r in ignore:
+                bw[r.slices(bw.shape)] = 0
+        try:
+            self.quality = assess(bw, self.drawing.expanded(), mm_per_px=self.img_scale,
+                                  extra_boxes=getattr(self, "text_boxes", None),
+                                  fill_closed=self.panel.settings().vectorize.mode == MODE_OUTLINE)
+        except Exception:
+            import logging
+            logging.getLogger("traceify").exception("Qualitätsprüfung")
+            self.quality = None
+            return
+        self.quality_stale = False
+        self._problem_idx = -1
+        self._show_quality()
+        if self.a_markers.isChecked():
+            self.canvas.set_markers(self.quality.problems)
+        if not silent:
+            self.statusBar().showMessage("Qualität: " + self.quality.summary())
+
+    def _show_quality(self):
+        q = self.quality
+        if q is None:
+            self.quality_btn.setVisible(False)
+            return
+        col = {"gruen": "#1a8a4a", "gelb": "#d4a017", "rot": "#c0392b"}[q.rating]
+        if self.quality_stale:
+            col = "#999999"
+        txt = {"gruen": "gut", "gelb": "prüfen", "rot": "Probleme"}[q.rating]
+        n = len(q.problems)
+        self.quality_btn.setText(f"● Qualität: {txt}" + (f" ({n})" if n else "")
+                                 + (" – veraltet" if self.quality_stale else ""))
+        self.quality_btn.setStyleSheet(f"color: {col}; font-weight: bold;")
+        self.quality_btn.setToolTip(q.summary() + "\nKlick: Problemstellen ein/aus · F8: nächste"
+                                    + ("\nNach Änderungen: Werkzeuge → Qualität prüfen"
+                                       if self.quality_stale else ""))
+        self.quality_btn.setVisible(True)
+
+    def toggle_markers(self, on):
+        if on and (self.quality is None or self.quality_stale):
+            self.check_quality(silent=True)
+        self.canvas.set_markers(self.quality.problems if on and self.quality else [])
+        if on and self.quality and not self.quality.problems:
+            self.statusBar().showMessage("Keine Problemstellen gefunden.")
+
+    def next_problem(self):
+        if self.quality is None or self.quality_stale:
+            self.check_quality(silent=True)
+        if not self.quality or not self.quality.problems:
+            self.statusBar().showMessage("Keine Problemstellen.")
+            return
+        if not self.a_markers.isChecked():
+            self.a_markers.setChecked(True)
+            self.toggle_markers(True)
+        self._problem_idx = (self._problem_idx + 1) % len(self.quality.problems)
+        p = self.quality.problems[self._problem_idx]
+        self.canvas.zoom_to_rect(p.x, p.y, p.w, p.h)
+        what = "fehlt im Ergebnis (Tinte ohne Vektor)" if p.kind == "fehlt" else \
+            "vermutlich überflüssig (Vektor ohne Tinte)"
+        self.statusBar().showMessage(f"Problemstelle {self._problem_idx + 1}/"
+                                     f"{len(self.quality.problems)}: {what}. F8 = weiter.")
+
     # ------------------------------------------------------------ Werkzeuge
     def set_tool(self, tool):
         acts = {"select": self.a_tool_select, "erase": self.a_tool_erase,
-                "pen": self.a_tool_pen, "region": self.a_tool_region}
+                "pen": self.a_tool_pen, "region": self.a_tool_region,
+                "symbol": self.a_tool_symbol}
         if tool != "select" and self.gray is None:
             tool = "select"
+        if tool == "symbol" and not self.drawing:
+            tool = "select"
+            self.statusBar().showMessage("Symbole: zuerst konvertieren (F5), dann ein Symbol "
+                                         "mit einem Rechteck markieren.")
+            self.a_tool_select.setChecked(True)
+            self.canvas.set_tool("select")
+            return
         acts[tool].setChecked(True)
         self.canvas.set_tool(tool, self.brush_spin.value())
         msg = {"select": "Auswahl: Objekte anklicken oder Rahmen ziehen. Bei einem Objekt "
@@ -679,7 +880,9 @@ class MainWindow(QMainWindow):
                         "Esc = zurück zur Auswahl.",
                "pen": "Stift: Lücken in Linien nachziehen. Esc = zurück zur Auswahl.",
                "region": "Bereich: Rechteck aufziehen und Behandlung wählen. "
-                         "Rechtsklick auf einen Bereich = ändern/entfernen. Esc = fertig."}[tool]
+                         "Rechtsklick auf einen Bereich = ändern/entfernen. Esc = fertig.",
+               "symbol": "Symbol: Rechteck eng um EIN Beispielsymbol ziehen (z. B. eine "
+                         "Steckdose). Esc = fertig."}[tool]
         self.statusBar().showMessage(msg)
 
     def on_brush_size(self, v):
@@ -781,7 +984,13 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Alle Bereiche entfernt.")
 
     # ------------------------------------------------------ Vektor-Bearbeitung
+    def _mark_quality_stale(self):
+        if self.quality is not None and not self.quality_stale:
+            self.quality_stale = True
+            self._show_quality()
+
     def _snapshot(self):
+        self._mark_quality_stale()
         import copy
         self.undo_stack.append(("entities", copy.deepcopy(self.drawing.entities)))
         self.update_actions()
@@ -1202,10 +1411,19 @@ class MainWindow(QMainWindow):
     def ai_review(self):
         if not self._ai_ready() or not self.drawing:
             return
+        self.check_quality(silent=True)
+        q = self.quality
+        extra = ""
+        if q:
+            extra = (f" Die automatische Prüfung meldet: {q.summary()}. "
+                     + ("Größte Problemstellen (Bildpixel x,y,b,h): " + "; ".join(
+                         f"{p.kind} {p.x},{p.y},{p.w},{p.h}" for p in q.problems[:8]) + "."
+                        if q.problems else ""))
         self.ai_chat("Bewerte das Vektorisierungs-Ergebnis im Bild (Original blass, erkannte "
-                     "Vektoren farbig). Was fehlt, was ist falsch, was ist überflüssig? Schlage "
-                     "konkrete Verbesserungen vor und führe sinnvolle Einstellungsänderungen plus "
-                     "'konvertieren' als Aktionen aus.", True, overlay=True, echo=True)
+                     "Vektoren farbig). Was fehlt, was ist falsch, was ist überflüssig?" + extra
+                     + " Schlage konkrete Verbesserungen vor und führe sinnvolle "
+                     "Einstellungsänderungen plus 'konvertieren' als Aktionen aus.", True,
+                     overlay=True, echo=True)
 
     def ai_chat(self, text, with_image, overlay=False, echo=False):
         if not self._ai_ready(need_image=False):
@@ -1480,6 +1698,10 @@ class MainWindow(QMainWindow):
             "<b>6. Maßstab</b> – automatisch aus der DPI oder per »Maßstab kalibrieren« an "
             "einer bekannten Strecke.<br>"
             "<b>7. Export</b> – DXF (Strg+E), DWG, G-Code (Strg+G) oder SVG.<br><br>"
+            "<b>Qualität</b> – die Ampel unten rechts zeigt, ob alles erfasst ist; Q markiert "
+            "Problemstellen, F8 springt hin.<br>"
+            "<b>Symbole</b> – Werkzeug Symbol (Y): Rechteck um ein Beispiel ziehen, alle gleichen "
+            "werden als CAD-Block eingesetzt.<br><br>"
             "<b>Vektor-PDFs</b> aus CAD-Programmen werden automatisch erkannt und direkt "
             "übernommen. Steht „M 1:100“ im Plan, wird in Originalgröße exportiert.<br><br>"
             "Navigation: Mausrad = Zoom, mittlere Maustaste oder Umschalt+Ziehen = "

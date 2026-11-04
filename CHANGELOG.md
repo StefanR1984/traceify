@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.8.0 – 04.11.2026
+### Neu: Qualität, Symbole, KI-Stapel
+- **Qualitätsampel:** Nach jedem Konvertieren werden die Vektoren mit dem Scan verglichen:
+  - **Abdeckung**: Wie viel Tinte ist von Vektoren erfasst?
+  - **Genauigkeit**: Wie viele Vektoren liegen auf Tinte?
+  - Ampel gut / prüfen / Probleme in der Statusleiste; gemessene Strichstärken, Umrissmodus und ignorierte Bereiche werden dabei berücksichtigt.
+  - **Problemstellen** werden markiert (Q oder Klick auf die Ampel): rot heißt „fehlt“, violett „überflüssig“. Mit **F8** geht es von Stelle zu Stelle.
+  - Nach Änderungen zeigt die Ampel „veraltet“; Werkzeuge → Qualität prüfen aktualisiert sie.
+- **Symbole als CAD-Blöcke** (Werkzeug „Symbol“, Taste Y): Rechteck um ein Beispielsymbol ziehen, Name vergeben (auf Wunsch mit KI-Vorschlag) und die Ähnlichkeitsschwelle wählen.
+  - Traceify findet alle gleichen Symbole, auch um 90°, 180° oder 270° gedreht, und ersetzt die Einzellinien durch **einen Block-Verweis**.
+  - DXF enthält echte BLOCK- und INSERT-Einträge mit Drehung; SVG und G-Code lösen die Symbole auf.
+  - Die Stückzahlen erscheinen links („Steckdose: 12“). Symbole lassen sich als Ganzes markieren, verschieben und löschen.
+  - **Symbol-Bibliothek**: Symbole werden gespeichert (`%APPDATA%\Traceify\Symbole`) und können mit „Symbol-Bibliothek anwenden“ oder automatisch beim Konvertieren in neuen Plänen eingesetzt werden. Die Option dafür steht unter „Linien, Farben, Symbole“.
+- **KI-Stapel mit Regeln in Klartext:** Im Stapel-Dialog (oder mit `--ki-regeln` in der Kommandozeile) beschreibst du, was mit welcher Art von Zeichnung passieren soll. Die KI sieht sich jede Datei an und setzt Einstellungen und Formate oder überspringt die Datei. Das Protokoll zeigt jede Entscheidung.
+- „Ergebnis bewerten“ (KI) bekommt jetzt auch die Problemstellen der Qualitätsampel mitgeschickt.
+
+### Behoben
+- Radiuskorrektur per KI oder Text: „außen“ mit ß und andere Umlaut-Schreibweisen werden erkannt.
+
 ## 0.7.0 – 04.11.2026
 ### Neu: CNC
 - **G-Code-Vorschau** (Datei → G-Code-Vorschau, Strg+Umschalt+G, oder der Knopf im CNC-Bereich) zeigt:

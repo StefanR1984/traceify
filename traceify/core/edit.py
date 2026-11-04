@@ -14,7 +14,7 @@ import copy
 import math
 from typing import List, Optional, Tuple
 
-from .model import Arc, Circle, Line, Point, Polyline, Text, LAYER_POLY, LAYER_LINES
+from .model import Arc, Circle, Insert, Line, Point, Polyline, Text, LAYER_POLY, LAYER_LINES
 
 
 # ------------------------------------------------------------------ Geometrie
@@ -204,6 +204,8 @@ def entity_points(e) -> List[Point]:
         return list(e.points)
     if isinstance(e, Circle):
         return [e.center, (e.center[0] + e.radius, e.center[1])]
+    if isinstance(e, Insert):
+        return [e.position]
     if isinstance(e, Arc):
         a0, a1 = math.radians(e.start_angle), math.radians(e.end_angle)
         return [e.center,
@@ -216,6 +218,8 @@ def set_entity_point(e, i: int, p: Point) -> None:
     """Setzt Knoten i (siehe entity_points)."""
     if isinstance(e, Line):
         _set_end(e, i, p)
+    elif isinstance(e, Insert):
+        e.position = p
     elif isinstance(e, Polyline):
         e.points[i] = p
     elif isinstance(e, Circle):
@@ -242,7 +246,7 @@ def move_point(ents: list, e, i: int, p: Point, connected: bool = True, tol: flo
     old = entity_points(e)[i]
     set_entity_point(e, i, p)
     changed = [e]
-    if not connected or isinstance(e, (Circle, Arc)):
+    if not connected or isinstance(e, (Circle, Arc, Insert)):
         return changed
     for other, idx, q in _endpoints([x for x in ents if x is not e]):
         if math.dist(q, old) <= tol:

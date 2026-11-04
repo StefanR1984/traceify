@@ -78,6 +78,8 @@ class ConvertSettings:
     style: StyleSettings = field(default_factory=StyleSettings)
     scale: Optional[float] = None  # mm pro Pixel; None = aus DPI
     auto_scale: bool = True        # „M 1:N“ im Plan erkennen und in Originalgröße ausgeben
+    symbols_auto: bool = False     # Symbole aus der Bibliothek automatisch als Blöcke einsetzen
+    symbol_threshold: float = 0.75
     regions: list = field(default_factory=list)  # Bereiche mit eigener Behandlung (Region/dict)
 
     def to_dict(self) -> dict:
@@ -93,6 +95,8 @@ class ConvertSettings:
             style=_make(StyleSettings, d.get("style")),
             scale=d.get("scale"),
             auto_scale=d.get("auto_scale", True),
+            symbols_auto=d.get("symbols_auto", False),
+            symbol_threshold=d.get("symbol_threshold", 0.75),
             regions=list(d.get("regions") or []),
         )
 
@@ -201,6 +205,14 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + texts, source=source)
+    if settings.symbols_auto:
+        from .symbols import apply_library, load_library
+        lib = load_library()
+        if lib:
+            step(92, "Symbole aus der Bibliothek suchen …")
+            n, per = apply_library(d, bw, lib, settings.symbol_threshold)
+            if n:
+                d.meta["symbole"] = ", ".join(f"{k} ×{v}" for k, v in per.items())
     apply_auto_scale(d, settings)
     step(100, "Fertig")
     return ConvertResult(d, bw, boxes)

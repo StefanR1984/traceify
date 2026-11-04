@@ -31,6 +31,8 @@ Traceify wandelt gescannte Zeichnungen, Pläne, Skizzen und Logos in saubere CAD
 | **Export** | DXF (R12 bis R2018) mit den Layern LINIEN, BOEGEN, KREISE, POLYLINIEN, KONTUREN und TEXT, außerdem **DWG** (über den kostenlosen [ODA File Converter](https://www.opendesign.com/guestfiles/oda_file_converter), falls installiert), SVG und G-Code. Es werden nur sichtbare Layer exportiert. |
 | **G-Code** | Für Fräsen (Z-Zustellung in mehreren Durchgängen) oder Laser/Plasma (M3/M5). Echte G2/G3-Bögen, verkettete Wege und optimierte Fahrreihenfolge. **Fräserradius-Korrektur** außen, innen oder automatisch (Teile ausschneiden: Löcher zuerst und innen, Außenkontur zuletzt und außen), Gleich- oder Gegenlauf. **Haltestege** mit einstellbarer Breite und Höhe (beim Laser als Unterbrechung). **Vorschau** (Strg+Umschalt+G) mit Animation, Eilgängen, Stegen und Zeitschätzung. |
 | **Stapel** | Ganze Ordner und mehrseitige PDFs in einem Durchgang, mit Fortschritt, Protokoll und Abbruchmöglichkeit. |
+| **Qualitätsampel** | Nach jedem Konvertieren vergleicht Traceify die Vektoren mit dem Scan: **Abdeckung**, **Genauigkeit** und eine Ampel in der Statusleiste. Klick darauf (oder Q) markiert die Problemstellen auf der Zeichenfläche – rot: Tinte ohne Vektor, violett: Vektor ohne Tinte; **F8** springt von Stelle zu Stelle. |
+| **Symbole** | Werkzeug **Symbol** (Y): Rechteck um ein Beispiel ziehen (z. B. Steckdose) – Traceify findet alle gleichen, auch um 90/180/270° gedreht, und ersetzt sie durch **einen CAD-Block** (DXF: BLOCK/INSERT). Zählung links („Steckdose: 12“). Die KI schlägt auf Wunsch einen Namen vor. Symbole lassen sich in einer **Bibliothek** speichern und in neuen Plänen automatisch einsetzen. |
 | **Updates & Hilfe** | Traceify meldet neue Versionen (einmal täglich, abschaltbar im Menü Hilfe). **Hilfe → Problem melden** öffnet einen vorbefüllten Fehlerbericht auf GitHub (Version, Umgebung, Einstellungen, Protokoll). |
 | **Automatisierung** | Python-API und Kommandozeile. Einstellungen lassen sich als JSON speichern und laden und in Stapel oder Kommandozeile weiterverwenden. |
 
@@ -62,7 +64,11 @@ Die KI läuft **lokal** auf deinem Rechner über [Ollama](https://ollama.com). E
 - **Ergebnis bewerten**: Die KI vergleicht Original und Vektoren und schlägt Verbesserungen vor. Auf Wunsch setzt sie diese gleich um.
 - **Chat mit Aufträgen**: Zum Beispiel „Lösche alle Texte und exportiere als DXF“, „Toleranz auf 3 und neu konvertieren“, „Entferne alles unter 0,5 mm“ oder „Ersetze ‚Kuche‘ durch ‚Küche‘“. Die KI antwortet und führt die passenden Aktionen aus. Ist „Aktionen sofort ausführen“ abgehakt, musst du erst bestätigen. Alles lässt sich mit Strg+Z zurücknehmen.
 - **Modelle**: Im Panel wählen und mit „Laden“ herunterladen. Empfohlen: `gemma3:4b` (schnell), `qwen2.5vl:7b` (beste Texterkennung), `gemma3:12b` (genauer, braucht ca. 16 GB RAM bzw. eine gute Grafikkarte).
-- **Stapel mit KI**: `python -m traceify ordner/ -o aus/ --ki` wählt die Einstellungen für jede Datei einzeln.
+- **Ergebnis bewerten**: nutzt zusätzlich die Qualitätsampel (Problemstellen mit Koordinaten).
+- **Stapel mit Regeln in Klartext** (Stapel-Dialog oder `--ki-regeln`): z. B. „Grundrisse als DXF mit Maßstab aus dem Plan, Logos als CNC-Umriss mit 2 mm Frästiefe als G-Code, handschriftliche Notizen überspringen“. Die KI sieht sich jede Datei an und setzt Einstellungen, Formate oder überspringt sie; das Protokoll zeigt jede Entscheidung.
+  ```
+  python -m traceify eingang\ -o ausgang\ --ki-regeln "Logos als G-Code mit 2 mm Tiefe, Fotos überspringen"
+  ```
 
 ## Bedienung
 

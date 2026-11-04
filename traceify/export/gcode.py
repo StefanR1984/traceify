@@ -132,7 +132,7 @@ def _poly_path(pts, closed) -> ToolPath:
 
 def collect_paths(d: Drawing, visible_layers=None) -> List[ToolPath]:
     paths, lines = [], []
-    for e in d.entities:
+    for e in d.expanded():
         if visible_layers is not None and e.layer not in visible_layers:
             continue
         if isinstance(e, Line):

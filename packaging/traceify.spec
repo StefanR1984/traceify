@@ -20,7 +20,8 @@ binaries = []
 hiddenimports = []
 hiddenimports += collect_submodules("skimage.morphology")
 hiddenimports += collect_submodules("traceify")
-hiddenimports += ["pytesseract", "pymupdf", "PIL.ImageQt"]
+hiddenimports += ["pytesseract", "pymupdf", "PIL.ImageQt", "shapely"]
+hiddenimports += collect_submodules("shapely")
 
 excludes = ["tkinter", "matplotlib", "IPython", "pytest", "PyQt5", "PyQt6", "sklearn", "pandas",
             "lxml", "pyinstaller",

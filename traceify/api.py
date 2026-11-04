@@ -78,6 +78,8 @@ class BatchItem:
     outputs: List[str]
     error: Optional[str] = None
     stats: Optional[dict] = None
+    note: str = ""          # z. B. Entscheidung der KI
+    skipped: bool = False
 
 
 def batch_jobs(sources: Iterable[str]):
@@ -98,8 +100,23 @@ def batch_convert(src: str, out_dir: str, formats=(".dxf",),
                   gcode: Optional[GcodeSettings] = None, recursive: bool = False,
                   dxf_version: str = "R2010", pdf_dpi: int = 300,
                   progress: Optional[Callable[[int, int, str], None]] = None,
-                  should_stop: Optional[Callable[[], bool]] = None) -> List[BatchItem]:
-    """Konvertiert einen Ordner (oder eine Dateiliste) – mehrseitige PDFs seitenweise."""
+                  should_stop: Optional[Callable[[], bool]] = None,
+                  ai: bool = False, rules: str = "", ai_model: Optional[str] = None,
+                  on_item: Optional[Callable[[BatchItem], None]] = None) -> List[BatchItem]:
+    """Konvertiert einen Ordner (oder eine Dateiliste) – mehrseitige PDFs seitenweise.
+
+    ai=True: Die KI (Ollama) sieht sich jede Datei an und wählt Einstellungen; mit `rules`
+    (Klartext) bestimmen deine Regeln, was je Datei passiert – auch Formate oder Überspringen.
+    """
+    import copy
+    settings = settings or ConvertSettings()
+    gcode = gcode or GcodeSettings()
+    client = None
+    if ai or (rules and rules.strip()):
+        from .ai import default_client
+        client, model0 = default_client()
+        ai_model = ai_model or model0
+        ai = True
     sources = loader.list_inputs(src, recursive) if isinstance(src, str) and os.path.isdir(src) \
         else ([src] if isinstance(src, str) else list(src))
     os.makedirs(out_dir, exist_ok=True)
@@ -115,15 +132,33 @@ def batch_convert(src: str, out_dir: str, formats=(".dxf",),
             progress(k, len(jobs), f"{os.path.basename(path)}" + (f" Seite {page + 1}" if n > 1 else ""))
         item = BatchItem(path, page, [])
         try:
-            res = open_file(path, page, settings, pdf_dpi)
-            for ext in formats:
+            s_job, g_job, fmts = settings, gcode, list(formats)
+            if ai:
+                from .ai.batch_rules import plan_for_file
+                gray, _ = loader.load(path, page, min(150, pdf_dpi))
+                fp = plan_for_file(client, ai_model, gray, os.path.basename(path), rules,
+                                   copy.deepcopy(settings), copy.deepcopy(gcode))
+                item.note = fp.note()
+                if fp.skip:
+                    item.skipped = True
+                    results.append(item)
+                    if on_item:
+                        on_item(item)
+                    continue
+                s_job, g_job = fp.settings, fp.gcode
+                if fp.formats:
+                    fmts = fp.formats
+            res = open_file(path, page, s_job, pdf_dpi)
+            for ext in fmts:
                 dst = os.path.join(out_dir, base + ext)
-                export(res.drawing, dst, gcode, dxf_version)
+                export(res.drawing, dst, g_job, dxf_version)
                 item.outputs.append(dst)
             item.stats = res.drawing.stats()
         except Exception as exc:  # weitermachen, Fehler protokollieren
             item.error = f"{type(exc).__name__}: {exc}"
         results.append(item)
+        if on_item:
+            on_item(item)
     if progress:
         progress(len(jobs), len(jobs), "Fertig")
     return results

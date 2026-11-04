@@ -18,9 +18,10 @@ from PySide6.QtWidgets import (QGraphicsEllipseItem, QGraphicsItem, QGraphicsPat
                                QGraphicsView, QRubberBand)
 
 from ..core.edit import entity_points, move_point
-from ..core.model import Arc, Circle, Line, Polyline, Text, layer_color
+from ..core.model import Arc, Circle, Insert, Line, Polyline, Text, layer_color
 
 TOOL_SELECT, TOOL_ERASE, TOOL_PEN, TOOL_REGION = "select", "erase", "pen", "region"
+TOOL_SYMBOL = "symbol"
 
 REGION_COLORS = {"ignorieren": (110, 110, 110), "mittellinie": (40, 120, 255),
                  "umriss": (190, 40, 190), "nur_text": (230, 150, 0)}
@@ -98,6 +99,51 @@ class EntityItem(QGraphicsPathItem):
         st.setWidth(8 / max(0.05, self.scene().views()[0].transform().m11()) if self.scene()
                     and self.scene().views() else 8)
         return st.createStroke(self.path())
+
+
+class InsertItem(QGraphicsPathItem):
+    """Eingefügtes Symbol: alle Block-Objekte als ein auswählbares Element."""
+
+    def __init__(self, entity: Insert, drawing_provider, width: float):
+        super().__init__()
+        self.entity = entity
+        self.drawing_provider = drawing_provider
+        pen = QPen(QColor(*(entity.color or layer_color(entity.layer)[1])), width * 1.2)
+        pen.setCosmetic(True)
+        self.base_pen = pen
+        self.setPen(pen)
+        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setZValue(2)
+        self.refresh()
+        self.setToolTip(f"Symbol: {entity.name}")
+
+    def refresh(self):
+        from ..core.symbols import explode_insert
+        d = self.drawing_provider()
+        path = QPainterPath()
+        if d is not None:
+            for e in explode_insert(d, self.entity):
+                if isinstance(e, Text):
+                    f = QFont("Sans Serif")
+                    f.setPixelSize(max(4, int(e.height / 0.72)))
+                    path.addText(QPointF(*e.position), f, e.text)
+                else:
+                    path.addPath(entity_path(e))
+        self.prepareGeometryChange()
+        self.setPath(path)
+
+    def paint(self, painter, option, widget=None):
+        pen = QPen(self.base_pen)
+        if self.isSelected():
+            pen.setColor(QColor(255, 120, 0))
+            pen.setWidthF(self.base_pen.widthF() + 2)
+        painter.setPen(pen)
+        painter.drawPath(self.path())
+
+    def shape(self):
+        p = QPainterPath()
+        p.addRect(self.path().boundingRect().adjusted(-3, -3, 3, 3))
+        return p
 
 
 class TextEntityItem(QGraphicsSimpleTextItem):
@@ -185,6 +231,7 @@ class RegionItem(QGraphicsRectItem):
 class Canvas(QGraphicsView):
     cropSelected = Signal(int, int, int, int)
     regionDrawn = Signal(int, int, int, int)
+    symbolDrawn = Signal(int, int, int, int)
     regionMenuRequested = Signal(int, object)     # Index, globale Position
     brushStroke = Signal(list, str, int)          # Punkte, Werkzeug, Größe (px)
     measured = Signal(float, float, float, float)
@@ -211,6 +258,7 @@ class Canvas(QGraphicsView):
         self.brush_size = 12
         self.node_connected = True
         self.entities_provider = lambda: []
+        self.drawing_provider = lambda: None
         self._rect_purpose = None          # "crop" | "region"
         self._crop_origin = None
         self._rubber = QRubberBand(QRubberBand.Rectangle, self.viewport())
@@ -223,6 +271,7 @@ class Canvas(QGraphicsView):
         self._brush_cursor = None
         self.handles: list[NodeHandle] = []
         self.region_items: list[RegionItem] = []
+        self.marker_items: list = []
         self.scene().selectionChanged.connect(self.refresh_handles)
 
     # ---- Inhalte ----
@@ -262,7 +311,12 @@ class Canvas(QGraphicsView):
     def set_entities(self, entities):
         self.clear_entities()
         for e in entities:
-            it = TextEntityItem(e) if isinstance(e, Text) else EntityItem(e, self.line_width)
+            if isinstance(e, Text):
+                it = TextEntityItem(e)
+            elif isinstance(e, Insert):
+                it = InsertItem(e, self.drawing_provider, self.line_width)
+            else:
+                it = EntityItem(e, self.line_width)
             self.scene().addItem(it)
             self.items_by_layer.setdefault(e.layer, []).append(it)
             self.item_by_id[id(e)] = it
@@ -349,6 +403,32 @@ class Canvas(QGraphicsView):
             if h is not handle and h.index < len(pts):
                 h.setPos(QPointF(*pts[h.index]))
 
+    # ---- Problemstellen ----
+    def set_markers(self, problems):
+        for it in self.marker_items:
+            if it.scene():
+                self.scene().removeItem(it)
+        self.marker_items = []
+        for i, p in enumerate(problems or []):
+            col = QColor(220, 40, 40) if p.kind == "fehlt" else QColor(150, 60, 200)
+            pen = QPen(col, 2, Qt.DashLine)
+            pen.setCosmetic(True)
+            pad = 6
+            it = self.scene().addRect(QRectF(p.x - pad, p.y - pad, p.w + 2 * pad, p.h + 2 * pad),
+                                      pen, QBrush(QColor(col.red(), col.green(), col.blue(), 28)))
+            it.setZValue(25)
+            it.setToolTip(f"Problemstelle {i + 1}: "
+                          + ("Tinte ohne Vektor – fehlt im Ergebnis" if p.kind == "fehlt"
+                             else "Vektor ohne Tinte – vermutlich überflüssig")
+                          + f" ({p.size} px)")
+            self.marker_items.append(it)
+
+    def zoom_to_rect(self, x, y, w, h, margin: float = 4.0):
+        cx, cy = x + w / 2, y + h / 2
+        size = max(w, h) * margin + 60
+        self.fitInView(QRectF(cx - size / 2, cy - size / 2, size, size), Qt.KeepAspectRatio)
+        self.zoomChanged.emit(self.transform().m11())
+
     # ---- Bereiche ----
     def set_regions(self, regions, labels):
         for it in self.region_items:
@@ -373,7 +453,7 @@ class Canvas(QGraphicsView):
         if size:
             self.brush_size = int(size)
         self.tool = tool
-        self._rect_purpose = "region" if tool == TOOL_REGION else None
+        self._rect_purpose = {TOOL_REGION: "region", TOOL_SYMBOL: "symbol"}.get(tool)
         self._remove_brush_cursor()
         if tool == TOOL_SELECT:
             self.setDragMode(QGraphicsView.RubberBandDrag)
@@ -382,7 +462,8 @@ class Canvas(QGraphicsView):
         else:
             self.clear_handles()
             self.setDragMode(QGraphicsView.NoDrag)
-            self.viewport().setCursor(Qt.CrossCursor if tool == TOOL_REGION else Qt.BlankCursor)
+            self.viewport().setCursor(Qt.CrossCursor if tool in (TOOL_REGION, TOOL_SYMBOL)
+                                      else Qt.BlankCursor)
 
     def set_brush_size(self, size: int):
         self.brush_size = int(size)
@@ -449,8 +530,8 @@ class Canvas(QGraphicsView):
     def cancel_crop(self):
         self._rubber.hide()
         self._crop_origin = None
-        if self.tool == TOOL_REGION:
-            self._rect_purpose = "region"
+        if self.tool in (TOOL_REGION, TOOL_SYMBOL):
+            self._rect_purpose = "region" if self.tool == TOOL_REGION else "symbol"
             return
         self._rect_purpose = None
         self.setDragMode(QGraphicsView.RubberBandDrag)
@@ -559,6 +640,7 @@ class Canvas(QGraphicsView):
             x, y = int(max(0, a.x())), int(max(0, a.y()))
             w, h = int(b.x()) - x, int(b.y()) - y
             if w > 5 and h > 5:
-                (self.cropSelected if purpose == "crop" else self.regionDrawn).emit(x, y, w, h)
+                {"crop": self.cropSelected, "region": self.regionDrawn,
+                 "symbol": self.symbolDrawn}[purpose].emit(x, y, w, h)
             return
         super().mouseReleaseEvent(ev)

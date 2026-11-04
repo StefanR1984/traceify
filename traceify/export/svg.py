@@ -38,7 +38,7 @@ def export_svg(d: Drawing, path: str, visible_layers=None) -> None:
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.2f}mm" height="{H:.2f}mm" '
            f'viewBox="0 0 {W:.3f} {H:.3f}">']
     by_layer = {}
-    for e in d.entities:
+    for e in d.expanded():
         if visible_layers is None or e.layer in visible_layers:
             by_layer.setdefault(e.layer, []).append(e)
     for layer, ents in by_layer.items():

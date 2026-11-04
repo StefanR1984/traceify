@@ -26,6 +26,7 @@ LAYER_TEXT = "TEXT"
 LAYER_FILL = "FLAECHEN"
 LAYER_DASHED = "STRICHLINIEN"
 LAYER_THICK = "DICKE_LINIEN"
+LAYER_SYMBOLS = "SYMBOLE"
 
 LAYER_COLORS = {  # AutoCAD Color Index + RGB für die GUI
     LAYER_LINES: (7, (30, 30, 30)),
@@ -37,6 +38,7 @@ LAYER_COLORS = {  # AutoCAD Color Index + RGB für die GUI
     LAYER_FILL: (8, (130, 130, 130)),
     LAYER_DASHED: (4, (0, 150, 170)),
     LAYER_THICK: (250, (0, 0, 0)),
+    LAYER_SYMBOLS: (30, (215, 110, 0)),
 }
 
 LINETYPES = ("CONTINUOUS", "DASHED", "DASHDOT", "DOT", "CENTER", "HIDDEN")
@@ -107,6 +109,19 @@ class Text:
 
 
 @dataclass
+class Insert:
+    """Eingefügtes Symbol (CAD-Block). Geometrie steht in Drawing.blocks[name]."""
+    name: str
+    position: Point            # Einfügepunkt (Bildkoordinaten) = Mitte der Vorlage
+    rotation: float = 0.0      # Grad, gegen den Uhrzeigersinn (CAD)
+    scale: float = 1.0
+    layer: str = LAYER_SYMBOLS
+    color: Optional[RGB] = None
+    linetype: str = "CONTINUOUS"
+    lineweight: float = 0.0
+
+
+@dataclass
 class Drawing:
     width: int
     height: int
@@ -114,6 +129,7 @@ class Drawing:
     entities: list = field(default_factory=list)
     source: str = ""
     meta: Dict[str, str] = field(default_factory=dict)
+    blocks: Dict[str, list] = field(default_factory=dict)  # Name -> Objekte relativ zu (0,0)
 
     def by_type(self, cls):
         return [e for e in self.entities if isinstance(e, cls)]
@@ -128,7 +144,27 @@ class Drawing:
             "Kreise": len(self.by_type(Circle)),
             "Polylinien": len(self.by_type(Polyline)),
             "Texte": len(self.by_type(Text)),
+            "Symbole": len(self.by_type(Insert)),
         }
+
+    def symbol_counts(self) -> Dict[str, int]:
+        out: Dict[str, int] = {}
+        for e in self.by_type(Insert):
+            out[e.name] = out.get(e.name, 0) + 1
+        return dict(sorted(out.items(), key=lambda kv: (-kv[1], kv[0])))
+
+    def expanded(self) -> list:
+        """Alle Objekte, eingefügte Symbole in Einzelobjekte aufgelöst (für SVG, G-Code, Prüfung)."""
+        if not any(isinstance(e, Insert) for e in self.entities):
+            return list(self.entities)
+        from .symbols import explode_insert
+        out = []
+        for e in self.entities:
+            if isinstance(e, Insert):
+                out += explode_insert(self, e)
+            else:
+                out.append(e)
+        return out
 
     def to_mm(self, p: Point) -> Point:
         """Bildkoordinate -> CAD-Koordinate in mm (y gespiegelt)."""

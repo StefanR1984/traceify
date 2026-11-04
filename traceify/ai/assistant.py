@@ -43,7 +43,7 @@ def render_overlay(gray: np.ndarray, d: Drawing, max_side: int = 1280) -> np.nda
     base = cv2.resize(gray, None, fx=f, fy=f, interpolation=cv2.INTER_AREA) if f < 1 else gray.copy()
     img = cv2.cvtColor((255 - (255 - base) // 3).astype(np.uint8), cv2.COLOR_GRAY2BGR)
     P = lambda p: (int(round(p[0] * f)), int(round(p[1] * f)))
-    for e in d.entities:
+    for e in d.expanded():
         rgb = getattr(e, "color", None) or layer_color(e.layer)[1]
         col = (rgb[2], rgb[1], rgb[0])
         if isinstance(e, Line):
@@ -318,3 +318,20 @@ def describe_state(path: str, gray, d: Optional[Drawing], settings: ConvertSetti
         if texts:
             lines.append("Erkannte Texte: " + " | ".join(texts))
     return "\n".join(lines)
+
+
+# ------------------------------------------------------------- Symbole
+def name_symbol(client: OllamaClient, model: str, crop: np.ndarray) -> str:
+    """Kurzer deutscher Name für ein Symbol aus einer technischen Zeichnung."""
+    img = cv2.copyMakeBorder(crop, 12, 12, 12, 12, cv2.BORDER_CONSTANT, value=255)
+    if max(img.shape) < 160:
+        f = 160 / max(img.shape)
+        img = cv2.resize(img, None, fx=f, fy=f, interpolation=cv2.INTER_NEAREST)
+    msg = {"role": "user", "images": [encode_image(img, 512)],
+           "content": ("Das Bild zeigt ein einzelnes Symbol aus einer technischen Zeichnung oder "
+                       "einem Bauplan (z. B. Steckdose, Schalter, Leuchte, Tür, Fenster, Ventil, "
+                       "Schraube, Bohrung). Wie heißt es auf Deutsch? Antworte als JSON "
+                       '{"name": "1–3 Wörter"}.')}
+    data = parse_json(client.chat(model, [msg], fmt="json", temperature=0.1))
+    name = str(data.get("name", "")).strip() if isinstance(data, dict) else ""
+    return name[:40]

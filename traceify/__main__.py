@@ -25,7 +25,9 @@ def selftest() -> int:
     for ext in (".dxf", ".svg", ".nc"):
         export(res.drawing, os.path.join(out, "selftest" + ext))
     import pymupdf  # PDF-Unterstützung vorhanden?
-    assert pymupdf.__name__
+    import shapely  # Radiuskorrektur vorhanden?
+    from .core import quality, symbols   # Module im Paket?
+    assert pymupdf.__name__ and shapely.__name__ and quality.assess and symbols.find_matches
     msg = (f"Traceify {__version__} Selbsttest: {st} | Tesseract: "
            f"{'ja ' + '+'.join(l for l in available_languages() if l in ('deu', 'eng')) if tesseract_available() else 'nein'}"
            f" | Pfad: {_tesseract_cmd()} | Ausgabe: {out}")

@@ -112,7 +112,7 @@ class SettingsPanel(QScrollArea):
         lay.addWidget(g)
 
         # ---- Linien & Farben ----
-        g = QGroupBox("Linien und Farben")
+        g = QGroupBox("Linien, Farben, Symbole")
         f = QFormLayout(g)
         self.dashed = QCheckBox("Strichlinien erkennen (gestrichelt, Strichpunkt)")
         self.dashed.setChecked(True)
@@ -131,6 +131,10 @@ class SettingsPanel(QScrollArea):
         self.color_count = _spin(0, 12, 0)
         self.color_count.setSpecialValueText("automatisch")
         f.addRow("Anzahl Farben:", self.color_count)
+        self.symbols_auto = QCheckBox("Symbole aus der Bibliothek automatisch einsetzen")
+        self.symbols_auto.setToolTip("Symbole, die du einmal festgelegt hast (Werkzeug „Symbol“), "
+                                     "werden in neuen Plänen automatisch als CAD-Block erkannt.")
+        f.addRow(self.symbols_auto)
         lay.addWidget(g)
 
         # ---- OCR ----
@@ -289,6 +293,7 @@ class SettingsPanel(QScrollArea):
         st.thick_ratio = self.thick_ratio.value()
         st.color_layers = self.color_layers.isChecked()
         st.color_count = self.color_count.value()
+        s.symbols_auto = self.symbols_auto.isChecked()
         s.pdf.enabled = self.pdf_vectors.isChecked()
         s.pdf.include_fills = self.pdf_fills.isChecked()
         s.pdf.keep_colors = self.pdf_colors.isChecked()
@@ -326,6 +331,7 @@ class SettingsPanel(QScrollArea):
         self.thick_ratio.setValue(s.style.thick_ratio)
         self.color_layers.setChecked(s.style.color_layers)
         self.color_count.setValue(s.style.color_count)
+        self.symbols_auto.setChecked(s.symbols_auto)
         self.pdf_vectors.setChecked(s.pdf.enabled)
         self.pdf_fills.setChecked(s.pdf.include_fills)
         self.pdf_colors.setChecked(s.pdf.keep_colors)
@@ -375,7 +381,8 @@ class SettingsPanel(QScrollArea):
                   "boegen": self.arcs, "kreise": self.circles, "nur_polylinien": self.polylines,
                   "ocr": self.ocr, "strichlinien": self.dashed, "strichstaerken": self.widths,
                   "dicke_linien_layer": self.thick, "farben_trennen": self.color_layers,
-                  "massstab_aus_plan": self.auto_scale, "pdf_vektoren": self.pdf_vectors}
+                  "massstab_aus_plan": self.auto_scale, "pdf_vektoren": self.pdf_vectors,
+                  "symbole_automatisch": self.symbols_auto}
         if n in checks:
             checks[n].setChecked(b(value))
             return f"{name}: {'an' if checks[n].isChecked() else 'aus'}"
@@ -395,7 +402,8 @@ class SettingsPanel(QScrollArea):
             self.set_manual_scale(float(value))
             return f"Maßstab: {float(value):.5f} mm/px"
         if n == "radiuskorrektur":
-            v = str(value).lower()
+            v = str(value).lower().replace("ß", "ss").replace("ä", "ae").replace("ö", "oe") \
+                .replace("ü", "ue")
             key = next((k for k in COMP_LABELS if v.startswith(k[:3])), None)
             if not key:
                 raise ValueError(f"unbekannte Radiuskorrektur {value}")
