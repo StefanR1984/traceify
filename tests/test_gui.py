@@ -11,6 +11,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
+QtCore = pytest.importorskip("PySide6.QtCore")
 
 
 class FakeOllama(BaseHTTPRequestHandler):
@@ -130,4 +131,62 @@ def test_gui_opens_vector_pdf(tmp_path, monkeypatch):
     assert w.drawing.meta.get("quelle") == "PDF-Vektoren"
     assert w.drawing.meta.get("massstab") == "1:50"
     assert w.drawing.stats()["Kreise"] == 1
+    w.close()
+
+
+def test_gui_tools(tmp_path, monkeypatch):
+    from traceify import config
+    from traceify.core.model import Line
+    monkeypatch.setattr(config, "CONFIG_PATH", str(tmp_path / "config.json"))
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    from traceify.gui.main_window import MainWindow
+    w = MainWindow()
+    w.panel.ocr.setChecked(False)
+    img = np.full((400, 600), 255, np.uint8)
+    cv2.line(img, (50, 100), (500, 102), 0, 3)
+    cv2.line(img, (500, 102), (502, 350), 0, 3)
+    cv2.circle(img, (300, 250), 4, 0, -1)          # Fleck
+    p = tmp_path / "t.png"
+    cv2.imwrite(str(p), img)
+    w.open_file(str(p))
+
+    # Radierer entfernt den Fleck im Raster, Strg+Z stellt ihn wieder her
+    w.set_tool("erase")
+    w.on_brush_stroke([(300.0, 250.0)], "erase", 14)
+    assert w.gray[250, 300] == 255 and w.raster_modified
+    w.undo()
+    assert w.gray[250, 300] == 0
+    w.on_brush_stroke([(290.0, 250.0), (310.0, 250.0)], "erase", 14)
+    w.set_tool("select")
+
+    # Bereich direkt anlegen (ohne Menü) und konvertieren
+    from traceify.core.pipeline import Region
+    w.regions = [Region(0, 300, 600, 100, "ignorieren")]
+    w._update_regions()
+    assert len(w.canvas.region_items) == 1
+    w.run_convert()
+    wait(app, lambda: w.worker is None and w.drawing is not None)
+    lines = w.drawing.by_type(Line)
+    assert lines and all(max(l.p1[1], l.p2[1]) <= 305 for l in lines)  # unten ignoriert
+
+    # Ausrichten aller Linien + Rückgängig
+    before = [(l.p1, l.p2) for l in w.drawing.by_type(Line)]
+    w.edit_orthogonalize()
+    after = w.drawing.by_type(Line)
+    assert any(abs(l.p1[1] - l.p2[1]) < 1e-9 for l in after)
+    w.undo()
+    assert [(l.p1, l.p2) for l in w.drawing.by_type(Line)] == before
+
+    # Knoten-Griffe erscheinen bei genau einem markierten Objekt
+    it = w.canvas.item_by_id[id(w.drawing.by_type(Line)[0])]
+    it.setSelected(True)
+    app.processEvents()
+    assert len(w.canvas.handles) == 2
+    h = w.canvas.handles[0]
+    w.on_node_edit_started()
+    h._dragging = True
+    h.setPos(QtCore.QPointF(10, 10))
+    h._dragging = False
+    assert w.drawing.by_type(Line)[0].p1 == (10.0, 10.0) or \
+        (10.0, 10.0) in [e.p1 for e in w.drawing.by_type(Line)]
     w.close()

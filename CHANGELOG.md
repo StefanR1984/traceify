@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.5.0 – 04.11.2026
+### Neu: Bearbeiten
+- **Raster-Radierer und Stift** in der neuen Werkzeugleiste „Bearbeiten“:
+  - Radierer (E) entfernt Flecken, Stempel oder Lochungen
+  - Stift (P) zieht unterbrochene Linien nach
+  - Pinselgröße einstellbar, Vorschau als Kreis am Mauszeiger
+  - Strg+Z macht jeden Strich rückgängig; bereits erkannte Vektoren bleiben stehen, bis neu konvertiert wird
+- **Bereiche** (R): Rechteck aufziehen und eine Behandlung wählen:
+  - *ignorieren*
+  - *CAD – Mittellinie*
+  - *CNC – Umriss*
+  - *nur Text*, ohne Linien
+
+  Bereiche werden farbig angezeigt; Rechtsklick ändert oder entfernt sie. Sie wirken auch bei Vektor-PDFs (ignorieren, nur Text).
+- **Knoten bearbeiten:** Bei genau einem markierten Objekt erscheinen ziehbare Knoten:
+  - Linie, Polylinie: Endpunkte und Eckpunkte
+  - Kreis: Mittelpunkt und Radius
+  - Bogen: Mittelpunkt und Enden
+
+  Verbundene Linien wandern mit; abschaltbar unter Bearbeiten → „Verbundene Knoten mitziehen“.
+- **Vektor-Werkzeuge** (Menü Bearbeiten und Leiste):
+  - **Ecke schließen** (C): zwei Linien bis zum Schnittpunkt verlängern oder kürzen
+  - **Gerade ausrichten** (O): fast waagrechte und senkrechte Linien exakt ausrichten, Ecken bleiben verbunden
+  - **Lücken schließen** (L): nahe Endpunkte zusammenführen, Abstand frei wählbar
+  - **Zu Polylinie verbinden** (J) und **In Einzellinien auflösen** (X)
+
+  Ohne Auswahl wirken Ausrichten und Lücken schließen auf alle sichtbaren Linien.
+- API: Bereiche über `ConvertSettings.regions` (Liste von `Region` oder Dicts mit x, y, w, h, mode).
+
+### Verbessert
+- Werkzeugleisten stehen in zwei Zeilen. Eine ältere gespeicherte Fensteranordnung wird einmalig zurückgesetzt.
+
 ## 0.4.0 – 04.11.2026
 ### Neu
 - **Vektor-PDFs direkt übernehmen:** PDFs aus CAD- und Grafikprogrammen werden erkannt. Statt sie zu rastern und neu zu vektorisieren, übernimmt Traceify die Daten millimetergenau:

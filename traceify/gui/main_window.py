@@ -7,7 +7,7 @@ import traceback
 
 import numpy as np
 from PySide6.QtCore import QSettings, Qt, QThread, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPixmap
+from PySide6.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence, QPixmap
 from PySide6.QtWidgets import (QApplication, QDockWidget, QFileDialog,
                                QInputDialog, QLabel, QListWidget, QListWidgetItem,
                                QMainWindow, QMessageBox, QProgressBar, QSlider,
@@ -23,6 +23,8 @@ from .batch_dialog import BatchDialog
 from .canvas import Canvas
 from .ai_panel import AiPanel, FuncWorker, describe_action
 from .settings_panel import SettingsPanel
+
+UI_STATE_VERSION = 2  # erhöhen, wenn sich Leisten/Docks ändern – alte Anordnung wird verworfen
 
 FILE_FILTER = ("Bilder & PDF (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.gif *.webp *.pdf);;"
                "Alle Dateien (*)")
@@ -71,6 +73,14 @@ class MainWindow(QMainWindow):
         self.canvas = Canvas()
         self.setCentralWidget(self.canvas)
         self.canvas.cropSelected.connect(self.on_crop)
+        self.canvas.regionDrawn.connect(self.on_region_drawn)
+        self.canvas.regionMenuRequested.connect(self.on_region_menu)
+        self.canvas.brushStroke.connect(self.on_brush_stroke)
+        self.canvas.nodeEditStarted.connect(self.on_node_edit_started)
+        self.canvas.nodeEditFinished.connect(self.on_node_edit_finished)
+        self.canvas.toolCancelled.connect(lambda: self.set_tool("select"))
+        self.canvas.entities_provider = lambda: self.drawing.entities if self.drawing else []
+        self.regions = []
         self.canvas.measured.connect(self.on_measured)
         self.canvas.mouseMoved.connect(self.on_mouse)
         self.canvas.scene().selectionChanged.connect(self.update_status)
@@ -139,7 +149,7 @@ class MainWindow(QMainWindow):
             self.restoreGeometry(geo)
         st = self.qs.value("state")
         if st is not None:
-            self.restoreState(st)
+            self.restoreState(st, UI_STATE_VERSION)
         self.update_actions()
         self._autostart_ollama()
         from .. import config as _cfg
@@ -180,6 +190,36 @@ class MainWindow(QMainWindow):
                           "Markierte Objekte entfernen")
         self.a_select_all = A("Alles auswählen", self.select_all, QKeySequence.SelectAll)
         self.a_select_layer = A("Ganzen Layer der Auswahl auswählen", self.select_layer)
+
+        # Werkzeuge (exklusiv)
+        self.a_tool_select = A("Auswählen / Knoten bearbeiten", lambda: self.set_tool("select"),
+                               "Esc", "Objekte wählen; bei einem Objekt Knoten ziehen",
+                               checkable=True)
+        self.a_tool_erase = A("Radierer", lambda: self.set_tool("erase"), "E",
+                              "Flecken, Stempel, Lochungen im Rasterbild wegradieren",
+                              checkable=True)
+        self.a_tool_pen = A("Stift", lambda: self.set_tool("pen"), "P",
+                            "Lücken in Linien im Rasterbild nachziehen", checkable=True)
+        self.a_tool_region = A("Bereich festlegen", lambda: self.set_tool("region"), "R",
+                               "Rechteck aufziehen: eigener Modus oder ignorieren",
+                               checkable=True)
+        self.tool_group = QActionGroup(self)
+        for a in (self.a_tool_select, self.a_tool_erase, self.a_tool_pen, self.a_tool_region):
+            self.tool_group.addAction(a)
+        self.a_tool_select.setChecked(True)
+        self.a_regions_clear = A("Alle Bereiche entfernen", self.clear_regions)
+
+        # Vektor-Bearbeitung
+        self.a_corner = A("Ecke schließen (2 Linien)", self.edit_close_corner, "C",
+                          "Zwei markierte Linien bis zum Schnittpunkt verlängern/kürzen")
+        self.a_ortho = A("Gerade ausrichten (waagrecht/senkrecht)", self.edit_orthogonalize, "O",
+                         "Fast waagrechte/senkrechte Linien exakt ausrichten – Auswahl oder alles")
+        self.a_gaps = A("Lücken schließen …", self.edit_snap_gaps, "L",
+                        "Nahe Endpunkte zusammenführen – Auswahl oder alles")
+        self.a_join = A("Zu Polylinie verbinden", self.edit_join, "J")
+        self.a_explode = A("In Einzellinien auflösen", self.edit_explode, "X")
+        self.a_connected = A("Verbundene Knoten mitziehen", self.toggle_connected, checkable=True)
+        self.a_connected.setChecked(True)
 
         self.a_rot_l = A("90° nach links drehen", lambda: self.rotate(-1))
         self.a_rot_r = A("90° nach rechts drehen", lambda: self.rotate(1))
@@ -230,12 +270,16 @@ class MainWindow(QMainWindow):
             dm.addAction(a)
 
         m = self.menuBar().addMenu("&Bearbeiten")
-        for a in (self.a_undo, None, self.a_select_all, self.a_select_layer, self.a_delete):
+        for a in (self.a_undo, None, self.a_tool_select, self.a_select_all, self.a_select_layer,
+                  self.a_delete, None, self.a_corner, self.a_ortho, self.a_gaps, self.a_join,
+                  self.a_explode, None, self.a_connected):
             m.addSeparator() if a is None else m.addAction(a)
 
         m = self.menuBar().addMenu("&Raster")
-        for a in (self.a_rot_l, self.a_rot_r, self.a_crop, self.a_deskew, self.a_invert):
-            m.addAction(a)
+        for a in (self.a_tool_erase, self.a_tool_pen, None, self.a_tool_region,
+                  self.a_regions_clear, None, self.a_rot_l, self.a_rot_r, self.a_crop,
+                  self.a_deskew, self.a_invert):
+            m.addSeparator() if a is None else m.addAction(a)
 
         m = self.menuBar().addMenu("&Ansicht")
         for a in (self.a_fit, self.a_zoom_100, self.a_zoom_in, self.a_zoom_out, None,
@@ -308,17 +352,51 @@ class MainWindow(QMainWindow):
         tb.addAction(self.a_show_bin)
         tb.addSeparator()
         tb.addAction(self.a_batch)
+        self._build_edit_toolbar()
         tb.addSeparator()
         tb.addAction(self.a_ai_suggest)
         tb.addAction(self.a_ai_show)
+
+    def _build_edit_toolbar(self):
+        for a, t in {self.a_tool_select: "↖ Auswahl", self.a_tool_erase: "Radierer",
+                     self.a_tool_pen: "Stift", self.a_tool_region: "▭ Bereich",
+                     self.a_corner: "Ecke", self.a_ortho: "Ausrichten",
+                     self.a_gaps: "Lücken", self.a_join: "Verbinden",
+                     self.a_explode: "Auflösen", self.a_delete: "Löschen",
+                     self.a_undo: "↶ Zurück"}.items():
+            a.setIconText(t)
+        self.addToolBarBreak()
+        tb = QToolBar("Bearbeiten")
+        tb.setObjectName("toolbar_edit")
+        tb.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self.addToolBar(tb)
+        for a in (self.a_tool_select, self.a_tool_erase, self.a_tool_pen):
+            tb.addAction(a)
+        tb.addWidget(QLabel(" Pinsel "))
+        self.brush_spin = QSpinBox()
+        self.brush_spin.setRange(1, 300)
+        self.brush_spin.setValue(int(self.qs.value("brush_size", 12)))
+        self.brush_spin.setSuffix(" px")
+        self.brush_spin.valueChanged.connect(self.on_brush_size)
+        tb.addWidget(self.brush_spin)
+        tb.addAction(self.a_tool_region)
+        tb.addSeparator()
+        for a in (self.a_corner, self.a_ortho, self.a_gaps, self.a_join, self.a_explode,
+                  self.a_delete):
+            tb.addAction(a)
+        tb.addSeparator()
+        tb.addAction(self.a_undo)
 
     def update_actions(self):
         has_img = self.gray is not None
         has_vec = self.drawing is not None and bool(self.drawing.entities)
         busy = self.worker is not None
         for a in (self.a_convert, self.a_rot_l, self.a_rot_r, self.a_crop, self.a_deskew,
-                  self.a_invert, self.a_calib, self.a_show_bin, self.a_ai_suggest):
+                  self.a_invert, self.a_calib, self.a_show_bin, self.a_ai_suggest,
+                  self.a_tool_erase, self.a_tool_pen, self.a_tool_region, self.a_regions_clear):
             a.setEnabled(has_img and not busy)
+        for a in (self.a_corner, self.a_ortho, self.a_gaps, self.a_join, self.a_explode):
+            a.setEnabled(has_vec and not busy)
         for a in (self.a_dxf, self.a_dwg, self.a_svg, self.a_nc, self.a_delete, self.a_select_all,
                   self.a_select_layer, self.a_ai_texts, self.a_ai_review):
             a.setEnabled(has_vec and not busy)
@@ -358,6 +436,9 @@ class MainWindow(QMainWindow):
         self.binary = None
         self.drawing = None
         self.undo_stack.clear()
+        self.regions = []
+        self.canvas.set_regions([], {})
+        self.set_tool("select")
         self.raster_modified = False
         self.is_vector_pdf = False
         if path.lower().endswith(".pdf"):
@@ -394,6 +475,8 @@ class MainWindow(QMainWindow):
         if self.gray is None or self.worker:
             return
         s = self.panel.settings()
+        from dataclasses import asdict
+        s.regions = [asdict(r) for r in self.regions]
         self.worker = ConvertWorker(self.gray, s, self.img_scale,
                                     os.path.basename(self.path or ""), self.path or "",
                                     self.page, self.panel.pdf_dpi.value(),
@@ -549,6 +632,12 @@ class MainWindow(QMainWindow):
         if not self.undo_stack:
             return
         kind, *data = self.undo_stack.pop()
+        if kind == "raster_only":
+            self.gray = data[0]
+            self.binary = None
+            self._show_current_raster()
+            self.update_actions()
+            return
         if kind == "entities" and self.drawing:
             self.drawing.entities = data[0]
         elif kind == "drawing":
@@ -563,8 +652,227 @@ class MainWindow(QMainWindow):
         self.refresh_layers()
         self.update_actions()
 
+    # ------------------------------------------------------------ Werkzeuge
+    def set_tool(self, tool):
+        acts = {"select": self.a_tool_select, "erase": self.a_tool_erase,
+                "pen": self.a_tool_pen, "region": self.a_tool_region}
+        if tool != "select" and self.gray is None:
+            tool = "select"
+        acts[tool].setChecked(True)
+        self.canvas.set_tool(tool, self.brush_spin.value())
+        msg = {"select": "Auswahl: Objekte anklicken oder Rahmen ziehen. Bei einem Objekt "
+                         "erscheinen Knoten zum Ziehen.",
+               "erase": "Radierer: über das Rasterbild malen (Pinselgröße in der Leiste). "
+                        "Esc = zurück zur Auswahl.",
+               "pen": "Stift: Lücken in Linien nachziehen. Esc = zurück zur Auswahl.",
+               "region": "Bereich: Rechteck aufziehen und Behandlung wählen. "
+                         "Rechtsklick auf einen Bereich = ändern/entfernen. Esc = fertig."}[tool]
+        self.statusBar().showMessage(msg)
+
+    def on_brush_size(self, v):
+        self.qs.setValue("brush_size", int(v))
+        self.canvas.set_brush_size(v)
+
+    def _show_current_raster(self):
+        if self.a_show_bin.isChecked():
+            self.binary = preprocess.to_binary(self.gray, self.panel.settings().preprocess)
+            self.canvas.update_raster(255 - self.binary)
+        else:
+            self.canvas.update_raster(self.gray)
+
+    def on_brush_stroke(self, pts, tool, size):
+        import cv2
+        if self.gray is None or not pts:
+            self.canvas.clear_stroke()
+            return
+        self.undo_stack.append(("raster_only", self.gray))
+        g = self.gray.copy()
+        arr = np.round(np.asarray(pts, dtype=float)).astype(np.int32).reshape(-1, 1, 2)
+        col = 255 if tool == "erase" else 0
+        r = max(1, int(round(size / 2)))
+        if len(arr) == 1:
+            cv2.circle(g, tuple(int(v) for v in arr[0, 0]), r, col, -1)
+        else:
+            cv2.polylines(g, [arr], False, col, thickness=max(1, int(size)))
+            cv2.circle(g, tuple(int(v) for v in arr[0, 0]), r, col, -1)
+            cv2.circle(g, tuple(int(v) for v in arr[-1, 0]), r, col, -1)
+        self.gray = g
+        self.binary = None
+        self.raster_modified = True
+        self._show_current_raster()
+        self.canvas.clear_stroke()
+        self.statusBar().showMessage(("Radiert" if tool == "erase" else "Nachgezogen")
+                                     + " – zum Übernehmen neu konvertieren (F5). Strg+Z = zurück.")
+        self.update_actions()
+
+    # -------------------------------------------------------------- Bereiche
+    def _region_labels(self):
+        from ..core.pipeline import REGION_MODES
+        return REGION_MODES
+
+    def _update_regions(self):
+        self.canvas.set_regions(self.regions, self._region_labels())
+        if self.regions:
+            self.statusBar().showMessage(f"{len(self.regions)} Bereich(e) – wirken beim nächsten "
+                                         "Konvertieren (F5).")
+
+    def _region_mode_menu(self, current=None, with_delete=False):
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        acts = {}
+        for mode, label in self._region_labels().items():
+            a = menu.addAction(label)
+            a.setCheckable(True)
+            a.setChecked(mode == current)
+            acts[a] = mode
+        if with_delete:
+            menu.addSeparator()
+            acts[menu.addAction("Bereich entfernen")] = None
+        return menu, acts
+
+    def on_region_drawn(self, x, y, w, h):
+        from PySide6.QtGui import QCursor
+        from ..core.pipeline import Region
+        menu, acts = self._region_mode_menu()
+        chosen = menu.exec(QCursor.pos())
+        if chosen in acts:
+            self.regions.append(Region(x, y, w, h, acts[chosen]))
+            self._update_regions()
+
+    def on_region_menu(self, index, gpos):
+        if not (0 <= index < len(self.regions)):
+            return
+        menu, acts = self._region_mode_menu(self.regions[index].mode, with_delete=True)
+        chosen = menu.exec(gpos)
+        if chosen not in acts:
+            return
+        if acts[chosen] is None:
+            del self.regions[index]
+        else:
+            self.regions[index].mode = acts[chosen]
+        self._update_regions()
+
+    def clear_regions(self):
+        self.regions = []
+        self._update_regions()
+        self.statusBar().showMessage("Alle Bereiche entfernt.")
+
+    # ------------------------------------------------------ Vektor-Bearbeitung
+    def _snapshot(self):
+        import copy
+        self.undo_stack.append(("entities", copy.deepcopy(self.drawing.entities)))
+        self.update_actions()
+
+    def _targets(self, types):
+        sel = [e for e in self.canvas.selected_entities() if isinstance(e, types)]
+        if sel:
+            return sel, True
+        return [e for e in self.drawing.entities if isinstance(e, types)
+                and e.layer in self.visible_layers()], False
+
+    def on_node_edit_started(self):
+        if self.drawing:
+            # Schnappschuss VOR der Änderung: Objekte bleiben identisch, Koordinaten kopiert
+            import copy
+            snap = copy.deepcopy(self.drawing.entities)
+            self.undo_stack.append(("entities", snap))
+            self.update_actions()
+
+    def on_node_edit_finished(self):
+        self.statusBar().showMessage("Knoten verschoben (Strg+Z = zurück).")
+
+    def toggle_connected(self, on):
+        self.canvas.node_connected = bool(on)
+
+    def edit_close_corner(self):
+        from ..core.edit import close_corner
+        from ..core.model import Line
+        sel = [e for e in self.canvas.selected_entities() if isinstance(e, Line)]
+        if len(sel) != 2:
+            self.statusBar().showMessage("Bitte genau zwei Linien markieren (Strg+Klick).")
+            return
+        self._snapshot()
+        if not close_corner(*sel):
+            self.undo_stack.pop()
+            self.statusBar().showMessage("Die Linien sind parallel – keine Ecke möglich.")
+            return
+        self.canvas.refresh_entities(sel)
+        self.canvas.refresh_handles()
+        self.statusBar().showMessage("Ecke geschlossen.")
+
+    def edit_orthogonalize(self):
+        from ..core.edit import orthogonalize
+        from ..core.model import Line
+        if not self.drawing:
+            return
+        targets, is_sel = self._targets(Line)
+        self._snapshot()
+        n = orthogonalize(targets, tol_deg=3.0, join_tol=max(1.5, self.panel.snap.value()))
+        if not n:
+            self.undo_stack.pop()
+        self.canvas.refresh_entities(targets)
+        self.statusBar().showMessage(f"{n} Linien exakt ausgerichtet"
+                                     + (" (Auswahl)." if is_sel else " (alle sichtbaren)."))
+
+    def edit_snap_gaps(self):
+        from ..core.edit import snap_gaps
+        from ..core.model import Line, Polyline
+        if not self.drawing:
+            return
+        dist, ok = QInputDialog.getDouble(self, "Lücken schließen",
+                                          "Endpunkte zusammenführen bis Abstand (Pixel):",
+                                          6.0, 0.5, 500.0, 1)
+        if not ok:
+            return
+        targets, is_sel = self._targets((Line, Polyline))
+        self._snapshot()
+        n = snap_gaps(targets, dist)
+        self.canvas.refresh_entities(targets)
+        self.statusBar().showMessage(f"{n} Lücken geschlossen"
+                                     + (" (Auswahl)." if is_sel else " (alle sichtbaren)."))
+
+    def edit_join(self):
+        from ..core.edit import join_lines
+        from ..core.model import Line
+        if not self.drawing:
+            return
+        lines = [e for e in self.canvas.selected_entities() if isinstance(e, Line)]
+        if len(lines) < 2:
+            self.statusBar().showMessage("Bitte mindestens zwei verbundene Linien markieren.")
+            return
+        self._snapshot()
+        polys = join_lines(lines, tol=max(0.5, self.panel.snap.value() / 2))
+        ids = {id(e) for e in lines}
+        self.drawing.entities = [e for e in self.drawing.entities if id(e) not in ids] + polys
+        self.canvas.set_entities(self.drawing.entities)
+        self.canvas.select_entities(polys)
+        self.refresh_layers()
+        self.statusBar().showMessage(f"{len(lines)} Linien zu {len(polys)} Polylinie(n) verbunden.")
+
+    def edit_explode(self):
+        from ..core.edit import explode
+        from ..core.model import Polyline
+        if not self.drawing:
+            return
+        polys = [e for e in self.canvas.selected_entities() if isinstance(e, Polyline)]
+        if not polys:
+            self.statusBar().showMessage("Bitte Polylinien markieren.")
+            return
+        self._snapshot()
+        new = [ln for p in polys for ln in explode(p)]
+        ids = {id(e) for e in polys}
+        self.drawing.entities = [e for e in self.drawing.entities if id(e) not in ids] + new
+        self.canvas.set_entities(self.drawing.entities)
+        self.canvas.select_entities(new)
+        self.refresh_layers()
+        self.statusBar().showMessage(f"{len(polys)} Polylinie(n) in {len(new)} Linien aufgelöst.")
+
     # ---------------------------------------------------------------- Raster
-    def _raster_edit(self, new_gray, msg):
+    def _raster_edit(self, new_gray, msg, keep_regions=False):
+        if not keep_regions and self.regions:
+            self.regions = []
+            self.canvas.set_regions([], {})
+            msg += " (Bereiche entfernt)"
         self.undo_stack.append(("raster", self.gray, self.drawing))
         self.raster_modified = True  # Vektor-PDF-Koordinaten passen nicht mehr
         self.gray = new_gray
@@ -602,7 +910,7 @@ class MainWindow(QMainWindow):
         self._raster_edit(preprocess.rotate(self.gray, a, border=255), f"Um {a:.2f}° begradigt")
 
     def invert_now(self):
-        self._raster_edit(255 - self.gray, "Invertiert")
+        self._raster_edit(255 - self.gray, "Invertiert", keep_regions=True)
 
     # ----------------------------------------------------------- Maßstab
     def start_calibrate(self):
@@ -1099,7 +1407,10 @@ class MainWindow(QMainWindow):
             "<b>3. Modus/Vorlage</b> – CAD-Mittellinien für Zeichnungen und Pläne, "
             "CNC-Umrisse für Logos und Schneidteile.<br>"
             "<b>4. Konvertieren</b> (F5) – Ergebnis erscheint farbig über dem Bild.<br>"
+            "<b>Vorher bereinigen</b> – Radierer (E) und Stift (P) im Rasterbild, Bereiche (R) "
+            "mit eigenem Modus oder „ignorieren“.<br>"
             "<b>5. Bereinigen</b> – Objekte anklicken oder per Rahmen markieren, Entf löscht, "
+            "Knoten ziehen, Ecke schließen (C), gerade ausrichten (O), Lücken schließen (L), "
             "Strg+Z macht rückgängig. Layer links ein-/ausblenden (nur sichtbare werden "
             "exportiert).<br>"
             "<b>6. Maßstab</b> – automatisch aus der DPI oder per »Maßstab kalibrieren« an "
@@ -1121,7 +1432,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, ev):
         self.qs.setValue("geometry", self.saveGeometry())
-        self.qs.setValue("state", self.saveState())
+        self.qs.setValue("state", self.saveState(UI_STATE_VERSION))
         if self.worker:
             self.worker.wait(10000)
         super().closeEvent(ev)
