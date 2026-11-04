@@ -194,6 +194,8 @@ class BatchDialog(QDialog):
                                  + f" → {self.out_dir.text()}")
         self.btn_start.setEnabled(True)
         self.btn_stop.setEnabled(False)
+        if self.worker:
+            self.worker.wait(10000)       # Signal kommt aus dem Thread – erst sein Ende abwarten
         self.worker = None
 
     def closeEvent(self, ev):

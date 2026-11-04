@@ -259,6 +259,9 @@ class AiPanel(QWidget):
         return w
 
     def _done(self, w):
+        # „finished“ kommt kurz bevor der Thread wirklich endet – erst abwarten, dann die
+        # letzte Referenz loslassen (sonst „QThread: Destroyed while thread is still running“)
+        w.wait(5000)
         if w in self.workers:
             self.workers.remove(w)
         if not any(not getattr(x, "background", False) for x in self.workers):

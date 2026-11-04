@@ -65,6 +65,8 @@ class ComponentsDialog(QDialog):
     def _finished(self):
         self.btn_check.setEnabled(True)
         self.btn_install.setEnabled(True)
+        if self.worker:
+            self.worker.wait(5000)
         self.worker = None
 
     def check(self):

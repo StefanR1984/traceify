@@ -11,6 +11,9 @@
 - **Kleine Lücken schließen** (neu, Standard 0,8 mm, einstellbar oder „aus“): Linienenden, die knapp vor einem anderen Objekt enden, werden bis dorthin verlängert. Ecken und T-Stöße sind damit geschlossen, Türöffnungen bleiben offen. Offene Enden bei den Testplänen: 8–28 % weniger.
 - KI-Stapelregeln und Chat kennen `luecken_mm`.
 
+### Behoben
+- **Seltener Absturz beim Beenden** („QThread: Destroyed while thread is still running“): Hintergrund-Threads (KI-Verbindung, Modellliste, Stapel, Komponenten, Updates) wurden manchmal schon freigegeben, während sie noch liefen. Jetzt wird ihr Ende abgewartet, auch beim Schließen des Fensters.
+
 
 ## 0.13.0 – 04.11.2026
 ### Neu: vLLM und andere OpenAI-kompatible KI-Server

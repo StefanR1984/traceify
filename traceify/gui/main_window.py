@@ -1473,7 +1473,7 @@ class MainWindow(QMainWindow):
             return installer.start_ollama()
         w = FuncWorker(job)
         w.result.connect(lambda ok: self.ai_panel.refresh())
-        w.finished.connect(lambda: self.ai_workers.remove(w) if w in self.ai_workers else None)
+        w.finished.connect(lambda: self._drop_worker(w))
         self.ai_workers.append(w)
         w.start()
 
@@ -1897,7 +1897,7 @@ class MainWindow(QMainWindow):
 
         w = FuncWorker(job)
         w.result.connect(done)
-        w.finished.connect(lambda: self.ai_workers.remove(w) if w in self.ai_workers else None)
+        w.finished.connect(lambda: self._drop_worker(w))
         self.ai_workers.append(w)
         w.start()
 
@@ -2026,7 +2026,7 @@ class MainWindow(QMainWindow):
         w.progress.connect(on_progress)
         w.result.connect(on_done)
         w.error.connect(on_error)
-        w.finished.connect(lambda: self.ai_workers.remove(w) if w in self.ai_workers else None)
+        w.finished.connect(lambda: self._drop_worker(w))
         self.ai_workers.append(w)
         w.start()
         return w
@@ -2084,9 +2084,20 @@ class MainWindow(QMainWindow):
                           '<a href="https://github.com/StefanR1984/traceify">'
                           "github.com/StefanR1984/traceify</a>")
 
+    def _drop_worker(self, w):
+        """Hintergrund-Thread loslassen, erst wenn er wirklich beendet ist."""
+        w.wait(5000)
+        if w in self.ai_workers:
+            self.ai_workers.remove(w)
+
     def closeEvent(self, ev):
         self.qs.setValue("geometry", self.saveGeometry())
         self.qs.setValue("state", self.saveState(UI_STATE_VERSION))
         if self.worker:
             self.worker.wait(10000)
+        # Hintergrund-Threads (KI-Verbindung, Modellliste, Updates) beenden lassen – sonst
+        # bricht Python beim Beenden mit „QThread: Destroyed while thread is still running“ ab
+        for w in list(self.ai_workers) + list(self.ai_panel.workers):
+            w.stop_requested = True
+            w.wait(5000)
         super().closeEvent(ev)
