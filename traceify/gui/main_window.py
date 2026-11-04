@@ -1238,25 +1238,20 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Ecke geschlossen.")
 
     def edit_orthogonalize(self):
-        from ..core.edit import orthogonalize
-        from ..core.model import Line
+        from ..core.edit import align_axes
+        from ..core.model import Line, Polyline
         if not self.drawing:
             return
-        from ..core.edit import rotate
-        targets, is_sel = self._targets(Line)
+        targets, is_sel = self._targets((Line, Polyline))
         self._snapshot()
-        skew = self.canvas.ortho_angle            # an der Schräglage des Scans ausrichten
         c = (self.drawing.width / 2.0, self.drawing.height / 2.0)
-        work = [rotate(l, c, -skew) for l in targets] if skew else targets
-        n = orthogonalize(work, tol_deg=3.0, join_tol=max(1.5, self.panel.snap.value()))
-        if skew:
-            for l, w_ in zip(targets, work):
-                r = rotate(w_, c, skew)
-                l.p1, l.p2 = r.p1, r.p2
+        # an der Schräglage des Scans ausrichten
+        n = align_axes(targets, self.canvas.ortho_angle, c, tol_deg=3.0,
+                       join_tol=max(1.5, self.panel.snap.value()))
         if not n:
             self.undo_stack.pop()
         self.canvas.refresh_entities(targets)
-        self.statusBar().showMessage(f"{n} Linien exakt ausgerichtet"
+        self.statusBar().showMessage(f"{n} Linien/Segmente exakt ausgerichtet"
                                      + (" (Auswahl)." if is_sel else " (alle sichtbaren)."))
 
     def edit_snap_gaps(self):
@@ -2042,7 +2037,8 @@ class MainWindow(QMainWindow):
             "<b>Vorher bereinigen</b> – Radierer (E) und Stift (P) im Rasterbild, Bereiche (R) "
             "mit eigenem Modus oder „ignorieren“.<br>"
             "<b>5. Bereinigen</b> – Objekte anklicken oder per Rahmen markieren, Entf löscht, "
-            "Knoten ziehen, Ecke schließen (C), gerade ausrichten (O), Lücken schließen (L), "
+            "Knoten ziehen, Ecke schließen (C), gerade ausrichten (O, auch Polylinien), "
+            "Lücken schließen (L), "
             "Strg+Z macht rückgängig. Layer links ein-/ausblenden (nur sichtbare werden "
             "exportiert).<br>"
             "<b>Zeichnen</b> – Leiste links: Linie (N), Polylinie (Umschalt+N), Rechteck "
@@ -2064,11 +2060,12 @@ class MainWindow(QMainWindow):
             "<b>Gescannte PDFs</b> öffnen in ihrer Originalauflösung (PDF-Render-DPI "
             "»automatisch«).<br><br>"
             "<b>Texte</b> werden in allen vier Richtungen erkannt, auch auf dem Kopf und schräg. "
+            "Maßzahlen werden nachgelesen, fehlende Kommas ergänzt. "
             "Handschrift liest die KI (KI → Unerkannte Schrift mit KI lesen).<br>"
             "<b>KI-Server</b> – im KI-Panel über ⚙: Ollama oder vLLM / OpenAI-kompatibel.<br>"
             "<b>Schräglage</b> des Scans wird erkannt, Linien werden ausgerichtet und beim "
-            "Export gerade gedreht. Schraffur kommt auf den Layer SCHRAFFUR, Wände auf Wunsch "
-            "als Umriss auf WAENDE.<br><br>"
+            "Export gerade gedreht. Schraffur kommt auf den Layer SCHRAFFUR und im DXF/DWG als "
+            "Schraffur-Fläche (HATCH), Wände auf Wunsch als Umriss auf WAENDE.<br><br>"
             "<b>Updates</b> – Klick auf »⬆ Update verfügbar« unten rechts, dann »Jetzt "
             "installieren«: Traceify lädt, prüft und installiert das Update und startet neu."
             "<br><br>"

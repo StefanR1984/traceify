@@ -30,7 +30,7 @@ OCR, Ollama-KI. Python 3.12, PySide6. Lizenz AGPL-3.0. Repo: StefanR1984/traceif
 ## Befehle
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt --break-system-packages
-QT_QPA_PLATFORM=offscreen python3 -W ignore -m pytest -q   # ~80 Tests, < 10 s
+QT_QPA_PLATFORM=offscreen python3 -W ignore -m pytest -q   # ~165 Tests, ca. 12 s
 python3 -m pyflakes traceify tests
 python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 ```
@@ -43,7 +43,8 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - `core/preprocess.py`, `vectorize.py` (Kachel-Skelett, Fransen, Fit),
   `style.py` (Strichlinien, Strichstärken), `colors.py`, `ocr.py` (Tesseract),
   `pdf_vector.py` (Vektor-PDF direkt), `scale_detect.py` (M 1:N), `symbols.py` (Blöcke),
-  `quality.py` (Ampel), `edit.py` (Ecke, Ausrichten, Lücken, Knoten),
+  `quality.py` (Ampel), `edit.py` (Ecke, Ausrichten inkl. Polylinien `align_axes`, Lücken, Knoten),
+  `hatch.py` (Schraffur-Flächen für den DXF-Export),
   `cad.py` (Fang, Schnittpunkte, Stutzen, Dehnen, SnapIndex).
 - `core/benchmark.py` + `tools/pruefstand.py` – Prüfstand (Objekte, Splitter, Abdeckung,
   Texte), `core/dxf_import.py` liest fremde DXF (z. B. Scan2CAD) und richtet sie aufs Bild aus.
@@ -75,17 +76,19 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - PDF-DPI 0 = automatisch (`loader.resolve_dpi`): Scan-PDFs in Originalauflösung, sonst 300.
 
 ## Offene Ideen
-Stand 0.14.0 – Prüfstand mit 9 Bauplan-Scans (96–150 dpi), Vergleich mit Scan2CAD bei
+Stand 0.15.0 – Prüfstand mit 9 Bauplan-Scans (96–150 dpi), Vergleich mit Scan2CAD bei
 image-11 und image-4 (Scans liefert der Nutzer bei Bedarf, nicht im Repo).
 Werte 0.14.0: image-11 47/129 Wörter wie Scan2CAD, Ortho 48 % (S2C 51 %), Abdeckung 98 % (S2C 86 %);
 image-4 Ortho 43 % (S2C 49 %), Handschrift nur per KI.
 
-1. **OCR** – Scan2CAD liest weiter mehr (Kommas in „NFL 13,12“ gehen oft verloren, Wörter an
-   Zeilenenden getrennt). Ideen: Tesseract-Whitelist für Maßzahlen, Zeilen zusammenfassen.
+1. **OCR** – 0.15.0: Maßzahlen-Nachlesen (Graustufen, Whitelist, Ziffern müssen gleich bleiben),
+   Einheiten hinter Zahlen, zerrissene Zeilen zusammenfügen (`ocr._merge_rows`). Nur auf
+   synthetischem Plan gemessen – auf den echten Scans (image-11, image-4) noch prüfen.
 2. **Handschrift / vLLM** – KI-Lesen und vLLM nur mit Attrappen getestet; der Nutzer hat den echten
    Test (Workflow „Integration (echt)“) vorerst ausgelassen – nicht ungefragt starten.
-3. **Schraffur als DXF-HATCH** statt Einzellinien – braucht ein Flächen-Objekt im Modell (GUI,
-   SVG, G-Code mitziehen); Umriss z. B. über shapely aus gepufferten Schraffurlinien.
-4. **Ausrichten von Polylinien** (bisher nur Linien).
-5. Workflow „Integration (echt)“: ODA-Download-Link wird nicht gefunden (Seite geändert); Ollama aus
+3. **Schraffur** – 0.15.0: `core/hatch.py` bildet beim DXF-Export HATCH-Flächen aus den Linien auf
+   SCHRAFFUR (Meta `schraffur_flaeche`). Im Modell/GUI/SVG/G-Code bleiben es Linien. Offen: auf
+   echten Scans prüfen, ggf. Flächen-Objekt in der GUI.
+4. Workflow „Integration (echt)“: ODA-Download-Link wird nicht gefunden (Seite geändert); Ollama aus
    dem portablen ZIP lief.
+5. Bemaßungen (Maßketten) als DIMENSION-Objekte erkennen.

@@ -136,6 +136,64 @@ def orthogonalize(ents: list, tol_deg: float = 3.0, join_tol: float = 2.0,
     return n
 
 
+def _turn(a: Point, b: Point, c: Point) -> float:
+    """Richtungsänderung in Grad am Knoten b (0 = gerade weiter)."""
+    a1 = math.atan2(b[1] - a[1], b[0] - a[0])
+    a2 = math.atan2(c[1] - b[1], c[0] - b[0])
+    d = abs(math.degrees(a2 - a1)) % 360
+    return min(d, 360 - d)
+
+
+def align_axes(ents: list, skew: float = 0.0, center: Point = (0.0, 0.0),
+               tol_deg: float = 3.0, join_tol: float = 2.0, min_px: float = 0.0,
+               curve_turn: float = 20.0) -> int:
+    """Richtet Linien **und Polylinien-Segmente** exakt an den Achsen aus (ändert ents).
+
+    skew: Schräglage in Grad (Bild); ausgerichtet wird an den um skew gedrehten Achsen.
+    Polylinien-Segmente werden nur genommen, wenn sie an beiden Enden „echte“ Ecken haben
+    (Knick > curve_turn) oder offene Enden sind – Segmente in Rundungen (viele kleine
+    Knicke) bleiben unberührt, damit Kurven nicht zu Treppen werden.
+    Gibt die Anzahl exakt ausgerichteter Linien/Segmente zurück."""
+    work: list = []           # (Proxy-Linie, Ziel) – Ziel: Line oder (Polyline, i, j)
+    for e in ents:
+        if isinstance(e, Line):
+            work.append((Line(e.p1, e.p2), e))
+        elif isinstance(e, Polyline) and len(e.points) >= 2:
+            P, n = e.points, len(e.points)
+            segs = n if e.closed and n >= 3 else n - 1
+            for i in range(segs):
+                j = (i + 1) % n
+                if math.dist(P[i], P[j]) < 1e-9:
+                    continue
+                ok = True
+                for k, (a, b, c) in enumerate(((i - 1, i, j), (i, j, j + 1))):
+                    if not e.closed and (a < 0 or c >= n):
+                        continue                       # offenes Ende
+                    if _turn(P[a % n], P[b], P[c % n]) <= curve_turn:
+                        ok = False
+                        break
+                if ok:
+                    work.append((Line(P[i], P[j]), (e, i, j)))
+    if not work:
+        return 0
+    proxies = [rotate(w, center, -skew) if skew else w for w, _ in work]
+    n = orthogonalize(proxies, tol_deg=tol_deg, join_tol=join_tol, min_px=min_px)
+    newpts: dict = {}
+    for prx, (_, tgt) in zip(proxies, work):
+        r = rotate(prx, center, skew) if skew else prx
+        if isinstance(tgt, Line):
+            tgt.p1, tgt.p2 = r.p1, r.p2
+        else:
+            pl, i, j = tgt
+            newpts.setdefault(id(pl), (pl, {}))[1].update({i: r.p1, j: r.p2})
+    for pl, upd in newpts.values():
+        pts = list(pl.points)
+        for i, p in upd.items():
+            pts[i] = p
+        pl.points = pts
+    return n
+
+
 def snap_gaps(ents: list, dist: float) -> int:
     """Führt Endpunkte (Linien, offene Polylinien) innerhalb von dist zusammen."""
     pts = _endpoints(ents)

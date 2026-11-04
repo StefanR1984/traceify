@@ -28,6 +28,10 @@ def selftest() -> int:
     import shapely  # Radiuskorrektur vorhanden?
     from .core import quality, symbols   # Module im Paket?
     assert pymupdf.__name__ and shapely.__name__ and quality.assess and symbols.find_matches
+    from .core.hatch import find_regions          # Schraffur-Flächen (shapely.ops)
+    from .core.model import LAYER_HATCH, Line
+    hl = [Line((10.0 + 8 * k, 10.0), (50.0 + 8 * k, 50.0), LAYER_HATCH) for k in range(8)]
+    assert len(find_regions(hl)) == 1
     msg = (f"Traceify {__version__} Selbsttest: {st} | Tesseract: "
            f"{'ja ' + '+'.join(l for l in available_languages() if l in ('deu', 'eng')) if tesseract_available() else 'nein'}"
            f" | Pfad: {_tesseract_cmd()} | Ausgabe: {out}")

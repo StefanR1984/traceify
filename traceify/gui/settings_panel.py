@@ -145,6 +145,13 @@ class SettingsPanel(QScrollArea):
                               "Layer und lassen sich im CAD mit einem Klick ausblenden")
         self.hatch.setChecked(True)
         f.addRow(self.hatch)
+        self.hatch_areas = QCheckBox("Schraffur als Fläche exportieren (DXF-HATCH)")
+        self.hatch_areas.setToolTip("Regelmäßige Schraffuren kommen im DXF/DWG als eine "
+                                    "Schraffur-Fläche mit Winkel und Abstand statt als viele "
+                                    "Einzellinien – im CAD als Ganzes änderbar")
+        self.hatch_areas.setChecked(True)
+        self.hatch.toggled.connect(self.hatch_areas.setEnabled)
+        f.addRow(self.hatch_areas)
         self.color_layers = QCheckBox("Farben auf eigene Layer trennen")
         self.color_layers.setToolTip("Farbige Pläne: jede Farbe wird ein Layer (FARBE_ROT, …)")
         f.addRow(self.color_layers)
@@ -182,6 +189,12 @@ class SettingsPanel(QScrollArea):
                                  "nicht gefunden hat, wird geradegerückt und nachgelesen")
         self.ocr_free.setChecked(True)
         f.addRow(self.ocr_free)
+        self.ocr_numbers = QCheckBox("Maßzahlen nachlesen (Kommas ergänzen)")
+        self.ocr_numbers.setToolTip("Zahlen wie „24 85“ oder „251“ werden gezielt noch einmal "
+                                    "gelesen; fehlende Kommas/Punkte werden ergänzt, die Ziffern "
+                                    "bleiben unverändert")
+        self.ocr_numbers.setChecked(True)
+        f.addRow(self.ocr_numbers)
         if not tesseract_available():
             self.ocr.setChecked(False)
             self.ocr.setEnabled(False)
@@ -317,6 +330,7 @@ class SettingsPanel(QScrollArea):
         o.vertical_text = self.ocr_vertical.isChecked()
         o.upside_down = self.ocr_upside.isChecked()
         o.free_angles = self.ocr_free.isChecked()
+        o.fix_numbers = self.ocr_numbers.isChecked()
         s.scale = None if self.scale_auto.isChecked() else self.mmpx.value()
         s.auto_scale = self.auto_scale.isChecked()
         st = s.style
@@ -326,6 +340,7 @@ class SettingsPanel(QScrollArea):
         st.thick_ratio = self.thick_ratio.value()
         st.walls_outline = self.walls_outline.isChecked()
         st.hatch_layer = self.hatch.isChecked()
+        st.hatch_areas = self.hatch_areas.isChecked()
         st.straighten = self.straighten.isChecked()
         st.close_gaps_mm = self.close_gaps.value()
         st.color_layers = self.color_layers.isChecked()
@@ -362,6 +377,7 @@ class SettingsPanel(QScrollArea):
         self.ocr_vertical.setChecked(o.vertical_text)
         self.ocr_upside.setChecked(o.upside_down)
         self.ocr_free.setChecked(o.free_angles)
+        self.ocr_numbers.setChecked(o.fix_numbers)
         self.scale_auto.setChecked(s.scale is None)
         self.auto_scale.setChecked(s.auto_scale)
         self.dashed.setChecked(s.style.detect_dashed)
@@ -370,6 +386,7 @@ class SettingsPanel(QScrollArea):
         self.thick_ratio.setValue(s.style.thick_ratio)
         self.walls_outline.setChecked(s.style.walls_outline)
         self.hatch.setChecked(s.style.hatch_layer)
+        self.hatch_areas.setChecked(s.style.hatch_areas)
         self.straighten.setChecked(s.style.straighten)
         self.close_gaps.setValue(s.style.close_gaps_mm)
         self.color_layers.setChecked(s.style.color_layers)
@@ -425,7 +442,9 @@ class SettingsPanel(QScrollArea):
                   "ocr": self.ocr, "strichlinien": self.dashed, "strichstaerken": self.widths,
                   "dicke_linien_layer": self.thick, "farben_trennen": self.color_layers,
                   "waende_umriss": self.walls_outline, "schraffur_layer": self.hatch,
-                  "schraege_texte": self.ocr_free, "gerade_ausrichten": self.straighten,
+                  "schraffur_flaeche": self.hatch_areas,
+                  "schraege_texte": self.ocr_free, "zahlen_nachlesen": self.ocr_numbers,
+                  "gerade_ausrichten": self.straighten,
                   "massstab_aus_plan": self.auto_scale, "pdf_vektoren": self.pdf_vectors,
                   "symbole_automatisch": self.symbols_auto}
         if n in checks:

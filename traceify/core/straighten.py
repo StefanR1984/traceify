@@ -14,7 +14,7 @@ from typing import Optional
 
 import numpy as np
 
-from .edit import orthogonalize, rotate
+from .edit import align_axes
 from .model import Line
 
 META_KEY = "schraeglage"     # Grad, Bildsystem (y nach unten)
@@ -52,17 +52,12 @@ def estimate_skew(ents: list, min_len: float = 40.0, max_deg: float = 5.0) -> Op
 def straighten(ents: list, width: int, height: int, tol_deg: float = 3.0,
                join_tol: float = 2.0, min_len: float = 40.0,
                min_px: float = 1.5) -> Optional[float]:
-    """Richtet fast achsparallele Linien exakt an der Schräglage aus (ändert ents).
+    """Richtet fast achsparallele Linien und Polylinien-Segmente exakt an der Schräglage aus (ändert ents).
 
     Gibt die Schräglage zurück (Grad, Bild) oder None, wenn keine bestimmbar war."""
     skew = estimate_skew(ents, min_len)
     if skew is None:
         return None
-    c = (width / 2.0, height / 2.0)
-    idx = [i for i, e in enumerate(ents) if isinstance(e, Line)]
-    lines = [rotate(ents[i], c, -skew) for i in idx]
-    orthogonalize(lines, tol_deg=tol_deg, join_tol=join_tol, min_px=min_px)
-    for i, l in zip(idx, lines):
-        r = rotate(l, c, skew)
-        ents[i].p1, ents[i].p2 = r.p1, r.p2
+    align_axes(ents, skew, (width / 2.0, height / 2.0), tol_deg=tol_deg,
+               join_tol=join_tol, min_px=min_px)
     return skew

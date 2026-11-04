@@ -4,13 +4,17 @@ Farbe, Linientyp und Strichstärke einzelner Objekte werden übernommen.
 """
 from __future__ import annotations
 
+import math
 import re
 
 import ezdxf
 from ezdxf import colors as ezcolors
+from ezdxf.lldxf import const
 from ezdxf import units
 
-from ..core.model import Arc, Circle, Drawing, Insert, Line, Polyline, Text, layer_color
+from ..core.hatch import HatchRegion, find_regions, wants_areas
+from ..core.model import (Arc, Circle, Drawing, Insert, LAYER_HATCH, Line, Polyline, Text,
+                          layer_color)
 
 DXF_VERSIONS = {"R12": "R12", "R2000": "R2000", "R2007": "R2007", "R2010": "R2010",
                 "R2013": "R2013", "R2018": "R2018"}
@@ -76,6 +80,24 @@ def _add(layout, e, P, s: float, version: str, layer_override=None) -> None:
         t.set_placement(P(e.position))
 
 
+def _add_hatch(layout, reg: HatchRegion, d: Drawing) -> None:
+    """Schraffur-Fläche als HATCH mit benutzerdefiniertem Linienmuster (Abstand, Winkel)."""
+    s = d.scale
+    h = layout.add_hatch(color=256, dxfattribs={"layer": LAYER_HATCH})
+    h.paths.add_polyline_path([d.to_mm(p) for p in reg.outline], is_closed=True,
+                              flags=const.BOUNDARY_PATH_EXTERNAL | const.BOUNDARY_PATH_OUTERMOST)
+    for hole in reg.holes:
+        h.paths.add_polyline_path([d.to_mm(p) for p in hole], is_closed=True, flags=0)
+    # y-Spiegelung: Bildwinkel a -> CAD-Winkel -a. Das Muster wird für Winkel 0 beschrieben
+    # (Basispunkt zurückgedreht) und von ezdxf um den CAD-Winkel gedreht.
+    a = (-reg.angle) % 180.0
+    r = math.radians(-a)
+    bx, by = d.to_mm(reg.base)
+    base0 = (bx * math.cos(r) - by * math.sin(r), bx * math.sin(r) + by * math.cos(r))
+    h.set_pattern_fill("TRACEIFY", color=256, angle=a, scale=1.0, style=1, pattern_type=0,
+                       definition=[[0.0, base0, (0.0, reg.spacing * s), []]])
+
+
 def export_dxf(d: Drawing, path: str, version: str = "R2010",
                visible_layers=None) -> None:
     d = d.export_view()          # Schräglage des Scans herausdrehen
@@ -105,8 +127,16 @@ def export_dxf(d: Drawing, path: str, version: str = "R2010",
 
     if d.meta:
         doc.header["$PROJECTNAME"] = d.meta.get("massstab", "")[:60] if version != "R12" else ""
+    skip = set()
+    if version != "R12" and wants_areas(d) and \
+            (visible_layers is None or LAYER_HATCH in visible_layers):
+        for reg in find_regions(d.entities):
+            _add_hatch(msp, reg, d)
+            skip.update(id(m) for m in reg.members)
     for e in d.entities:
         if visible_layers is not None and e.layer not in visible_layers:
+            continue
+        if id(e) in skip:
             continue
         if isinstance(e, Insert):
             msp.add_blockref(block_name(e.name), d.to_mm(e.position),

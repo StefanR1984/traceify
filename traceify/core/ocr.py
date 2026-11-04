@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import shutil
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -31,6 +31,7 @@ class OcrSettings:
     despeckle: int = 3             # Flecken entfernen nur bis zu dieser Fläche (px²) – kleiner als
                                    # bei den Linien, damit Dezimalpunkte und Kommas erhalten bleiben
     erase_padding: int = 2
+    fix_numbers: bool = True       # Maßzahlen nachlesen: fehlende/falsche Kommas ergänzen
 
 
 def _tesseract_cmd():
@@ -117,28 +118,143 @@ def plausible(txt: str) -> bool:
     return True
 
 
-def _run(gray: np.ndarray, s: OcrSettings):
+_NUMERIC = re.compile(r"^[0-9.,]+$")
+_DECIMAL = re.compile(r"^\d{1,6}[.,]\d{1,3}$")
+NUM_WHITELIST = "-c tessedit_char_whitelist=0123456789.,"
+
+
+def _run(gray: np.ndarray, s: OcrSettings, run_lines=None, detail=None):
     pytesseract = _setup()
     data = pytesseract.image_to_data(gray, lang=_usable_lang(s.language),
                                      config=(_tess_config() + " --psm 11").strip(),
                                      output_type=pytesseract.Output.DICT)
-    words = []
+    raw = []
     for i, txt in enumerate(data["text"]):
         txt = (txt or "").strip()
         try:
             conf = float(data["conf"][i])
         except (TypeError, ValueError):
             conf = -1
-        if not txt or conf < s.min_confidence or not _ALNUM.search(txt) or not plausible(txt):
+        if not txt or conf < 0:
             continue
         x, y, w, h = (data[k][i] for k in ("left", "top", "width", "height"))
+        key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
+        raw.append((key, x, y, w, h, txt, conf))
+    if s.fix_numbers:
+        raw = fix_numbers(gray if detail is None else detail, raw, s, run_lines)
+    units = _unit_words(raw)
+    words = []
+    for i, (key, x, y, w, h, txt, conf) in enumerate(raw):
+        if i in units and conf >= 50 and 5 <= h:
+            words.append((key, x, y, w, h, txt, conf))     # „qm“, „m²“ hinter einer Zahl
+            continue
+        if conf < s.min_confidence or not _ALNUM.search(txt) or not plausible(txt):
+            continue
         if h > max(gray.shape[0] * s.max_height_ratio, 80) or h < 5:
             continue
         if len(txt) <= 2 and conf < 85:  # Einzelzeichen/Kürzel sind oft Fehlerkennungen
             continue
-        key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
         words.append((key, x, y, w, h, txt, conf))
     return _group_lines(words)
+
+
+_UNITS = {"qm", "m²", "m2", "m³", "m3", "cm", "mm", "m", "dm", "km", "kg", "kN", "°", "%",
+          "lfm", "Stk", "St"}
+
+
+def _unit_words(raw) -> set:
+    """Indizes von Einheiten („qm“, „m²“ …) direkt hinter einer Zahl auf derselben Zeile.
+
+    Solche kurzen Wörter fallen sonst durch den Zeichensalat-Filter."""
+    out = set()
+    nums = [(k, x, y, w, h) for k, x, y, w, h, t, c in raw
+            if c >= 30 and re.search(r"\d[.,]?$", t)]
+    for i, (k, x, y, w, h, t, c) in enumerate(raw):
+        if t not in _UNITS:
+            continue
+        for k2, x2, y2, w2, h2 in nums:
+            hh = max(h, h2)
+            if abs((y + h / 2) - (y2 + h2 / 2)) < 0.5 * hh and \
+                    -0.2 * hh <= x - (x2 + w2) <= 1.0 * hh:
+                out.add(i)
+                break
+    return out
+
+
+def _number_candidates(raw):
+    """Maßzahlen, bei denen ein Komma/Punkt fehlen oder falsch sein kann.
+
+    - zwei Zahlen dicht nebeneinander auf einer Zeile („24 85“ statt „24,85“)
+    - eine Zahl mit drei oder mehr Ziffern („251“ statt „2,51“)
+    - eine Zahl mit Trennzeichen (Komma und Punkt werden oft verwechselt)
+    Gibt Listen von Indizes in raw zurück."""
+    idx = sorted(range(len(raw)), key=lambda i: (raw[i][0], raw[i][1]))
+    out, used = [], set()
+    for a, b in zip(idx, idx[1:]):
+        ka, xa, ya, wa, ha, ta, ca = raw[a]
+        kb, xb, yb, wb, hb, tb, cb = raw[b]
+        if a in used or not (_NUMERIC.match(ta) and _NUMERIC.match(tb)) or ca < 30 or cb < 30:
+            continue
+        hh = max(ha, hb)
+        same_row = abs((ya + ha / 2) - (yb + hb / 2)) < 0.4 * hh and 0.6 < ha / max(1, hb) < 1.6
+        if ka == kb and same_row and -0.2 * hh <= xb - (xa + wa) <= 0.9 * hh \
+                and not any(c in ta + tb.rstrip(".,") for c in ".,") \
+                and len(ta) + len(tb) <= 8:
+            out.append([a, b])
+            used.update((a, b))
+    for i, (_, _, _, _, _, t, c) in enumerate(raw):
+        if i in used or c < 30 or not _NUMERIC.match(t):
+            continue
+        digits = sum(ch.isdigit() for ch in t)
+        if (digits >= 3 and digits <= 7) or (_DECIMAL.match(t) and digits >= 2):
+            out.append([i])
+    return out
+
+
+def fix_numbers(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
+    """Maßzahlen gezielt nachlesen (nur Ziffern, Komma, Punkt) und Trennzeichen ergänzen.
+
+    Übernommen wird eine Nachlesung nur, wenn sie **dieselben Ziffern** in derselben
+    Reihenfolge enthält und genau ein Trennzeichen hat – an den Ziffern ändert sich also
+    nie etwas, nur Komma/Punkt kommen dazu oder werden richtiggestellt."""
+    from . import textlines
+    import cv2
+    cands = _number_candidates(raw)
+    if not cands:
+        return raw
+    crops = []
+    for grp in cands:
+        x0 = min(raw[i][1] for i in grp)
+        y0 = min(raw[i][2] for i in grp)
+        x1 = max(raw[i][1] + raw[i][3] for i in grp)
+        y1 = max(raw[i][2] + raw[i][4] for i in grp)
+        pad = max(2, int(0.35 * (y1 - y0)))     # Komma ragt unter die Grundlinie
+        H, W = gray.shape
+        c = gray[max(0, y0 - pad):min(H, y1 + pad), max(0, x0 - pad):min(W, x1 + pad)]
+        c = cv2.normalize(c, None, 0, 255, cv2.NORM_MINMAX)   # Graustufen voll ausnutzen
+        f = textlines.LINE_H / max(1, c.shape[0])
+        c = cv2.resize(c, (max(1, int(round(c.shape[1] * f))), textlines.LINE_H),
+                       interpolation=cv2.INTER_AREA if f < 1 else cv2.INTER_CUBIC)
+        crops.append(c)
+    run_lines = run_lines or textlines._tesseract_lines
+    res = run_lines(crops, s, NUM_WHITELIST)
+    drop, add = set(), []
+    for grp, (txt, conf) in zip(cands, res):
+        t = (txt or "").replace(" ", "")
+        old = "".join(raw[i][5] for i in grp)
+        if conf < 50 or not _DECIMAL.match(t) or \
+                re.sub(r"\D", "", t) != re.sub(r"\D", "", old) or t == old:
+            continue
+        x0 = min(raw[i][1] for i in grp)
+        y0 = min(raw[i][2] for i in grp)
+        x1 = max(raw[i][1] + raw[i][3] for i in grp)
+        y1 = max(raw[i][2] + raw[i][4] for i in grp)
+        drop.update(grp)
+        add.append((raw[grp[0]][0], x0, y0, x1 - x0, y1 - y0, t,
+                    max(conf, max(raw[i][6] for i in grp))))
+    if not drop:
+        return raw
+    return [r for i, r in enumerate(raw) if i not in drop] + add
 
 
 def _group_lines(words):
@@ -168,7 +284,32 @@ def _group_lines(words):
         # Güte: mittlere Sicherheit, gewichtet mit der Zahl erkannter Zeichen
         score = sum(g[5] * len(g[4]) for g in grp)
         res.append((x0, y0, x1 - x0, y1 - y0, txt, score))
-    return res
+    return _merge_rows(res)
+
+
+def _merge_rows(items, gap: float = 0.8):
+    """Texte auf derselben Zeile, die Tesseract getrennt hat (andere Zeilennummer, z. B.
+    „NFL“ und „13,12“), zusammenfassen: gleiche Höhe, gleiche Grundlinie, Lücke höchstens
+    gap × Schrifthöhe."""
+    items = sorted(items, key=lambda t: (t[0], t[1]))
+    out = []
+    for it in items:
+        x, y, w, h, txt, score = it
+        for j, (X, Y, W_, H_, T, S) in enumerate(out):
+            hh = max(h, H_)
+            if not (0.75 <= h / max(1, H_) <= 1.33):
+                continue
+            if abs((y + h) - (Y + H_)) > 0.25 * hh or abs(y - Y) > 0.35 * hh:
+                continue
+            g = x - (X + W_)
+            if -0.1 * hh <= g <= gap * hh:
+                x0, y0 = min(X, x), min(Y, y)
+                x1, y1 = max(X + W_, x + w), max(Y + H_, y + h)
+                out[j] = (x0, y0, x1 - x0, y1 - y0, T + " " + txt, S + score)
+                break
+        else:
+            out.append(it)
+    return out
 
 
 def text_layer(ink: np.ndarray, px_per_mm: float, max_char_mm: float) -> np.ndarray:
@@ -197,13 +338,16 @@ def ocr_zoom(px_per_mm: float) -> int:
     return max(2, int(round(11.8 / px_per_mm))) if 0 < px_per_mm < 5 else 1
 
 
-def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: int = 1
+def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: int = 1,
+              detail: Optional[np.ndarray] = None
               ) -> Tuple[List[Text], List[Tuple[int, int, int, int]]]:
     """Gibt (Texte, Boxen zum Ausradieren) zurück. Boxen: (x, y, w, h) in Bildpixeln.
 
     gray: Schwarz-auf-Weiß-Bild. px_per_mm: seine Auflösung (0 = unbekannt) – damit werden
     Linien und Flächen vor der OCR ausgeblendet. zoom: um diesen Faktor vergrößertes Bild;
-    Texte und Boxen werden auf das Original zurückgerechnet.
+    Texte und Boxen werden auf das Original zurückgerechnet. detail: dasselbe Bild in
+    Graustufen (schwarz auf weiß, gleiche Größe) – darin sind feine Kommas und Punkte noch
+    erhalten; Maßzahlen werden daraus nachgelesen.
     """
     if not s.enabled or not tesseract_available():
         return [], []
@@ -218,7 +362,12 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
         ks = [0, 2]
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=len(ks)) as ex:
-        futs = {k: ex.submit(_run, np.ascontiguousarray(np.rot90(src, -k)), s) for k in ks}
+        if detail is not None and detail.shape != src.shape:
+            detail = None
+        futs = {k: ex.submit(_run, np.ascontiguousarray(np.rot90(src, -k)), s, None,
+                             None if detail is None
+                             else np.ascontiguousarray(np.rot90(detail, -k)))
+                for k in ks}
         found = {k: f.result() for k, f in futs.items()}
     cands = []
     for k, items in found.items():

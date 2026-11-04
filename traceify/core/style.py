@@ -33,6 +33,7 @@ class StyleSettings:
     thick_ratio: float = 1.7        # ab x-facher Normalstärke „dick“
     color_layers: bool = False      # Farben auf Layer trennen
     hatch_layer: bool = True        # Schraffurlinien erkennen und auf Layer SCHRAFFUR legen
+    hatch_areas: bool = True        # Schraffur im DXF/DWG als Fläche (HATCH) statt Einzellinien
     walls_outline: bool = False     # dicke Linien (Wände) als Umriss statt Mittellinie
     straighten: bool = True         # Schräglage erkennen, fast achsparallele Linien ausrichten
     straighten_tol: float = 3.0     # bis zu dieser Abweichung (Grad) wird ausgerichtet

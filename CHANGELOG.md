@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.15.0 – 04.11.2026
+### Neu: Schraffur als Fläche (DXF-HATCH)
+- Regelmäßige Schraffuren (Layer SCHRAFFUR) kommen im DXF und DWG jetzt als **eine Schraffur-Fläche** mit Umriss, Winkel und Linienabstand statt als viele Einzellinien. Im CAD lässt sich die Schraffur so als Ganzes auswählen, umfärben, im Abstand ändern oder löschen.
+- Das Muster liegt deckungsgleich auf den erkannten Linien (Abweichung unter 0,01 mm im Test). Der Umriss folgt den Linienenden, auch bei L-förmigen Wänden; Löcher werden mitgenommen.
+- Unregelmäßige Gruppen (Abstände passen nicht zu einem festen Raster) bleiben Einzellinien. In der Oberfläche, im SVG und im G-Code bleiben die Linien wie bisher.
+- Einstellung „Schraffur als Fläche exportieren (DXF-HATCH)“, Standard an; bei DXF R12 immer Einzellinien. KI-Regeln und Chat kennen `schraffur_flaeche`.
+
+### Genauer
+- **Gerade ausrichten (O) und die automatische Ausrichtung nehmen jetzt auch Polylinien mit.** Segmente mit echten Ecken werden exakt waagrecht/senkrecht (an der Schräglage des Scans), verbundene Ecken bleiben verbunden. Segmente in Rundungen (viele kleine Knicke) bleiben unberührt, damit Kurven nicht zu Treppen werden.
+- **Maßzahlen nachlesen:** Zahlen, bei denen ein Komma fehlen kann („24 85“, „251“) oder Komma und Punkt verwechselt sein können, werden gezielt noch einmal gelesen – aus dem Graustufenbild, in dem feine Kommas noch erhalten sind, und nur mit Ziffern, Komma und Punkt. Übernommen wird das nur, wenn die Ziffern exakt gleich bleiben; es kommt also höchstens ein Trennzeichen dazu. Abschaltbar unter „Maßzahlen nachlesen“ (`zahlen_nachlesen`).
+- **Einheiten bleiben stehen:** „qm“, „m²“, „cm“ usw. direkt hinter einer Zahl fielen bisher durch den Zeichensalat-Filter.
+- **Zerrissene Zeilen:** Teile derselben Zeile, die Tesseract getrennt geliefert hat („NFL“ und „13,12“), werden wieder zu einem Text zusammengefügt.
+- Auf einem nachgebauten Testplan (12 Beschriftungen) liest Traceify jetzt bei 100 dpi 7 statt 3, bei 150 dpi 10 statt 8 und bei 300 dpi 11 statt 9 Beschriftungen vollständig richtig. Auf den echten Prüfstand-Scans steht die Messung noch aus.
+
 ## 0.14.0 – 04.11.2026
 ### vLLM
 - **Verbindung testen** im Dialog *KI-Server*: zeigt sofort Serverversion (z. B. „vLLM 0.11.0“) und die angebotenen Modelle oder den Fehler.

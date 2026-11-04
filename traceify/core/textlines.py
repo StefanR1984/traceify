@@ -195,8 +195,10 @@ def read_candidates(cands: List[Candidate], ink: np.ndarray, s, run_ocr=None
     return texts, boxes
 
 
-def _tesseract_lines(crops: List[np.ndarray], s) -> List[Tuple[str, float]]:
-    """Alle Ausschnitte untereinander auf ein Blatt, ein Tesseract-Aufruf, Zuordnung per y."""
+def _tesseract_lines(crops: List[np.ndarray], s, extra: str = "") -> List[Tuple[str, float]]:
+    """Alle Ausschnitte untereinander auf ein Blatt, ein Tesseract-Aufruf, Zuordnung per y.
+
+    extra: zusätzliche Tesseract-Optionen (z. B. eine Zeichen-Whitelist)."""
     from .ocr import _setup, _tess_config, _usable_lang
     pt = _setup()
     width = max(c.shape[1] for c in crops) + 2 * GAP
@@ -209,7 +211,7 @@ def _tesseract_lines(crops: List[np.ndarray], s) -> List[Tuple[str, float]]:
         rows.append((y, y + LINE_H))
         y += LINE_H + GAP
     data = pt.image_to_data(sheet, lang=_usable_lang(s.language),
-                            config=(_tess_config() + " --psm 6").strip(),
+                            config=(_tess_config() + " --psm 6 " + extra).strip(),
                             output_type=pt.Output.DICT)
     words = [[] for _ in crops]
     for i, t in enumerate(data["text"]):

@@ -185,7 +185,13 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
                 if r.mode == REGION_IGNORE:
                     sy, sx = r.slices(bw.shape)
                     ocr_src[sy.start * zoom:sy.stop * zoom, sx.start * zoom:sx.stop * zoom] = 255
-        texts, boxes = ocr_mod.recognize(ocr_src, settings.ocr, px_per_mm=ppm * zoom, zoom=zoom)
+        detail = None                  # Graustufen für das Nachlesen von Maßzahlen
+        if not settings.preprocess.deskew:
+            detail = up if zoom > 1 else gray
+            if settings.preprocess.invert:
+                detail = 255 - detail
+        texts, boxes = ocr_mod.recognize(ocr_src, settings.ocr, px_per_mm=ppm * zoom, zoom=zoom,
+                                         detail=detail)
         bw_vec = ocr_mod.erase_boxes(bw, boxes, settings.ocr.erase_padding)
     else:
         bw_vec = bw
@@ -244,6 +250,9 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + texts, source=source)
+    if settings.style.hatch_layer and settings.style.hatch_areas:
+        from .hatch import META_KEY as HATCH_KEY
+        d.meta[HATCH_KEY] = "1"     # beim DXF-Export Schraffur als Fläche ausgeben
     if skew is not None and abs(skew) >= 0.05:
         d.meta["schraeglage"] = repr(float(skew))   # volle Genauigkeit für den Export
     if settings.symbols_auto:
