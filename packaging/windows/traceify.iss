@@ -63,3 +63,43 @@ Root: HKA; Subkey: "Software\Classes\Applications\Traceify.exe\SupportedTypes"; 
 
 [Run]
 Filename: "{app}\Traceify.exe"; Description: "{cm:LaunchProgram,Traceify}"; Flags: nowait postinstall skipifsilent
+; Update aus Traceify heraus (stilles Setup mit /UPDATE=1): danach Traceify wieder starten
+Filename: "{app}\Traceify.exe"; Flags: nowait runasoriginaluser; Check: IsAppUpdate
+
+[Code]
+// Update aus Traceify: /UPDATE=1 /WAITPID=<pid>
+// Vor der Installation warten, bis sich Traceify beendet hat (höchstens 60 s),
+// damit keine Dateien mehr gesperrt sind.
+const
+  SYNCHRONIZE = $00100000;
+
+function OpenProcess(dwDesiredAccess: Cardinal; bInheritHandle: Boolean; dwProcessId: Cardinal): THandle;
+  external 'OpenProcess@kernel32.dll stdcall';
+function WaitForSingleObject(hHandle: THandle; dwMilliseconds: Cardinal): Cardinal;
+  external 'WaitForSingleObject@kernel32.dll stdcall';
+function CloseHandle(hObject: THandle): Boolean;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+function IsAppUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:UPDATE|0}') = '1';
+end;
+
+function InitializeSetup: Boolean;
+var
+  Pid: Integer;
+  H: THandle;
+begin
+  Result := True;
+  Pid := StrToIntDef(ExpandConstant('{param:WAITPID|0}'), 0);
+  if Pid > 0 then
+  begin
+    H := OpenProcess(SYNCHRONIZE, False, Pid);
+    if H <> 0 then
+    begin
+      Log('Warte auf Ende von Traceify (PID ' + IntToStr(Pid) + ')');
+      WaitForSingleObject(H, 60000);
+      CloseHandle(H);
+    end;
+  end;
+end;

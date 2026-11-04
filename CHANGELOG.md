@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.0 – 04.11.2026
+### Neu: Echter Updater
+- **Jetzt installieren** statt nur Hinweis: Traceify lädt das neue Setup selbst herunter (mit Fortschrittsanzeige und Abbrechen), beendet sich, installiert das Update still und startet danach von selbst neu. Einstellungen bleiben erhalten.
+- **Geprüfter Download:** nur über https, Dateigröße und SHA-256-Prüfsumme werden mit den Angaben von GitHub verglichen, außerdem muss es ein Windows-Programm sein. Beschädigte oder abgebrochene Downloads werden verworfen.
+- Ein bereits geladenes und geprüftes Setup wird beim nächsten Versuch wiederverwendet.
+- Schlägt etwas fehl, bietet Traceify den Download im Browser an.
+- Das Setup wartet, bis Traceify wirklich beendet ist, damit keine Dateien gesperrt sind. Es behält die bisherige Installationsart (nur für mich / für alle Benutzer) bei; bei „für alle Benutzer“ fragt Windows nach Administratorrechten.
+- Portable ZIP und Start aus dem Quellcode: weiterhin Hinweis mit Download-Link.
+- Protokoll des Update-Setups: `%TEMP%\Traceify-Update\update-setup.log`.
+- Hinweis: Das automatische Update funktioniert ab Version 0.10.0. Von 0.9.0 aus bitte noch einmal von Hand aktualisieren.
+
+
 ## 0.9.0 – 04.11.2026
 ### Neu: Zeichnen, Fangpunkte, Stutzen, Dehnen
 - **Zeichenwerkzeuge** in einer neuen senkrechten Leiste links und im Menü „Zeichnen“:

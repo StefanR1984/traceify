@@ -333,3 +333,42 @@ def test_gui_draw_snap_trim_extend(tmp_path, monkeypatch):
 def math_dist(a, b):
     import math
     return math.dist(a, b)
+
+
+def test_gui_install_update(tmp_path, monkeypatch):
+    """„Jetzt installieren“: Laden mit Fortschritt, Setup starten, Traceify beenden."""
+    from traceify import config, update
+    monkeypatch.setattr(config, "CONFIG_PATH", str(tmp_path / "config.json"))
+    config.save({"update_check": False})
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    from traceify.gui.main_window import MainWindow
+    setup = tmp_path / "Traceify-Setup-9.9.9.exe"
+    setup.write_bytes(b"MZ" + b"0" * 2000)
+
+    def fake_download(info, progress=None, cancelled=None, **kw):
+        for i in range(1, 5):
+            progress(i * 500, 2000)
+        return str(setup)
+    launched, quits = [], []
+    monkeypatch.setattr(update, "download", fake_download)
+    monkeypatch.setattr(update, "launch_installer", lambda p: launched.append(p))
+    monkeypatch.setattr(QtWidgets.QApplication, "quit", staticmethod(lambda: quits.append(1)))
+    w = MainWindow()
+    w.show()
+    info = update.UpdateInfo("9.9.9", "https://x", "https://x/s.exe", "")
+    w.install_update(info, confirm=False)
+    wait(app, lambda: launched)
+    assert launched == [str(setup)] and quits and not w.isVisible()
+
+    # Fehler beim Laden: Warnung statt Absturz, Setup wird nicht gestartet
+    def broken(info, **kw):
+        raise update.UpdateError("Prüfsumme (SHA-256) stimmt nicht")
+    monkeypatch.setattr(update, "download", broken)
+    shown = []
+    monkeypatch.setattr(QtWidgets.QMessageBox, "exec", lambda self: shown.append(self.text()))
+    w2 = MainWindow()
+    wk = w2.install_update(info, confirm=False)
+    wait(app, lambda: wk.isFinished() and shown)
+    app.processEvents()
+    assert "SHA-256" in shown[0] and len(launched) == 1
+    w2.close()

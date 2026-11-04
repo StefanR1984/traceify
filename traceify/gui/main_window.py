@@ -1853,26 +1853,117 @@ class MainWindow(QMainWindow):
     def _update_dialog(self, info):
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
-        from .. import config
+        from .. import config, update
+        auto = update.can_self_update() and bool(info.setup_url)
         box = QMessageBox(self)
         box.setWindowTitle("Update verfügbar")
         box.setText(f"<b>Traceify {info.version}</b> ist verfügbar (installiert: {__version__}).")
-        box.setInformativeText("Setup herunterladen? Danach einfach ausführen – Einstellungen "
-                               "bleiben erhalten.")
+        if auto:
+            box.setInformativeText("Jetzt installieren? Traceify lädt das Update herunter, "
+                                   "beendet sich, installiert es und startet neu. "
+                                   "Einstellungen bleiben erhalten.")
+        else:
+            box.setInformativeText("Setup herunterladen? Danach einfach ausführen – Einstellungen "
+                                   "bleiben erhalten.")
         box.setDetailedText(info.notes or "")
-        b_dl = box.addButton("Herunterladen", QMessageBox.AcceptRole)
+        b_inst = box.addButton("Jetzt installieren", QMessageBox.AcceptRole) if auto else None
+        b_dl = box.addButton("Nur herunterladen" if auto else "Herunterladen",
+                             QMessageBox.ActionRole)
         b_page = box.addButton("Release-Seite", QMessageBox.ActionRole)
         b_skip = box.addButton("Diese Version überspringen", QMessageBox.RejectRole)
         box.addButton("Später", QMessageBox.RejectRole)
+        box.setDefaultButton(b_inst or b_dl)
         box.exec()
-        if box.clickedButton() is b_dl:
+        clicked = box.clickedButton()
+        if b_inst is not None and clicked is b_inst:
+            self.install_update(info)
+        elif clicked is b_dl:
             QDesktopServices.openUrl(QUrl(info.setup_url or info.url))
-        elif box.clickedButton() is b_page:
+        elif clicked is b_page:
             QDesktopServices.openUrl(QUrl(info.url))
-        elif box.clickedButton() is b_skip:
+        elif clicked is b_skip:
             config.save({"update_skip": info.version})
             if self.update_button:
                 self.update_button.setVisible(False)
+
+    def install_update(self, info, confirm=True):
+        """Setup mit Fortschrittsanzeige laden, prüfen, still starten und Traceify beenden."""
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from PySide6.QtWidgets import QProgressDialog
+        from .. import update
+
+        dlg = QProgressDialog(f"Lade Traceify {info.version} …", "Abbrechen", 0, 100, self)
+        dlg.setWindowTitle("Update")
+        dlg.setWindowModality(Qt.WindowModal)
+        dlg.setMinimumDuration(0)
+        dlg.setAutoClose(False)
+        dlg.setAutoReset(False)
+        dlg.setValue(0)
+
+        def job(w):
+            def prog(done, total):
+                pct = int(done * 100 / total) if total else 0
+                w.progress.emit(pct, f"{done / 1e6:.1f} von {total / 1e6:.1f} MB" if total
+                                else f"{done / 1e6:.1f} MB")
+            return update.download(info, progress=prog, cancelled=lambda: w.stop_requested)
+
+        w = FuncWorker(job)
+        self._update_worker = w
+
+        def on_progress(pct, text):
+            dlg.setValue(pct)
+            dlg.setLabelText(f"Lade Traceify {info.version} …\n{text}")
+
+        def close_dlg():
+            # close() löst sonst „canceled“ aus und würde als Abbruch gewertet
+            try:
+                dlg.canceled.disconnect()
+            except (RuntimeError, TypeError):
+                pass
+            dlg.close()
+
+        def on_error(msg):
+            close_dlg()
+            if w.stop_requested:
+                self.statusBar().showMessage("Update abgebrochen.", 5000)
+                return
+            box = QMessageBox(QMessageBox.Warning, "Update fehlgeschlagen",
+                              f"Das Update konnte nicht geladen werden:\n{msg}", parent=self)
+            b_dl = box.addButton("Im Browser herunterladen", QMessageBox.AcceptRole)
+            box.addButton("Schließen", QMessageBox.RejectRole)
+            box.exec()
+            if box.clickedButton() is b_dl:
+                QDesktopServices.openUrl(QUrl(info.setup_url or info.url))
+
+        def on_done(path):
+            close_dlg()
+            if confirm and QMessageBox.question(
+                    self, "Update installieren",
+                    f"Traceify {info.version} ist geladen und geprüft.\n\n"
+                    "Traceify wird jetzt beendet, das Update installiert und Traceify "
+                    "danach neu gestartet. Nicht exportierte Änderungen gehen verloren.\n\n"
+                    "Jetzt installieren?") != QMessageBox.Yes:
+                self.statusBar().showMessage(f"Update liegt bereit: {path}", 10000)
+                return
+            try:
+                update.launch_installer(path)
+            except Exception as exc:  # noqa: BLE001
+                QMessageBox.warning(self, "Update fehlgeschlagen",
+                                    f"Das Setup ließ sich nicht starten:\n{exc}")
+                return
+            self._update_launched = path
+            self.close()
+            QApplication.quit()
+
+        dlg.canceled.connect(lambda: setattr(w, "stop_requested", True))
+        w.progress.connect(on_progress)
+        w.result.connect(on_done)
+        w.error.connect(on_error)
+        w.finished.connect(lambda: self.ai_workers.remove(w) if w in self.ai_workers else None)
+        self.ai_workers.append(w)
+        w.start()
+        return w
 
     def show_help(self):
         QMessageBox.information(self, "Kurzanleitung", (
@@ -1903,6 +1994,9 @@ class MainWindow(QMainWindow):
             "werden als CAD-Block eingesetzt.<br><br>"
             "<b>Vektor-PDFs</b> aus CAD-Programmen werden automatisch erkannt und direkt "
             "übernommen. Steht „M 1:100“ im Plan, wird in Originalgröße exportiert.<br><br>"
+            "<b>Updates</b> – Klick auf »⬆ Update verfügbar« unten rechts, dann »Jetzt "
+            "installieren«: Traceify lädt, prüft und installiert das Update und startet neu."
+            "<br><br>"
             "Navigation: Mausrad = Zoom, mittlere Maustaste oder Umschalt+Ziehen = "
             "Verschieben (beim Zeichnen nur mittlere Maustaste), Strg+0 = Einpassen."))
 

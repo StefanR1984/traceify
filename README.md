@@ -35,7 +35,7 @@ Traceify wandelt gescannte Zeichnungen, Pläne, Skizzen und Logos in saubere CAD
 | **Stapel** | Ganze Ordner und mehrseitige PDFs in einem Durchgang, mit Fortschritt, Protokoll und Abbruchmöglichkeit. |
 | **Qualitätsampel** | Nach jedem Konvertieren vergleicht Traceify die Vektoren mit dem Scan: **Abdeckung**, **Genauigkeit** und eine Ampel in der Statusleiste. Klick darauf (oder Q) markiert die Problemstellen auf der Zeichenfläche – rot: Tinte ohne Vektor, violett: Vektor ohne Tinte; **F8** springt von Stelle zu Stelle. |
 | **Symbole** | Werkzeug **Symbol** (Y): Rechteck um ein Beispiel ziehen (z. B. Steckdose) – Traceify findet alle gleichen, auch um 90/180/270° gedreht, und ersetzt sie durch **einen CAD-Block** (DXF: BLOCK/INSERT). Zählung links („Steckdose: 12“). Die KI schlägt auf Wunsch einen Namen vor. Symbole lassen sich in einer **Bibliothek** speichern und in neuen Plänen automatisch einsetzen. |
-| **Updates & Hilfe** | Traceify meldet neue Versionen (einmal täglich, abschaltbar im Menü Hilfe). **Hilfe → Problem melden** öffnet einen vorbefüllten Fehlerbericht auf GitHub (Version, Umgebung, Einstellungen, Protokoll). |
+| **Updates & Hilfe** | Traceify sucht einmal täglich nach neuen Versionen (abschaltbar im Menü Hilfe). **Jetzt installieren** lädt das Setup mit Fortschrittsanzeige, prüft Größe und SHA-256-Prüfsumme, beendet Traceify, installiert still drüber und startet neu. Die portable ZIP und der Start aus dem Quellcode bekommen weiterhin den Download-Link. **Hilfe → Problem melden** öffnet einen vorbefüllten Fehlerbericht auf GitHub (Version, Umgebung, Einstellungen, Protokoll). |
 | **Automatisierung** | Python-API und Kommandozeile. Einstellungen lassen sich als JSON speichern und laden und in Stapel oder Kommandozeile weiterverwenden. |
 
 ## Installation (Windows 10/11, 64 Bit)
@@ -82,6 +82,8 @@ Die KI läuft **lokal** auf deinem Rechner über [Ollama](https://ollama.com). E
 6. Exportieren: DXF mit Strg+E, G-Code mit Strg+G.
 
 Zeichnen: Klicken setzt Punkte, Esc bricht die laufende Form ab (zweimal Esc = zurück zur Auswahl), Rechtsklick beendet Linienzug und Polylinie. Die Zahl, die du während des Zeichnens tippst, ist eine Länge in mm (Komma oder Punkt); Enter setzt den Punkt in Mausrichtung.
+
+Updates: Erscheint unten rechts „⬆ Update … verfügbar“, genügt ein Klick und **Jetzt installieren** – Einstellungen bleiben erhalten. Vorher die aktuelle Zeichnung exportieren.
 
 Navigation: Mausrad zoomt. Mit mittlerer Maustaste oder Umschalt+Ziehen verschiebst du die Ansicht, Strg+0 passt sie ein.
 
