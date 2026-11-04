@@ -3,13 +3,18 @@
 Koordinaten sind in Pixeln des Quellbildes (Ursprung oben links, y nach unten).
 Beim Export werden sie über `Drawing.scale` (mm pro Pixel) in Millimeter
 umgerechnet und die y-Achse wird gespiegelt (CAD: y nach oben).
+
+Jedes Objekt kann zusätzlich eine eigene Farbe (RGB), einen Linientyp
+("CONTINUOUS", "DASHED", …) und eine Strichstärke (mm) tragen.
 """
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 Point = Tuple[float, float]
+RGB = Tuple[int, int, int]
 
 # Standard-Layer – entsprechen den Layern im DXF-Export
 LAYER_LINES = "LINIEN"
@@ -18,6 +23,9 @@ LAYER_CIRCLES = "KREISE"
 LAYER_POLY = "POLYLINIEN"
 LAYER_CONTOURS = "KONTUREN"
 LAYER_TEXT = "TEXT"
+LAYER_FILL = "FLAECHEN"
+LAYER_DASHED = "STRICHLINIEN"
+LAYER_THICK = "DICKE_LINIEN"
 
 LAYER_COLORS = {  # AutoCAD Color Index + RGB für die GUI
     LAYER_LINES: (7, (30, 30, 30)),
@@ -26,7 +34,22 @@ LAYER_COLORS = {  # AutoCAD Color Index + RGB für die GUI
     LAYER_POLY: (3, (20, 160, 60)),
     LAYER_CONTOURS: (6, (190, 40, 190)),
     LAYER_TEXT: (2, (200, 140, 0)),
+    LAYER_FILL: (8, (130, 130, 130)),
+    LAYER_DASHED: (4, (0, 150, 170)),
+    LAYER_THICK: (250, (0, 0, 0)),
 }
+
+LINETYPES = ("CONTINUOUS", "DASHED", "DASHDOT", "DOT", "CENTER", "HIDDEN")
+
+
+def layer_color(layer: str) -> Tuple[int, RGB]:
+    """(ACI, RGB) für einen Layer – auch für dynamische Layer wie FARBE_1_ROT."""
+    if layer in LAYER_COLORS:
+        return LAYER_COLORS[layer]
+    h = int(hashlib.md5(layer.encode()).hexdigest()[:6], 16)
+    rgb = ((h >> 16) & 0xFF, (h >> 8) & 0xFF, h & 0xFF)
+    rgb = tuple(int(40 + c * 0.6) for c in rgb)
+    return 7, rgb
 
 
 @dataclass
@@ -34,6 +57,9 @@ class Line:
     p1: Point
     p2: Point
     layer: str = LAYER_LINES
+    color: Optional[RGB] = None
+    linetype: str = "CONTINUOUS"
+    lineweight: float = 0.0  # mm, 0 = Standard
 
 
 @dataclass
@@ -43,6 +69,9 @@ class Arc:
     start_angle: float  # Grad, im Bildkoordinatensystem (y nach unten)
     end_angle: float
     layer: str = LAYER_ARCS
+    color: Optional[RGB] = None
+    linetype: str = "CONTINUOUS"
+    lineweight: float = 0.0
 
 
 @dataclass
@@ -50,6 +79,9 @@ class Circle:
     center: Point
     radius: float
     layer: str = LAYER_CIRCLES
+    color: Optional[RGB] = None
+    linetype: str = "CONTINUOUS"
+    lineweight: float = 0.0
 
 
 @dataclass
@@ -57,15 +89,21 @@ class Polyline:
     points: List[Point]
     closed: bool = False
     layer: str = LAYER_POLY
+    color: Optional[RGB] = None
+    linetype: str = "CONTINUOUS"
+    lineweight: float = 0.0
 
 
 @dataclass
 class Text:
     text: str
-    position: Point  # unten links
+    position: Point  # unten links (Grundlinie)
     height: float
-    angle: float = 0.0
+    angle: float = 0.0  # Grad, gegen den Uhrzeigersinn (CAD)
     layer: str = LAYER_TEXT
+    color: Optional[RGB] = None
+    linetype: str = "CONTINUOUS"
+    lineweight: float = 0.0
 
 
 @dataclass
@@ -75,6 +113,7 @@ class Drawing:
     scale: float = 1.0  # mm pro Pixel
     entities: list = field(default_factory=list)
     source: str = ""
+    meta: Dict[str, str] = field(default_factory=dict)
 
     def by_type(self, cls):
         return [e for e in self.entities if isinstance(e, cls)]

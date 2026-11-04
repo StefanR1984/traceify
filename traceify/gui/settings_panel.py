@@ -144,8 +144,28 @@ class SettingsPanel(QScrollArea):
         self.mmpx.setEnabled(False)
         self.scale_auto.toggled.connect(lambda on: self.mmpx.setEnabled(not on))
         f.addRow("Maßstab:", self.mmpx)
+        self.auto_scale = QCheckBox("Maßstab aus Plan übernehmen (z. B. „M 1:100“)")
+        self.auto_scale.setChecked(True)
+        self.auto_scale.setToolTip("Steht im Plan „M 1:100“, wird in Originalgröße exportiert "
+                                   "(1 cm auf dem Papier = 1 m). Nur ohne manuellen Maßstab.")
+        f.addRow(self.auto_scale)
         self.pdf_dpi = _spin(72, 1200, 300, 50, 0, " dpi")
         f.addRow("PDF-Render-DPI:", self.pdf_dpi)
+        lay.addWidget(g)
+
+        # ---- PDF ----
+        g = QGroupBox("Vektor-PDF")
+        f = QFormLayout(g)
+        self.pdf_vectors = QCheckBox("Vektordaten direkt übernehmen (wenn vorhanden)")
+        self.pdf_vectors.setChecked(True)
+        self.pdf_vectors.setToolTip("PDFs aus CAD-Programmen enthalten echte Linien – diese werden "
+                                    "millimetergenau übernommen statt neu vektorisiert.")
+        f.addRow(self.pdf_vectors)
+        self.pdf_fills = QCheckBox("Gefüllte Flächen übernehmen")
+        f.addRow(self.pdf_fills)
+        self.pdf_colors = QCheckBox("Linienfarben übernehmen")
+        self.pdf_colors.setChecked(True)
+        f.addRow(self.pdf_colors)
         self.btn_calibrate = QPushButton("Maßstab per Länge kalibrieren …")
         f.addRow(self.btn_calibrate)
         lay.addWidget(g)
@@ -215,6 +235,10 @@ class SettingsPanel(QScrollArea):
         o.min_confidence = self.ocr_conf.value()
         o.vertical_text = self.ocr_vertical.isChecked()
         s.scale = None if self.scale_auto.isChecked() else self.mmpx.value()
+        s.auto_scale = self.auto_scale.isChecked()
+        s.pdf.enabled = self.pdf_vectors.isChecked()
+        s.pdf.include_fills = self.pdf_fills.isChecked()
+        s.pdf.keep_colors = self.pdf_colors.isChecked()
         return s
 
     def set_settings(self, s: ConvertSettings):
@@ -242,6 +266,10 @@ class SettingsPanel(QScrollArea):
         self.ocr_conf.setValue(o.min_confidence)
         self.ocr_vertical.setChecked(o.vertical_text)
         self.scale_auto.setChecked(s.scale is None)
+        self.auto_scale.setChecked(s.auto_scale)
+        self.pdf_vectors.setChecked(s.pdf.enabled)
+        self.pdf_fills.setChecked(s.pdf.include_fills)
+        self.pdf_colors.setChecked(s.pdf.keep_colors)
         if s.scale:
             self.mmpx.setValue(s.scale)
 

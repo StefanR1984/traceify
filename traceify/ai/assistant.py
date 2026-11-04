@@ -38,13 +38,13 @@ def encode_image(img: np.ndarray, max_side: int = 1280) -> str:
 
 def render_overlay(gray: np.ndarray, d: Drawing, max_side: int = 1280) -> np.ndarray:
     """Original (blass) + erkannte Vektoren (farbig) als BGR-Bild – für die KI-Bewertung."""
-    from ..core.model import Arc, Circle, LAYER_COLORS, Line, Polyline
+    from ..core.model import Arc, Circle, Line, Polyline, layer_color
     f = min(1.0, max_side / max(gray.shape))
     base = cv2.resize(gray, None, fx=f, fy=f, interpolation=cv2.INTER_AREA) if f < 1 else gray.copy()
     img = cv2.cvtColor((255 - (255 - base) // 3).astype(np.uint8), cv2.COLOR_GRAY2BGR)
     P = lambda p: (int(round(p[0] * f)), int(round(p[1] * f)))
     for e in d.entities:
-        rgb = LAYER_COLORS.get(e.layer, (7, (0, 0, 0)))[1]
+        rgb = getattr(e, "color", None) or layer_color(e.layer)[1]
         col = (rgb[2], rgb[1], rgb[0])
         if isinstance(e, Line):
             cv2.line(img, P(e.p1), P(e.p2), col, 2, cv2.LINE_AA)

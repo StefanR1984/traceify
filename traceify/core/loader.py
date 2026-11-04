@@ -27,6 +27,7 @@ def load_pdf_page(path: str, page: int = 0, dpi: int = 300) -> Tuple[np.ndarray,
     """Rendert eine PDF-Seite. Gibt (Graustufenbild, mm pro Pixel) zurück."""
     import pymupdf as fitz
 
+    dpi = int(round(float(dpi)))  # PyMuPDF verlangt eine Ganzzahl
     with fitz.open(path) as doc:
         pg = doc.load_page(page)
         pix = pg.get_pixmap(dpi=dpi, colorspace=fitz.csGRAY, alpha=False)

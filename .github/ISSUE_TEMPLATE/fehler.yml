@@ -1,0 +1,34 @@
+name: Fehler melden
+description: Etwas funktioniert nicht wie erwartet
+title: "[Fehler] "
+labels: ["fehler"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke fürs Melden! Am einfachsten geht es aus Traceify heraus über **Hilfe → Problem melden …** – dann sind Version und Umgebung schon ausgefüllt.
+  - type: textarea
+    id: beschreibung
+    attributes:
+      label: Was ist passiert?
+      description: Was hast du gemacht, was hast du erwartet, was ist stattdessen passiert?
+      placeholder: "1. Datei geöffnet …  2. Konvertieren …  3. …"
+    validations:
+      required: true
+  - type: textarea
+    id: datei
+    attributes:
+      label: Beispieldatei
+      description: Falls möglich, die Zeichnung (Bild/PDF) hier hineinziehen – nur, wenn sie veröffentlicht werden darf.
+  - type: textarea
+    id: umgebung
+    attributes:
+      label: Umgebung
+      description: Wird von Traceify automatisch ausgefüllt.
+      render: text
+  - type: textarea
+    id: protokoll
+    attributes:
+      label: Einstellungen und Protokoll
+      description: Wird von Traceify automatisch ausgefüllt.
+      render: text

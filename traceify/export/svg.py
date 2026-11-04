@@ -4,7 +4,22 @@ from __future__ import annotations
 import math
 from xml.sax.saxutils import escape
 
-from ..core.model import Arc, Circle, Drawing, LAYER_COLORS, Line, Polyline, Text
+from ..core.model import Arc, Circle, Drawing, Line, Polyline, Text, layer_color
+
+_DASH = {"DASHED": "3 1.5", "HIDDEN": "1.5 0.75", "DOT": "0.3 1", "DASHDOT": "4 1 0.5 1",
+         "CENTER": "6 1 1.5 1"}
+
+
+def _style(e, s: float) -> str:
+    st = []
+    if getattr(e, "color", None):
+        st.append('stroke="#%02x%02x%02x"' % tuple(int(c) for c in e.color))
+    if getattr(e, "lineweight", 0):
+        st.append(f'stroke-width="{max(0.05, e.lineweight):.2f}"')
+    dash = _DASH.get(getattr(e, "linetype", "CONTINUOUS"))
+    if dash:
+        st.append(f'stroke-dasharray="{dash}"')
+    return (" " + " ".join(st)) if st else ""
 
 
 def _arc_path(e: Arc, s: float) -> str:
@@ -27,22 +42,22 @@ def export_svg(d: Drawing, path: str, visible_layers=None) -> None:
         if visible_layers is None or e.layer in visible_layers:
             by_layer.setdefault(e.layer, []).append(e)
     for layer, ents in by_layer.items():
-        rgb = LAYER_COLORS.get(layer, (7, (0, 0, 0)))[1]
+        rgb = layer_color(layer)[1]
         col = "#%02x%02x%02x" % rgb
         out.append(f'<g id="{layer}" stroke="{col}" fill="none" stroke-width="0.25">')
         for e in ents:
             if isinstance(e, Line):
                 out.append(f'<line x1="{e.p1[0]*s:.3f}" y1="{e.p1[1]*s:.3f}" '
-                           f'x2="{e.p2[0]*s:.3f}" y2="{e.p2[1]*s:.3f}"/>')
+                           f'x2="{e.p2[0]*s:.3f}" y2="{e.p2[1]*s:.3f}"{_style(e, s)}/>')
             elif isinstance(e, Circle):
                 out.append(f'<circle cx="{e.center[0]*s:.3f}" cy="{e.center[1]*s:.3f}" '
-                           f'r="{e.radius*s:.3f}"/>')
+                           f'r="{e.radius*s:.3f}"{_style(e, s)}/>')
             elif isinstance(e, Arc):
-                out.append(f'<path d="{_arc_path(e, s)}"/>')
+                out.append(f'<path d="{_arc_path(e, s)}"{_style(e, s)}/>')
             elif isinstance(e, Polyline):
                 pts = " ".join(f"{x*s:.3f},{y*s:.3f}" for x, y in e.points)
                 tag = "polygon" if e.closed else "polyline"
-                out.append(f'<{tag} points="{pts}"/>')
+                out.append(f'<{tag} points="{pts}"{_style(e, s)}/>')
             elif isinstance(e, Text):
                 x, y = e.position[0] * s, e.position[1] * s
                 out.append(f'<text x="{x:.3f}" y="{y:.3f}" font-size="{e.height*s:.3f}" '

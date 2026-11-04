@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QGraphicsItem, QGraphicsPathItem,
                                QGraphicsScene, QGraphicsSimpleTextItem,
                                QGraphicsView, QRubberBand)
 
-from ..core.model import Arc, Circle, LAYER_COLORS, Line, Polyline, Text
+from ..core.model import Arc, Circle, Line, Polyline, Text, layer_color
 
 
 def gray_to_qpixmap(img: np.ndarray) -> QPixmap:
@@ -47,10 +47,17 @@ class EntityItem(QGraphicsPathItem):
     def __init__(self, entity, width: float):
         super().__init__(entity_path(entity))
         self.entity = entity
-        rgb = LAYER_COLORS.get(entity.layer, (7, (0, 0, 0)))[1]
+        rgb = getattr(entity, "color", None) or layer_color(entity.layer)[1]
         self.base_pen = QPen(QColor(*rgb), width)
         self.base_pen.setCosmetic(True)
         self.base_pen.setCapStyle(Qt.RoundCap)
+        lt = getattr(entity, "linetype", "CONTINUOUS")
+        if lt in ("DASHED", "HIDDEN"):
+            self.base_pen.setStyle(Qt.DashLine)
+        elif lt == "DOT":
+            self.base_pen.setStyle(Qt.DotLine)
+        elif lt in ("DASHDOT", "CENTER"):
+            self.base_pen.setStyle(Qt.DashDotLine)
         self.setPen(self.base_pen)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setZValue(2)
@@ -76,7 +83,7 @@ class TextEntityItem(QGraphicsSimpleTextItem):
     def __init__(self, entity: Text):
         super().__init__(entity.text)
         self.entity = entity
-        rgb = LAYER_COLORS.get(entity.layer, (2, (200, 140, 0)))[1]
+        rgb = getattr(entity, "color", None) or layer_color(entity.layer)[1]
         self.setBrush(QBrush(QColor(*rgb)))
         f = QFont("Sans Serif")
         f.setPixelSize(max(4, int(entity.height / 0.72)))

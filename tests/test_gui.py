@@ -99,3 +99,33 @@ def test_main_window(tmp_path, fake_ollama, monkeypatch):
     wait(app, lambda: not w.ai_panel.workers)
     assert w.panel.tolerance.value() == 2.5
     w.close()
+
+
+def test_gui_opens_vector_pdf(tmp_path, monkeypatch):
+    import pymupdf
+    from traceify import config
+    monkeypatch.setattr(config, "CONFIG_PATH", str(tmp_path / "config.json"))
+    doc = pymupdf.open()
+    p = doc.new_page(width=842, height=595)
+    for k in range(20):
+        p.draw_line((60, 80 + k * 20), (400, 80 + k * 20), width=0.5)
+    p.draw_circle((600, 300), 72, width=1)
+    p.insert_text((450, 540), "M 1:50", fontsize=14)
+    pdf = tmp_path / "v.pdf"
+    doc.save(str(pdf))
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    from traceify.gui.main_window import MainWindow
+    msgs = []
+    monkeypatch.setattr(QtWidgets.QMessageBox, "critical",
+                        staticmethod(lambda *a, **k: msgs.append(a[2])))
+    w = MainWindow()
+    w.open_file(str(pdf))
+    assert not msgs, msgs
+    assert w.is_vector_pdf
+    w.run_convert()
+    wait(app, lambda: w.worker is None and w.drawing is not None)
+    assert w.drawing.meta.get("quelle") == "PDF-Vektoren"
+    assert w.drawing.meta.get("massstab") == "1:50"
+    assert w.drawing.stats()["Kreise"] == 1
+    w.close()

@@ -18,15 +18,17 @@ Traceify wandelt gescannte Zeichnungen, Pläne, Skizzen und Logos in saubere CAD
 | Bereich | Was es kann |
 |---|---|
 | **Eingabe** | PNG, JPG, BMP, TIFF, GIF, WebP und PDF (auch mehrseitig). Öffnen per Menü oder Drag & Drop. |
+| **Vektor-PDF** | PDFs aus CAD-Programmen werden erkannt und **direkt übernommen**: Linien, Kreise, Bögen, Texte, Farben, Strichstärken und gestrichelte Linien – millimetergenau, ohne Umweg über ein Rasterbild. Abschaltbar unter „Vektor-PDF“. |
 | **Raster-Werkzeuge** | Schwellwert (automatisch, fest oder adaptiv), Flecken entfernen, Löcher füllen, Glätten, Lücken schließen, Invertieren, Drehen, Zuschneiden, Schräglage begradigen. Mit der Binärbild-Vorschau prüfst du das Ergebnis. |
 | **CAD-Modus (Mittellinie)** | Skelettierung mit Eckenerkennung. Daraus entstehen Linien, Bögen und Kreise, nahe Endpunkte werden zusammengeführt. Alternativ gibt es eine reine Polylinien-Ausgabe, zum Beispiel für Höhenlinien. |
 | **CNC-Modus (Umriss)** | Geschlossene, geglättete Außen- und Innenkonturen. Runde Bohrungen werden als echte Kreise erkannt. |
 | **OCR** | Texterkennung mit Tesseract (Deutsch und Englisch, weitere Sprachen möglich), auch für senkrechten Text. Erkannte Texte landen als echte CAD-Texte auf dem Layer `TEXT` und erzeugen keinen Linienwirrwarr. |
 | **Bearbeiten** | Objekte anklicken oder per Rahmen markieren und mit Entf löschen. Strg+Z macht rückgängig, das gilt auch für Raster-Änderungen. Layer lassen sich ein- und ausblenden. |
-| **Maßstab** | Wird automatisch aus der Bild- oder PDF-DPI übernommen. Alternativ klickst du zwei Punkte einer bekannten Strecke an und gibst die wahre Länge ein. |
-| **Export** | DXF (R12 bis R2018) mit den Layern LINIEN, BOEGEN, KREISE, POLYLINIEN, KONTUREN und TEXT, außerdem SVG und G-Code. Es werden nur sichtbare Layer exportiert. |
+| **Maßstab** | Wird automatisch aus der Bild- oder PDF-DPI übernommen. Steht im Plan „M 1:100“ (oder „Maßstab 1:50“, „SCALE 1:20“), exportiert Traceify in **Originalgröße**. Alternativ klickst du zwei Punkte einer bekannten Strecke an und gibst die wahre Länge ein. |
+| **Export** | DXF (R12 bis R2018) mit den Layern LINIEN, BOEGEN, KREISE, POLYLINIEN, KONTUREN und TEXT, außerdem **DWG** (über den kostenlosen [ODA File Converter](https://www.opendesign.com/guestfiles/oda_file_converter), falls installiert), SVG und G-Code. Es werden nur sichtbare Layer exportiert. |
 | **G-Code** | Für Fräsen (Z-Zustellung in mehreren Durchgängen) oder Laser/Plasma (M3/M5). Echte G2/G3-Bögen, verkettete Wege und optimierte Fahrreihenfolge. |
 | **Stapel** | Ganze Ordner und mehrseitige PDFs in einem Durchgang, mit Fortschritt, Protokoll und Abbruchmöglichkeit. |
+| **Updates & Hilfe** | Traceify meldet neue Versionen (einmal täglich, abschaltbar im Menü Hilfe). **Hilfe → Problem melden** öffnet einen vorbefüllten Fehlerbericht auf GitHub (Version, Umgebung, Einstellungen, Protokoll). |
 | **Automatisierung** | Python-API und Kommandozeile. Einstellungen lassen sich als JSON speichern und laden und in Stapel oder Kommandozeile weiterverwenden. |
 
 ## Installation (Windows 10/11, 64 Bit)

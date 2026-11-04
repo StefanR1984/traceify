@@ -434,7 +434,16 @@ def status() -> dict:
         "Ollama installiert": find_ollama(),
         "Ollama läuft": ollama_running(load_config().get("ollama_url", OLLAMA_URL)),
         "KI-Modelle": ", ".join(installed_models(load_config().get("ollama_url", OLLAMA_URL))) or None,
+        "ODA File Converter (DWG)": _oda(),
     }
+
+
+def _oda():
+    try:
+        from .export.dwg import find_oda
+        return find_oda()
+    except Exception:
+        return None
 
 
 def setup(auto: bool | None = None, with_ai: bool | None = None, model: str | None = None,

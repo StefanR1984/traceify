@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (QApplication, QDockWidget, QFileDialog,
 from .. import __version__
 from ..api import load_settings, save_settings
 from ..core import loader, preprocess
-from ..core.model import LAYER_COLORS, Drawing
-from ..core.pipeline import convert
+from ..core.model import Drawing, layer_color
+from ..core.pipeline import convert_source
 from ..export import export
 from .batch_dialog import BatchDialog
 from .canvas import Canvas
@@ -33,14 +33,17 @@ class ConvertWorker(QThread):
     done = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, gray, settings, scale, source):
+    def __init__(self, gray, settings, scale, source, path="", page=0, pdf_dpi=300,
+                 allow_vectors=True):
         super().__init__()
-        self.args = (gray, settings, scale, source)
+        self.args = (gray, settings, scale, source, path, page, pdf_dpi, allow_vectors)
 
     def run(self):
         try:
-            gray, s, scale, src = self.args
-            res = convert(gray, s, scale, src, progress=lambda p, m: self.progress.emit(p, m))
+            gray, s, scale, src, path, page, dpi, allow = self.args
+            res = convert_source(path, page, s, gray, scale, dpi, src,
+                                 progress=lambda p, m: self.progress.emit(p, m),
+                                 allow_vectors=allow)
             self.done.emit(res)
         except Exception:
             self.failed.emit(traceback.format_exc())
@@ -54,6 +57,8 @@ class MainWindow(QMainWindow):
         self.qs = QSettings("Traceify", "Traceify")
         self.path = None
         self.page = 0
+        self.raster_modified = False
+        self.is_vector_pdf = False
         self.gray: np.ndarray | None = None
         self.img_scale = 25.4 / 300
         self.binary = None
@@ -137,6 +142,11 @@ class MainWindow(QMainWindow):
             self.restoreState(st)
         self.update_actions()
         self._autostart_ollama()
+        from .. import config as _cfg
+        self.a_update_auto.setChecked(_cfg.load().get("update_check") is not False)
+        self.update_button = None
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(2500, lambda: self.check_updates(manual=False))
 
     # ------------------------------------------------------------------ UI
     def _act(self, text, slot, shortcut=None, tip=None, checkable=False):
@@ -156,6 +166,8 @@ class MainWindow(QMainWindow):
         self.a_convert = A("Konvertieren", self.run_convert, "F5", "Aktuelles Bild vektorisieren")
         self.a_dxf = A("Als DXF exportieren …", lambda: self.export_dialog(".dxf"),
                        "Ctrl+E", "Für AutoCAD, LibreCAD, Fusion, SolidWorks …")
+        self.a_dwg = A("Als DWG exportieren …", lambda: self.export_dialog(".dwg"),
+                       tip="Über den kostenlosen ODA File Converter")
         self.a_svg = A("Als SVG exportieren …", lambda: self.export_dialog(".svg"))
         self.a_nc = A("Als G-Code exportieren …", lambda: self.export_dialog(".nc"),
                       "Ctrl+G", "Werkzeugwege für CNC-Fräse, Laser, Plasma")
@@ -195,12 +207,19 @@ class MainWindow(QMainWindow):
         self.a_ai_texts = A("Erkannte Texte mit KI prüfen", self.ai_correct_texts)
         self.a_ai_review = A("Ergebnis bewerten && verbessern", self.ai_review)
         self.a_ai_show = A("KI-Assistent anzeigen", self.show_ai, "Ctrl+Shift+K")
+        self.a_report = A("Problem melden …", self.report_problem,
+                          tip="Fehlerbericht auf GitHub – Version und Umgebung werden mitgeschickt")
+        self.a_idea = A("Idee vorschlagen …", lambda: self.report_problem("idee"))
+        self.a_log = A("Protokolldatei öffnen", self.open_log)
+        self.a_update = A("Nach Updates suchen …", lambda: self.check_updates(manual=True))
+        self.a_update_auto = A("Beim Start nach Updates suchen", self.toggle_update_auto,
+                               checkable=True)
         self.a_help = A("Kurzanleitung", self.show_help, "F1")
         self.a_about = A("Über Traceify", self.show_about)
 
     def _build_menus(self):
         m = self.menuBar().addMenu("&Datei")
-        for a in (self.a_open, None, self.a_dxf, self.a_svg, self.a_nc, None,
+        for a in (self.a_open, None, self.a_dxf, self.a_dwg, self.a_svg, self.a_nc, None,
                   self.a_save_set, self.a_load_set, None, self.a_quit):
             m.addSeparator() if a is None else m.addAction(a)
         dm = m.addMenu("DXF-Version")
@@ -242,6 +261,13 @@ class MainWindow(QMainWindow):
 
         m = self.menuBar().addMenu("&Hilfe")
         m.addAction(self.a_help)
+        m.addSeparator()
+        m.addAction(self.a_report)
+        m.addAction(self.a_idea)
+        m.addAction(self.a_log)
+        m.addSeparator()
+        m.addAction(self.a_update)
+        m.addAction(self.a_update_auto)
         m.addAction(self.a_about)
 
     def _build_toolbar(self):
@@ -293,7 +319,7 @@ class MainWindow(QMainWindow):
         for a in (self.a_convert, self.a_rot_l, self.a_rot_r, self.a_crop, self.a_deskew,
                   self.a_invert, self.a_calib, self.a_show_bin, self.a_ai_suggest):
             a.setEnabled(has_img and not busy)
-        for a in (self.a_dxf, self.a_svg, self.a_nc, self.a_delete, self.a_select_all,
+        for a in (self.a_dxf, self.a_dwg, self.a_svg, self.a_nc, self.a_delete, self.a_select_all,
                   self.a_select_layer, self.a_ai_texts, self.a_ai_review):
             a.setEnabled(has_vec and not busy)
         self.panel.btn_convert.setEnabled(has_img and not busy)
@@ -332,6 +358,11 @@ class MainWindow(QMainWindow):
         self.binary = None
         self.drawing = None
         self.undo_stack.clear()
+        self.raster_modified = False
+        self.is_vector_pdf = False
+        if path.lower().endswith(".pdf"):
+            from ..core.pdf_vector import has_vectors
+            self.is_vector_pdf = has_vectors(path, page, self.panel.settings().pdf)
         self.page_spin.blockSignals(True)
         self.page_spin.setMaximum(n)
         self.page_spin.setValue(page + 1)
@@ -349,7 +380,9 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             f"{os.path.basename(path)}: {gray.shape[1]} × {gray.shape[0]} px, {dpi:.0f} dpi "
             f"→ {gray.shape[1] * scale:.1f} × {gray.shape[0] * scale:.1f} mm. "
-            "Jetzt Einstellungen prüfen und »Konvertieren« (F5).")
+            + ("Vektor-PDF erkannt – Linien und Texte werden direkt übernommen. "
+               if self.is_vector_pdf and self.panel.pdf_vectors.isChecked() else "")
+            + "Jetzt Einstellungen prüfen und »Konvertieren« (F5).")
         self.update_actions()
 
     def on_page_changed(self, v):
@@ -362,7 +395,9 @@ class MainWindow(QMainWindow):
             return
         s = self.panel.settings()
         self.worker = ConvertWorker(self.gray, s, self.img_scale,
-                                    os.path.basename(self.path or ""))
+                                    os.path.basename(self.path or ""), self.path or "",
+                                    self.page, self.panel.pdf_dpi.value(),
+                                    allow_vectors=not self.raster_modified)
         self.worker.progress.connect(self.on_progress)
         self.worker.done.connect(self.on_converted)
         self.worker.failed.connect(self.on_failed)
@@ -445,7 +480,7 @@ class MainWindow(QMainWindow):
                 it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
                 it.setCheckState(Qt.Checked)
                 pm = QPixmap(14, 14)
-                pm.fill(QColor(*LAYER_COLORS.get(layer, (7, (0, 0, 0)))[1]))
+                pm.fill(QColor(*layer_color(layer)[1]))
                 it.setIcon(QIcon(pm))
                 self.layer_list.addItem(it)
         self.layer_list.blockSignals(False)
@@ -470,7 +505,11 @@ class MainWindow(QMainWindow):
         sel = len(self.canvas.selected_entities())
         txt = "<br>".join(f"{k}: <b>{v}</b>" for k, v in d.stats().items())
         txt += (f"<br><br>Größe: {d.width * d.scale:.1f} × {d.height * d.scale:.1f} mm"
-                f"<br>Maßstab: {d.scale:.5f} mm/px")
+                f"<br>Auflösung: {d.scale:.5f} mm/px")
+        if d.meta.get("massstab"):
+            txt += f"<br>Zeichnungsmaßstab: <b>{d.meta['massstab']}</b> ({d.meta.get('massstab_quelle', '')})"
+        if d.meta.get("quelle"):
+            txt += f"<br>Quelle: {d.meta['quelle']}"
         if sel:
             txt += f"<br><br><b>{sel} ausgewählt</b> (Entf = löschen)"
         self.stats_label.setText(txt)
@@ -527,6 +566,7 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------------- Raster
     def _raster_edit(self, new_gray, msg):
         self.undo_stack.append(("raster", self.gray, self.drawing))
+        self.raster_modified = True  # Vektor-PDF-Koordinaten passen nicht mehr
         self.gray = new_gray
         self.drawing = None
         self.binary = None
@@ -599,7 +639,9 @@ class MainWindow(QMainWindow):
     def export_dialog(self, ext):
         if not self.drawing or not self.drawing.entities:
             return
-        names = {".dxf": "DXF (*.dxf)", ".svg": "SVG (*.svg)",
+        if ext == ".dwg" and not self._ensure_oda():
+            return
+        names = {".dxf": "DXF (*.dxf)", ".dwg": "DWG (*.dwg)", ".svg": "SVG (*.svg)",
                  ".nc": "G-Code (*.nc *.gcode *.tap *.ngc)"}
         base = os.path.splitext(os.path.basename(self.path or "zeichnung"))[0]
         if self.page_spin.maximum() > 1:
@@ -615,9 +657,15 @@ class MainWindow(QMainWindow):
         if s:
             self.drawing.scale = s
         try:
-            export(self.drawing, f, self.panel.gcode_settings(), self.dxf_version,
-                   self.visible_layers())
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            try:
+                export(self.drawing, f, self.panel.gcode_settings(), self.dxf_version,
+                       self.visible_layers())
+            finally:
+                QApplication.restoreOverrideCursor()
         except Exception as exc:
+            import logging
+            logging.getLogger("traceify").exception("Export fehlgeschlagen")
             QMessageBox.critical(self, "Export fehlgeschlagen", str(exc))
             return
         self.qs.setValue("export_dir", os.path.dirname(f))
@@ -936,6 +984,113 @@ class MainWindow(QMainWindow):
         self.refresh_layers()
         return f"{len(hits)} Text(e) ersetzt"
 
+    # ------------------------------------------------------- DWG / Support
+    def _ensure_oda(self) -> bool:
+        from ..export.dwg import ODA_DOWNLOAD_URL, available
+        if available():
+            return True
+        r = QMessageBox.question(
+            self, "DWG-Export",
+            "Für den DWG-Export nutzt Traceify den kostenlosen <b>ODA File Converter</b> "
+            "der Open Design Alliance. Er ist nicht installiert.<br><br>"
+            "Download-Seite jetzt öffnen? Nach der Installation funktioniert der DWG-Export "
+            "sofort.<br><br>Alternativ: als DXF exportieren – jedes CAD-Programm öffnet DXF "
+            "und kann es als DWG speichern.")
+        if r == QMessageBox.Yes:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+            QDesktopServices.openUrl(QUrl(ODA_DOWNLOAD_URL))
+        return False
+
+    def report_problem(self, kind="fehler"):
+        import json
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from .. import support
+        what, ok = QInputDialog.getMultiLineText(
+            self, "Problem melden" if kind == "fehler" else "Idee vorschlagen",
+            ("Was ist passiert? (Version, Umgebung, Einstellungen und das Ende der "
+             "Protokolldatei werden automatisch angehängt – du siehst alles vor dem Absenden "
+             "auf GitHub.)") if kind == "fehler" else "Was wünschst du dir?")
+        if not ok:
+            return
+        settings_json = json.dumps(self.panel.settings().to_dict(), ensure_ascii=False)
+        url = support.issue_url(kind, "", what.strip(), settings_json)
+        QDesktopServices.openUrl(QUrl(url))
+        self.statusBar().showMessage("GitHub wurde im Browser geöffnet – dort prüfen und absenden.")
+
+    def open_log(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from .. import support
+        p = support.log_path()
+        if not os.path.exists(p):
+            open(p, "a").close()
+        QDesktopServices.openUrl(QUrl.fromLocalFile(p))
+
+    def toggle_update_auto(self, on):
+        from .. import config
+        config.save({"update_check": bool(on)})
+
+    def check_updates(self, manual=False):
+        from .. import update
+
+        def job(_w):
+            return update.check(force=manual)
+
+        def done(info):
+            if info is None:
+                if manual:
+                    QMessageBox.information(self, "Updates",
+                                            f"Traceify {__version__} ist aktuell.")
+                return
+            self._show_update(info, manual)
+
+        w = FuncWorker(job)
+        w.result.connect(done)
+        w.finished.connect(lambda: self.ai_workers.remove(w) if w in self.ai_workers else None)
+        self.ai_workers.append(w)
+        w.start()
+
+    def _show_update(self, info, ask_now):
+        from PySide6.QtWidgets import QPushButton
+        if self.update_button is None:
+            self.update_button = QPushButton()
+            self.update_button.setStyleSheet("color: #E8601C; font-weight: bold;")
+            self.statusBar().addPermanentWidget(self.update_button)
+        self.update_button.setText(f"⬆ Update {info.version} verfügbar")
+        try:
+            self.update_button.clicked.disconnect()
+        except (RuntimeError, TypeError):
+            pass
+        self.update_button.clicked.connect(lambda: self._update_dialog(info))
+        if ask_now:
+            self._update_dialog(info)
+
+    def _update_dialog(self, info):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from .. import config
+        box = QMessageBox(self)
+        box.setWindowTitle("Update verfügbar")
+        box.setText(f"<b>Traceify {info.version}</b> ist verfügbar (installiert: {__version__}).")
+        box.setInformativeText("Setup herunterladen? Danach einfach ausführen – Einstellungen "
+                               "bleiben erhalten.")
+        box.setDetailedText(info.notes or "")
+        b_dl = box.addButton("Herunterladen", QMessageBox.AcceptRole)
+        b_page = box.addButton("Release-Seite", QMessageBox.ActionRole)
+        b_skip = box.addButton("Diese Version überspringen", QMessageBox.RejectRole)
+        box.addButton("Später", QMessageBox.RejectRole)
+        box.exec()
+        if box.clickedButton() is b_dl:
+            QDesktopServices.openUrl(QUrl(info.setup_url or info.url))
+        elif box.clickedButton() is b_page:
+            QDesktopServices.openUrl(QUrl(info.url))
+        elif box.clickedButton() is b_skip:
+            config.save({"update_skip": info.version})
+            if self.update_button:
+                self.update_button.setVisible(False)
+
     def show_help(self):
         QMessageBox.information(self, "Kurzanleitung", (
             "<b>1. Öffnen</b> – Bild oder PDF öffnen bzw. ins Fenster ziehen.<br>"
@@ -949,7 +1104,9 @@ class MainWindow(QMainWindow):
             "exportiert).<br>"
             "<b>6. Maßstab</b> – automatisch aus der DPI oder per »Maßstab kalibrieren« an "
             "einer bekannten Strecke.<br>"
-            "<b>7. Export</b> – DXF (Strg+E), G-Code (Strg+G) oder SVG.<br><br>"
+            "<b>7. Export</b> – DXF (Strg+E), DWG, G-Code (Strg+G) oder SVG.<br><br>"
+            "<b>Vektor-PDFs</b> aus CAD-Programmen werden automatisch erkannt und direkt "
+            "übernommen. Steht „M 1:100“ im Plan, wird in Originalgröße exportiert.<br><br>"
             "Navigation: Mausrad = Zoom, mittlere Maustaste oder Umschalt+Ziehen = "
             "Verschieben, Strg+0 = Einpassen."))
 

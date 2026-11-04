@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0 – 04.11.2026
+### Neu
+- **Vektor-PDFs direkt übernehmen:** PDFs aus CAD- und Grafikprogrammen werden erkannt. Statt sie zu rastern und neu zu vektorisieren, übernimmt Traceify die Daten millimetergenau:
+  - Linien, Rechtecke, Kreise und Bögen; Bézierkurven, die einem Kreis entsprechen, werden echte Bögen
+  - Texte mit Drehung
+  - Linienfarben, Strichstärken und gestrichelte Linien
+  - gedrehte Seiten werden richtig umgerechnet
+  - optional auch gefüllte Flächen (Layer `FLAECHEN`)
+  - funktioniert in der Oberfläche, im Stapel, in der Kommandozeile und in der API
+- **Maßstab aus dem Plan:** Steht „M 1:100“, „Maßstab 1:50“ oder „SCALE 1:20“ auf der Zeichnung, exportiert Traceify in Originalgröße (Option unter „Maßstab“). Die Anzeige links zeigt den erkannten Maßstab.
+- **DWG-Export** über den kostenlosen ODA File Converter, wenn er installiert ist; ohne ihn bietet Traceify den Download an. Auch im Stapel und in der Kommandozeile (`-f dwg`).
+- **Update-Hinweis:** einmal täglich wird nach einer neuen Version auf GitHub gesucht. Ist eine da, erscheint ein Hinweis mit direktem Download; Versionen lassen sich überspringen, die Suche lässt sich abschalten.
+- **Problem melden / Idee vorschlagen** (Menü Hilfe): öffnet ein vorbefülltes GitHub-Formular mit Version, Umgebung, Einstellungen und dem Ende des Protokolls.
+- Protokolldatei `%APPDATA%\Traceify\traceify.log` (Menü Hilfe → Protokolldatei öffnen).
+- Vorlagen für Fehlerberichte und Ideen auf GitHub.
+- Objekte können eigene Farben, Linientypen und Strichstärken tragen. DXF, SVG und Anzeige berücksichtigen sie.
+
+### Behoben
+- **PDFs ließen sich in der Oberfläche nicht öffnen** („fz_pixmap_xres_set … int“): Die Auflösung ging als Kommazahl an PyMuPDF. Betroffen waren alle Versionen seit 0.1; Stapel, Kommandozeile und API funktionierten.
+- Ältere oder neuere Einstellungsdateien (JSON) mit unbekannten Feldern werden toleriert.
+
 ## 0.3.2 – 04.11.2026
 ### Behoben
 - Windows-Build: Der EXE-Selbsttest las je nach Zufall das Protokoll eines früheren Testlaufs aus dem Quellcode, dort ohne Tesseract. Deshalb scheiterten die Release-Builds zu v0.3.0 und v0.3.1, obwohl die EXE selbst in Ordnung war. Alte Protokolle werden jetzt vorher gelöscht, gelesen wird das neueste, und der Python-Test schreibt in einen eigenen Ordner.

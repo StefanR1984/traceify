@@ -1,0 +1,17 @@
+name: Idee / Wunsch
+description: Vorschlag für eine neue Funktion oder Verbesserung
+title: "[Idee] "
+labels: ["idee"]
+body:
+  - type: textarea
+    id: idee
+    attributes:
+      label: Was wünschst du dir?
+      description: Beschreibe die Funktion und wofür du sie brauchst.
+    validations:
+      required: true
+  - type: textarea
+    id: beispiel
+    attributes:
+      label: Beispiel
+      description: Optional – eine Beispielzeichnung oder ein Screenshot hilft sehr.

@@ -71,7 +71,12 @@ class BatchDialog(QDialog):
         self.f_dxf.setChecked(True)
         self.f_svg = QCheckBox("SVG")
         self.f_nc = QCheckBox("G-Code (.nc)")
-        for c in (self.f_dxf, self.f_svg, self.f_nc):
+        self.f_dwg = QCheckBox("DWG")
+        from ..export.dwg import available as oda_available
+        if not oda_available():
+            self.f_dwg.setEnabled(False)
+            self.f_dwg.setToolTip("Benötigt den kostenlosen ODA File Converter")
+        for c in (self.f_dxf, self.f_dwg, self.f_svg, self.f_nc):
             fmt_row.addWidget(c)
         w = QWidget()
         w.setLayout(fmt_row)
@@ -115,7 +120,8 @@ class BatchDialog(QDialog):
 
     def start(self):
         sources = [self.files.item(i).text() for i in range(self.files.count())]
-        fmts = [e for c, e in ((self.f_dxf, ".dxf"), (self.f_svg, ".svg"), (self.f_nc, ".nc"))
+        fmts = [e for c, e in ((self.f_dxf, ".dxf"), (self.f_dwg, ".dwg"), (self.f_svg, ".svg"),
+                               (self.f_nc, ".nc"))
                 if c.isChecked()]
         if not sources:
             QMessageBox.information(self, "Stapel", "Bitte zuerst Dateien hinzufügen.")

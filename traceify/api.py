@@ -30,16 +30,21 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional
 
 from .core import loader
-from .core.pipeline import ConvertResult, ConvertSettings, convert
+from .core.pipeline import ConvertResult, ConvertSettings, convert_source
 from .export import GcodeSettings, export
 
 
 def open_file(path: str, page: int = 0, settings: Optional[ConvertSettings] = None,
               pdf_dpi: int = 300, progress=None) -> ConvertResult:
-    """Lädt eine Datei (Bild oder PDF-Seite) und vektorisiert sie."""
+    """Lädt eine Datei (Bild oder PDF-Seite) und vektorisiert sie.
+
+    Enthält eine PDF-Seite Vektordaten, werden diese direkt übernommen
+    (abschaltbar über settings.pdf.enabled = False).
+    """
     settings = settings or ConvertSettings()
     gray, scale = loader.load(path, page, pdf_dpi)
-    return convert(gray, settings, scale, source=os.path.basename(path), progress=progress)
+    return convert_source(path, page, settings, gray, scale, pdf_dpi,
+                          source=os.path.basename(path), progress=progress)
 
 
 def ai_settings(path: str, page: int = 0, model: str | None = None,

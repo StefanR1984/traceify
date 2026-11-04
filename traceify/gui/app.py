@@ -8,6 +8,8 @@ def main() -> int:
 
     from .main_window import MainWindow
 
+    from ..support import setup_logging
+    setup_logging()
     app = QApplication(sys.argv)
     app.setApplicationName("Traceify")
     app.setOrganizationName("Traceify")
