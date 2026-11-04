@@ -148,14 +148,6 @@ py -3.12 -m venv .venv
 .venv\Scripts\python -m traceify --selbsttest
 ```
 
-**Prüfstand mit echten Scans:** `
-
-**Mit echtem Ollama und ODA testen:** 
-
-**EXE lokal bauen:** `
-
-**Automatisch über GitHub Actions:**
-
 ## Lizenz
 
 Traceify ist freie Software unter der **GNU Affero General Public License v3.0 oder später** (siehe [LICENSE](LICENSE)). Mitgelieferte Komponenten behalten ihre eigenen Lizenzen:
