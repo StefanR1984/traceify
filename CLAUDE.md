@@ -70,6 +70,6 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - Performance-Referenz: A0 mit 400 dpi (13245×9362) ≈ 21 s mit OCR auf 2 Kernen.
 
 ## Offene Ideen
-- Test mit echten Scans und Vergleich mit Scan2CAD-DXFs (Nutzer liefert ggf. Material).
+- Test mit echten Scans und Vergleich mit Vergleichssoftware
 - Echter ODA-Konverter und echtes Ollama sind nur mit Attrappen getestet.
 - Dehnen bisher nur für einzelne Linien (nicht Polylinien/Bögen).
