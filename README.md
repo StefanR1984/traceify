@@ -148,20 +148,13 @@ py -3.12 -m venv .venv
 .venv\Scripts\python -m traceify --selbsttest
 ```
 
-**Prüfstand mit echten Scans:** `python tools/pruefstand.py SCANS\ [--vergleich DXF_ORDNER --name Scan2CAD] [--bericht bericht.md]` wandelt alle Dateien eines Ordners um und misst Zeit, Objekte, „Splitter“ (Linien unter 1 mm), Anteil exakt waagrechter/senkrechter Linien, offene Linienenden, Abdeckung, Genauigkeit und Texte. Liegen im Vergleichsordner gleichnamige DXF-Dateien eines anderen Programms, werden sie automatisch auf den Scan ausgerichtet und mit denselben Kennzahlen bewertet (inkl. Wort-Vergleich der Texte). Scans gehören aus Datenschutzgründen nicht ins Repo.
+**Prüfstand mit echten Scans:** `
 
-**Mit echtem Ollama und ODA testen:** Der Workflow *Integration (echt)* (Actions → Run workflow, nur manuell) installiert auf einem Windows-Runner Ollama mit einem KI-Modell und den ODA File Converter und führt `tests/test_echt.py` aus. Lokal laufen diese Tests nur mit `TRACEIFY_ECHT=1`.
+**Mit echtem Ollama und ODA testen:** 
 
-**EXE lokal bauen:** `python tools/make_icons.py`, `python tools/make_version_info.py`, dann `pyinstaller --noconfirm packaging/traceify.spec`. Soll Tesseract mit hinein, vorher einen Tesseract-Ordner (mit `tessdata\`) nach `packaging\tesseract\` kopieren. Den Installer baut anschließend `iscc /DAppVersion=x.y.z packaging\windows\traceify.iss`.
+**EXE lokal bauen:** `
 
 **Automatisch über GitHub Actions:**
-- *Tests* läuft bei jedem Push und Pull Request (Windows).
-- *Windows-Build* lässt sich unter Actions manuell starten. Setup.exe und portable ZIP liegen danach als Download unter „Artifacts“.
-- **Release:** Version in `traceify/__init__.py` erhöhen, Abschnitt in `CHANGELOG.md` ergänzen, dann taggen:
-  ```
-  git tag v0.3.1 && git push origin v0.3.1
-  ```
-  Der Workflow baut alles, prüft die EXE per Selbsttest und veröffentlicht ein GitHub-Release mit Setup, ZIP und Prüfsummen.
 
 ## Lizenz
 
