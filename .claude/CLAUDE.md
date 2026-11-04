@@ -74,11 +74,27 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - PDF-DPI 0 = automatisch (`loader.resolve_dpi`): Scan-PDFs in Originalauflösung, sonst 300.
 
 ## Offene Ideen
-- Prüfstand-Stand 0.11.0 (9 Bauplan-Scans, Vergleich Scan2CAD bei image-11/image-4):
-  Traceify hat weniger Objekte und mehr Abdeckung; Scan2CAD ist bei der OCR klar besser
-  (liest auch schräge Texte unter 40–50°, Handschrift teilweise) und erzeugt kaum Bögen
-  (Traceify: viele kleine Bögen in nicht erkannten Buchstaben und an Rechteckecken).
-- Ideen: OCR für schräge Texte, Ecken-Rundungen nicht als Bogen, Wände als Doppellinie
-  oder Schraffur-Block statt Einzellinien.
-- Echter ODA-Konverter und echtes Ollama sind nur mit Attrappen getestet.
-- Dehnen bisher nur für einzelne Linien (nicht Polylinien/Bögen).
+Stand 0.11.0 – Prüfstand mit 9 Bauplan-Scans (96–150 dpi), Vergleich mit Scan2CAD bei
+image-11 und image-4. Traceify: weniger Objekte, mehr Abdeckung; Scan2CAD: klar bessere OCR,
+kaum Bögen. Die Scans liefert der Nutzer bei Bedarf (nicht im Repo).
+
+1. **Schräge Texte erkennen** – Scan2CAD liest auch Texte unter 40–50° (z. B. „Pos 13 Labor“,
+   „BR 850“ in image-11). Traceify sucht nur 0/90/180/270°. Idee: Textzeilen über die Lage
+   der Zeichen-Komponenten finden, Winkel schätzen, Ausschnitt geraderücken, dann lesen.
+2. **Handschrift besser lesen** – image-4: Traceify 3 von 22 Wörtern („Gang“, „Koks“,
+   „Garage“), Scan2CAD auch „Privat Keller“, „Heizraum“, „Faßkeller“. Ideen: KI-Texterkennung
+   (Ollama-Bildmodell) gezielt auf schriftähnliche, von Tesseract nicht gelesene Bereiche;
+   Tesseract mit anderen Einstellungen (psm, Vorverarbeitung) probieren.
+3. **Weniger unnötige Bögen** – z. B. 904 statt 51 bei image-11. Ursachen: nicht erkannte
+   Buchstaben (o, e, c) werden kleine Bögen; Rechteckecken/kurze Kanten werden als Bogen statt
+   als Ecke mit zwei Linien angepasst.
+4. **Wände als echte CAD-Objekte** – dicke Wände kommen als Mittellinie mit Strichstärke,
+   Schraffuren als Hunderte Einzellinien. Optionen: Wand als Doppellinie (Außenkanten);
+   Schraffurflächen erkennen und als DXF-Schraffur oder Block ausgeben (Scan2CAD: HATCH-Blöcke).
+5. **Prüfstand ausbauen** – weitere Vergleichs-DXFs des Nutzers einbinden (bisher nur image-11
+   und image-4); Kennzahlen für Linienqualität ergänzen (Anteil exakt waagrechter/senkrechter
+   Linien, freie Linienenden). Achtung: Abdeckung ist nur bei gleicher Auflösung vergleichbar.
+6. **Windows-Probe-Build für 0.11.0** steht noch aus (Workflow-Start war in der Sitzung nicht
+   erlaubt) – Nutzer startet ihn selbst oder gibt frei.
+7. Dehnen bisher nur für einzelne Linien (nicht Polylinien/Bögen).
+8. Echter ODA-Konverter (DWG) und echtes Ollama sind nur mit Attrappen getestet.
