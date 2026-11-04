@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0 – 04.11.2026
+### Neu: Linien und Farben
+- **Strichlinien erkennen:** Kurze Striche auf einer Linie mit regelmäßigen Lücken werden zu **einer** Linie mit echtem Linientyp zusammengefasst, auf dem Layer `STRICHLINIEN`:
+  - gestrichelt wird `DASHED`
+  - Strichpunkt (Mittellinien) wird `CENTER`
+  - einzelne Linien mit großen Abständen bleiben unverändert
+- **Strichstärken messen:** Die Breite jedes Strichs wird im Scan gemessen und als Strichstärke übernommen (in mm auf dem Papier); DXF zeigt sie mit Strichstärkenanzeige an.
+- **Dicke Linien auf eigenem Layer:** Linien ab dem 1,7-Fachen der üblichen Stärke, zum Beispiel Wände, kommen auf `DICKE_LINIEN`. Der Faktor ist einstellbar, und die Funktion wirkt auch bei Vektor-PDFs. In der Anzeige erscheinen sie dicker.
+- **Farben auf Layer trennen:** Farbige Pläne werden in Farbgruppen zerlegt und getrennt vektorisiert, auf Layer wie `FARBE_ROT`, `FARBE_BLAU` und `FARBE_SCHWARZ`, jeweils mit Originalfarbe:
+  - die Anzahl der Farben bestimmt Traceify automatisch, man kann sie aber auch vorgeben
+  - funktioniert auch bei Vektor-PDFs
+  - Drehen, Zuschneiden, Begradigen, Radierer und Stift wirken auf das Farbbild mit, Strg+Z ebenso
+- Neue Einstellungsgruppe „Linien und Farben“. Der KI-Assistent kennt die neuen Optionen.
+
 ## 0.5.0 – 04.11.2026
 ### Neu: Bearbeiten
 - **Raster-Radierer und Stift** in der neuen Werkzeugleiste „Bearbeiten“:

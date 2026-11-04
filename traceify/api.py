@@ -43,8 +43,9 @@ def open_file(path: str, page: int = 0, settings: Optional[ConvertSettings] = No
     """
     settings = settings or ConvertSettings()
     gray, scale = loader.load(path, page, pdf_dpi)
+    color = loader.load_color(path, page, pdf_dpi) if settings.style.color_layers else None
     return convert_source(path, page, settings, gray, scale, pdf_dpi,
-                          source=os.path.basename(path), progress=progress)
+                          source=os.path.basename(path), progress=progress, color=color)
 
 
 def ai_settings(path: str, page: int = 0, model: str | None = None,

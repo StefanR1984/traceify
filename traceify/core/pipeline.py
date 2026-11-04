@@ -11,6 +11,8 @@ from .model import Drawing, Text
 from .pdf_vector import PdfVectorSettings, has_vectors, import_page
 from .preprocess import PreprocessSettings, to_binary
 from .scale_detect import find_scale, format_scale
+from .style import (StyleSettings, classify_thick, classify_thick_mm, cleanup, detect_dashed,
+                    measure_widths)
 from .vectorize import MODE_CENTERLINE, MODE_OUTLINE, VectorizeSettings, vectorize
 
 REGION_IGNORE = "ignorieren"
@@ -73,6 +75,7 @@ class ConvertSettings:
     vectorize: VectorizeSettings = field(default_factory=VectorizeSettings)
     ocr: ocr_mod.OcrSettings = field(default_factory=ocr_mod.OcrSettings)
     pdf: PdfVectorSettings = field(default_factory=PdfVectorSettings)
+    style: StyleSettings = field(default_factory=StyleSettings)
     scale: Optional[float] = None  # mm pro Pixel; None = aus DPI
     auto_scale: bool = True        # „M 1:N“ im Plan erkennen und in Originalgröße ausgeben
     regions: list = field(default_factory=list)  # Bereiche mit eigener Behandlung (Region/dict)
@@ -87,6 +90,7 @@ class ConvertSettings:
             vectorize=_make(VectorizeSettings, d.get("vectorize")),
             ocr=_make(ocr_mod.OcrSettings, d.get("ocr")),
             pdf=_make(PdfVectorSettings, d.get("pdf")),
+            style=_make(StyleSettings, d.get("style")),
             scale=d.get("scale"),
             auto_scale=d.get("auto_scale", True),
             regions=list(d.get("regions") or []),
@@ -111,8 +115,27 @@ def apply_auto_scale(d: Drawing, settings: ConvertSettings) -> None:
         d.meta["massstab_quelle"] = "aus Plan erkannt"
 
 
+def _style_post(ents: list, mask: np.ndarray, paper_mm_per_px: float, settings) -> list:
+    """Strichstärken messen, dicke Linien einordnen, Strichlinien zusammenfassen."""
+    st = settings.style
+    if settings.vectorize.mode != MODE_CENTERLINE:
+        return ents
+    if st.measure_widths or st.thick_layer:
+        measure_widths(ents, mask, paper_mm_per_px)
+        if st.thick_layer:
+            classify_thick(ents, st)
+        if not st.measure_widths:
+            for e in ents:
+                e.lineweight = 0.0
+    if st.detect_dashed:
+        ents = detect_dashed(ents, st)
+    cleanup(ents)
+    return ents
+
+
 def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4 / 300,
-            source: str = "", progress: Optional[Callable[[int, str], None]] = None) -> ConvertResult:
+            source: str = "", progress: Optional[Callable[[int, str], None]] = None,
+            color: Optional[np.ndarray] = None) -> ConvertResult:
     def step(p, msg):
         if progress:
             progress(p, msg)
@@ -140,7 +163,30 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         main = bw_vec.copy()
         for r in special:
             main[r.slices(main.shape)] = 0
-    ents = vectorize(main, settings.vectorize)
+    groups = []
+    if settings.style.color_layers and color is not None and color.shape[:2] == gray.shape[:2]:
+        from .colors import is_colorful, separate
+        if is_colorful(color):
+            step(50, "Farben trennen …")
+            groups = separate(color, settings.style.color_count)
+    if groups:
+        ents = []
+        for gi, g in enumerate(groups):
+            step(55 + int(35 * gi / len(groups)), f"Vektorisierung {g.name} …")
+            m = g.mask
+            for r in regions:
+                if r.mode == REGION_IGNORE or r in special:
+                    m[r.slices(m.shape)] = 0
+            if boxes:
+                m = ocr_mod.erase_boxes(m, boxes, settings.ocr.erase_padding)
+            part = _style_post(vectorize(m, settings.vectorize), m, dpi_scale, settings)
+            col = None if g.name.endswith(("SCHWARZ", "GRAU")) else g.rgb
+            for e in part:
+                e.layer = g.name
+                e.color = col
+            ents += part
+    else:
+        ents = _style_post(vectorize(main, settings.vectorize), main, dpi_scale, settings)
     for r in special:
         if r.mode not in (MODE_CENTERLINE, MODE_OUTLINE):
             continue  # nur Text: keine Linien
@@ -167,6 +213,13 @@ def convert_pdf_vectors(path: str, page: int, dpi: int, settings: ConvertSetting
     if progress:
         progress(20, "Lese Vektordaten aus dem PDF …")
     d = import_page(path, page, dpi, settings.pdf)
+    if settings.style.thick_layer:
+        classify_thick_mm(d.entities, settings.style)
+    if settings.style.color_layers:
+        from .colors import layer_for_rgb
+        for e in d.entities:
+            if not isinstance(e, Text):
+                e.layer = layer_for_rgb(e.color)
     for r in _regions(settings):
         if r.mode == REGION_IGNORE:
             d.entities = [e for e in d.entities if not r.contains(_anchor(e))]
@@ -187,8 +240,8 @@ def convert_pdf_vectors(path: str, page: int, dpi: int, settings: ConvertSetting
 def convert_source(path: str, page: int, settings: ConvertSettings, gray: np.ndarray,
                    dpi_scale: float, pdf_dpi: int = 300, source: str = "",
                    progress: Optional[Callable[[int, str], None]] = None,
-                   allow_vectors: bool = True) -> ConvertResult:
+                   allow_vectors: bool = True, color: Optional[np.ndarray] = None) -> ConvertResult:
     """Wählt automatisch: Vektor-PDF direkt übernehmen oder Raster vektorisieren."""
     if allow_vectors and path and has_vectors(path, page, settings.pdf):
         return convert_pdf_vectors(path, page, pdf_dpi, settings, gray, progress)
-    return convert(gray, settings, dpi_scale, source, progress)
+    return convert(gray, settings, dpi_scale, source, progress, color=color)

@@ -54,6 +54,34 @@ def load_image(path: str) -> Tuple[np.ndarray, float]:
     return gray, 25.4 / float(dpi)
 
 
+def load_color(path: str, page: int = 0, dpi: int = 300):
+    """Farbbild (BGR, uint8) oder None, wenn die Quelle keine Farbe hat."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext in PDF_EXT:
+        import pymupdf as fitz
+        dpi = int(round(float(dpi)))
+        with fitz.open(path) as doc:
+            pix = doc.load_page(page).get_pixmap(dpi=dpi, colorspace=fitz.csRGB, alpha=False)
+            rgb = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+        return np.ascontiguousarray(rgb[..., ::-1])
+    if ext in IMAGE_EXT:
+        from PIL import Image
+        with Image.open(path) as im:
+            if im.mode in ("1", "L", "LA", "I", "I;16", "F"):
+                return None
+            if im.mode in ("RGBA", "P", "LA"):
+                im = im.convert("RGBA")
+                bg = Image.new("RGB", im.size, (255, 255, 255))
+                bg.paste(im, mask=im.split()[-1])
+                im = bg
+            rgb = np.array(im.convert("RGB"))
+        if (np.abs(rgb[..., 0].astype(int) - rgb[..., 1]) < 4).all() and \
+                (np.abs(rgb[..., 1].astype(int) - rgb[..., 2]) < 4).all():
+            return None  # eigentlich Graustufen
+        return np.ascontiguousarray(rgb[..., ::-1])
+    return None
+
+
 def load(path: str, page: int = 0, dpi: int = 300) -> Tuple[np.ndarray, float]:
     ext = os.path.splitext(path)[1].lower()
     if ext in PDF_EXT:

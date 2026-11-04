@@ -61,6 +61,11 @@ class EntityItem(QGraphicsPathItem):
         super().__init__(entity_path(entity))
         self.entity = entity
         rgb = getattr(entity, "color", None) or layer_color(entity.layer)[1]
+        lw = getattr(entity, "lineweight", 0.0) or 0.0
+        if lw >= 0.7 or entity.layer == "DICKE_LINIEN":
+            width *= 2.0      # dicke Linien auch am Bildschirm hervorheben
+        elif lw >= 0.45:
+            width *= 1.4
         self.base_pen = QPen(QColor(*rgb), width)
         self.base_pen.setCosmetic(True)
         self.base_pen.setCapStyle(Qt.RoundCap)

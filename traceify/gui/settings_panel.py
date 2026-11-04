@@ -111,6 +111,28 @@ class SettingsPanel(QScrollArea):
         f.addRow("Umriss-Glättung:", self.contour_smooth)
         lay.addWidget(g)
 
+        # ---- Linien & Farben ----
+        g = QGroupBox("Linien und Farben")
+        f = QFormLayout(g)
+        self.dashed = QCheckBox("Strichlinien erkennen (gestrichelt, Strichpunkt)")
+        self.dashed.setChecked(True)
+        f.addRow(self.dashed)
+        self.widths = QCheckBox("Strichstärken messen und übernehmen")
+        self.widths.setChecked(True)
+        f.addRow(self.widths)
+        self.thick = QCheckBox("Dicke Linien auf eigenen Layer (z. B. Wände)")
+        self.thick.setChecked(True)
+        f.addRow(self.thick)
+        self.thick_ratio = _spin(1.2, 5.0, 1.7, 0.1, 1, " ×")
+        f.addRow("Dick ab:", self.thick_ratio)
+        self.color_layers = QCheckBox("Farben auf eigene Layer trennen")
+        self.color_layers.setToolTip("Farbige Pläne: jede Farbe wird ein Layer (FARBE_ROT, …)")
+        f.addRow(self.color_layers)
+        self.color_count = _spin(0, 12, 0)
+        self.color_count.setSpecialValueText("automatisch")
+        f.addRow("Anzahl Farben:", self.color_count)
+        lay.addWidget(g)
+
         # ---- OCR ----
         g = QGroupBox("Texterkennung (OCR)")
         f = QFormLayout(g)
@@ -236,6 +258,13 @@ class SettingsPanel(QScrollArea):
         o.vertical_text = self.ocr_vertical.isChecked()
         s.scale = None if self.scale_auto.isChecked() else self.mmpx.value()
         s.auto_scale = self.auto_scale.isChecked()
+        st = s.style
+        st.detect_dashed = self.dashed.isChecked()
+        st.measure_widths = self.widths.isChecked()
+        st.thick_layer = self.thick.isChecked()
+        st.thick_ratio = self.thick_ratio.value()
+        st.color_layers = self.color_layers.isChecked()
+        st.color_count = self.color_count.value()
         s.pdf.enabled = self.pdf_vectors.isChecked()
         s.pdf.include_fills = self.pdf_fills.isChecked()
         s.pdf.keep_colors = self.pdf_colors.isChecked()
@@ -267,6 +296,12 @@ class SettingsPanel(QScrollArea):
         self.ocr_vertical.setChecked(o.vertical_text)
         self.scale_auto.setChecked(s.scale is None)
         self.auto_scale.setChecked(s.auto_scale)
+        self.dashed.setChecked(s.style.detect_dashed)
+        self.widths.setChecked(s.style.measure_widths)
+        self.thick.setChecked(s.style.thick_layer)
+        self.thick_ratio.setValue(s.style.thick_ratio)
+        self.color_layers.setChecked(s.style.color_layers)
+        self.color_count.setValue(s.style.color_count)
         self.pdf_vectors.setChecked(s.pdf.enabled)
         self.pdf_fills.setChecked(s.pdf.include_fills)
         self.pdf_colors.setChecked(s.pdf.keep_colors)
@@ -309,14 +344,17 @@ class SettingsPanel(QScrollArea):
             return f"Vorlage: {match}"
         checks = {"adaptiv": self.adaptive, "invertieren": self.invert, "begradigen": self.deskew,
                   "boegen": self.arcs, "kreise": self.circles, "nur_polylinien": self.polylines,
-                  "ocr": self.ocr}
+                  "ocr": self.ocr, "strichlinien": self.dashed, "strichstaerken": self.widths,
+                  "dicke_linien_layer": self.thick, "farben_trennen": self.color_layers,
+                  "massstab_aus_plan": self.auto_scale, "pdf_vektoren": self.pdf_vectors}
         if n in checks:
             checks[n].setChecked(b(value))
             return f"{name}: {'an' if checks[n].isChecked() else 'aus'}"
         nums = {"toleranz": self.tolerance, "schwellwert": self.threshold, "flecken": self.despeckle,
                 "luecken_schliessen": self.thicken, "glaetten": self.smooth,
                 "min_laenge": self.min_length, "eckenwinkel": self.corner,
-                "vorschub": self.feed, "fraestiefe": self.depth, "zustellung": self.step_down}
+                "vorschub": self.feed, "fraestiefe": self.depth, "zustellung": self.step_down,
+                "anzahl_farben": self.color_count}
         if n in nums:
             return f"{name}: {num(nums[n], value)}"
         if n == "ocr_sprache":

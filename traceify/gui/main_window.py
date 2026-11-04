@@ -36,16 +36,16 @@ class ConvertWorker(QThread):
     failed = Signal(str)
 
     def __init__(self, gray, settings, scale, source, path="", page=0, pdf_dpi=300,
-                 allow_vectors=True):
+                 allow_vectors=True, color=None):
         super().__init__()
-        self.args = (gray, settings, scale, source, path, page, pdf_dpi, allow_vectors)
+        self.args = (gray, settings, scale, source, path, page, pdf_dpi, allow_vectors, color)
 
     def run(self):
         try:
-            gray, s, scale, src, path, page, dpi, allow = self.args
+            gray, s, scale, src, path, page, dpi, allow, color = self.args
             res = convert_source(path, page, s, gray, scale, dpi, src,
                                  progress=lambda p, m: self.progress.emit(p, m),
-                                 allow_vectors=allow)
+                                 allow_vectors=allow, color=color)
             self.done.emit(res)
         except Exception:
             self.failed.emit(traceback.format_exc())
@@ -59,6 +59,7 @@ class MainWindow(QMainWindow):
         self.qs = QSettings("Traceify", "Traceify")
         self.path = None
         self.page = 0
+        self.color_img = None
         self.raster_modified = False
         self.is_vector_pdf = False
         self.gray: np.ndarray | None = None
@@ -431,6 +432,10 @@ class MainWindow(QMainWindow):
         finally:
             QApplication.restoreOverrideCursor()
         self.qs.setValue("last_dir", os.path.dirname(path))
+        try:
+            self.color_img = loader.load_color(path, page, self.panel.pdf_dpi.value())
+        except Exception:
+            self.color_img = None
         self.path, self.page = path, page
         self.gray, self.img_scale = gray, scale
         self.binary = None
@@ -480,7 +485,8 @@ class MainWindow(QMainWindow):
         self.worker = ConvertWorker(self.gray, s, self.img_scale,
                                     os.path.basename(self.path or ""), self.path or "",
                                     self.page, self.panel.pdf_dpi.value(),
-                                    allow_vectors=not self.raster_modified)
+                                    allow_vectors=not self.raster_modified,
+                                    color=self.color_img if s.style.color_layers else None)
         self.worker.progress.connect(self.on_progress)
         self.worker.done.connect(self.on_converted)
         self.worker.failed.connect(self.on_failed)
@@ -633,7 +639,7 @@ class MainWindow(QMainWindow):
             return
         kind, *data = self.undo_stack.pop()
         if kind == "raster_only":
-            self.gray = data[0]
+            self.gray, self.color_img = data[0], data[1]
             self.binary = None
             self._show_current_raster()
             self.update_actions()
@@ -643,7 +649,7 @@ class MainWindow(QMainWindow):
         elif kind == "drawing":
             self.drawing = data[0]
         elif kind == "raster":
-            self.gray, self.drawing = data
+            self.gray, self.drawing, self.color_img = data
             self.binary = None
             self.a_show_bin.setChecked(False)
             self.canvas.set_raster(self.gray)
@@ -685,7 +691,7 @@ class MainWindow(QMainWindow):
         if self.gray is None or not pts:
             self.canvas.clear_stroke()
             return
-        self.undo_stack.append(("raster_only", self.gray))
+        self.undo_stack.append(("raster_only", self.gray, self.color_img))
         g = self.gray.copy()
         arr = np.round(np.asarray(pts, dtype=float)).astype(np.int32).reshape(-1, 1, 2)
         col = 255 if tool == "erase" else 0
@@ -697,6 +703,16 @@ class MainWindow(QMainWindow):
             cv2.circle(g, tuple(int(v) for v in arr[0, 0]), r, col, -1)
             cv2.circle(g, tuple(int(v) for v in arr[-1, 0]), r, col, -1)
         self.gray = g
+        if self.color_img is not None:
+            c = self.color_img.copy()
+            cc = (col, col, col)
+            if len(arr) == 1:
+                cv2.circle(c, tuple(int(v) for v in arr[0, 0]), r, cc, -1)
+            else:
+                cv2.polylines(c, [arr], False, cc, thickness=max(1, int(size)))
+                cv2.circle(c, tuple(int(v) for v in arr[0, 0]), r, cc, -1)
+                cv2.circle(c, tuple(int(v) for v in arr[-1, 0]), r, cc, -1)
+            self.color_img = c
         self.binary = None
         self.raster_modified = True
         self._show_current_raster()
@@ -868,13 +884,19 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"{len(polys)} Polylinie(n) in {len(new)} Linien aufgelöst.")
 
     # ---------------------------------------------------------------- Raster
-    def _raster_edit(self, new_gray, msg, keep_regions=False):
+    def _raster_edit(self, new_gray, msg, keep_regions=False, color_fn=None):
         if not keep_regions and self.regions:
             self.regions = []
             self.canvas.set_regions([], {})
             msg += " (Bereiche entfernt)"
-        self.undo_stack.append(("raster", self.gray, self.drawing))
+        self.undo_stack.append(("raster", self.gray, self.drawing, self.color_img))
         self.raster_modified = True  # Vektor-PDF-Koordinaten passen nicht mehr
+        if self.color_img is not None:
+            try:  # gleiche Änderung auf das Farbbild (für die Farbtrennung)
+                self.color_img = np.ascontiguousarray(color_fn(self.color_img)) if color_fn \
+                    else None
+            except Exception:
+                self.color_img = None
         self.gray = new_gray
         self.drawing = None
         self.binary = None
@@ -888,7 +910,8 @@ class MainWindow(QMainWindow):
 
     def rotate(self, d):
         if self.gray is not None:
-            self._raster_edit(preprocess.rotate90(self.gray, d), "Gedreht")
+            self._raster_edit(preprocess.rotate90(self.gray, d), "Gedreht",
+                              color_fn=lambda c: preprocess.rotate90(c, d))
 
     def start_crop(self):
         if self.gray is not None:
@@ -899,7 +922,8 @@ class MainWindow(QMainWindow):
         H, W = self.gray.shape
         w, h = min(w, W - x), min(h, H - y)
         if w > 5 and h > 5:
-            self._raster_edit(preprocess.crop(self.gray, x, y, w, h), f"Zugeschnitten auf {w}×{h} px")
+            self._raster_edit(preprocess.crop(self.gray, x, y, w, h), f"Zugeschnitten auf {w}×{h} px",
+                              color_fn=lambda c: preprocess.crop(c, x, y, w, h))
 
     def deskew_now(self):
         bw = preprocess.to_binary(self.gray, self.panel.settings().preprocess)
@@ -907,10 +931,12 @@ class MainWindow(QMainWindow):
         if abs(a) < 0.05:
             self.statusBar().showMessage("Keine Schräglage erkannt.")
             return
-        self._raster_edit(preprocess.rotate(self.gray, a, border=255), f"Um {a:.2f}° begradigt")
+        self._raster_edit(preprocess.rotate(self.gray, a, border=255), f"Um {a:.2f}° begradigt",
+                          color_fn=lambda c: preprocess.rotate(c, a, border=(255, 255, 255)))
 
     def invert_now(self):
-        self._raster_edit(255 - self.gray, "Invertiert", keep_regions=True)
+        self._raster_edit(255 - self.gray, "Invertiert", keep_regions=True,
+                          color_fn=lambda c: 255 - c)
 
     # ----------------------------------------------------------- Maßstab
     def start_calibrate(self):
