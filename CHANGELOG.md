@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.0 – 04.11.2026
+### Neu: CNC
+- **G-Code-Vorschau** (Datei → G-Code-Vorschau, Strg+Umschalt+G, oder der Knopf im CNC-Bereich) zeigt:
+  - alle Werkzeugwege, gestrichelt die Eilgänge und grün die Haltestege
+  - eine Animation mit Werkzeugposition, oder Schritt für Schritt per Schieberegler
+  - Schnittweg, Eilweg, Durchgänge und die **geschätzte Bearbeitungszeit**
+  - Hinweise zu Problemen und den fertigen G-Code als Text
+
+  Aus der Vorschau lässt sich direkt speichern.
+- **Fräserradius-Korrektur** mit einstellbarem Fräser-Ø:
+  - *außen*: Kontur bleibt stehen
+  - *innen*: Tasche oder Loch
+  - *automatisch*: Teile ausschneiden. Traceify erkennt die Verschachtelung; Löcher werden innen und zuerst gefräst, Außenkonturen außen und zuletzt, damit das Teil bis zum Schluss hält.
+  - Kreise bleiben echte G2/G3-Bögen; zu kleine Konturen werden mit Hinweis ausgelassen.
+- **Gleichlauf/Gegenlauf:** Die Fräsrichtung wird passend zur Korrektur festgelegt (rechtsdrehende Spindel).
+- **Haltestege:** Anzahl je Außenkontur, Breite und Höhe sind einstellbar. Die Fräse hebt nur in den letzten Durchgängen über die Stege; Laser und Plasma unterbrechen den Strahl. Löcher bekommen keine Stege.
+- Der G-Code-Kopf enthält Schnittweg, geschätzte Zeit, Korrektur und Stege.
+- Der KI-Assistent kann Fräser-Ø, Radiuskorrektur und Haltestege setzen und die Vorschau öffnen.
+
+### Technik
+- Neue Abhängigkeit `shapely` für robuste Konturversätze.
+- G-Code, Vorschau und Zeitschätzung entstehen aus demselben Bewegungsplan (`traceify.export.gcode.plan`).
+
 ## 0.6.0 – 04.11.2026
 ### Neu: Linien und Farben
 - **Strichlinien erkennen:** Kurze Striche auf einer Linie mit regelmäßigen Lücken werden zu **einer** Linie mit echtem Linientyp zusammengefasst, auf dem Layer `STRICHLINIEN`:

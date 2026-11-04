@@ -90,6 +90,7 @@ class MainWindow(QMainWindow):
         self.panel.convertRequested.connect(self.run_convert)
         self.panel.previewBinaryRequested.connect(self.preview_binary)
         self.panel.btn_calibrate.clicked.connect(self.start_calibrate)
+        self.panel.btn_preview.clicked.connect(self.gcode_preview)
         dock = QDockWidget("Einstellungen", self)
         dock.setObjectName("dock_settings")
         dock.setWidget(self.panel)
@@ -180,6 +181,8 @@ class MainWindow(QMainWindow):
         self.a_dwg = A("Als DWG exportieren …", lambda: self.export_dialog(".dwg"),
                        tip="Über den kostenlosen ODA File Converter")
         self.a_svg = A("Als SVG exportieren …", lambda: self.export_dialog(".svg"))
+        self.a_preview = A("G-Code-Vorschau …", self.gcode_preview, "Ctrl+Shift+G",
+                           "Werkzeugwege ansehen, abspielen, Zeit schätzen")
         self.a_nc = A("Als G-Code exportieren …", lambda: self.export_dialog(".nc"),
                       "Ctrl+G", "Werkzeugwege für CNC-Fräse, Laser, Plasma")
         self.a_save_set = A("Einstellungen speichern …", self.save_settings)
@@ -260,7 +263,8 @@ class MainWindow(QMainWindow):
 
     def _build_menus(self):
         m = self.menuBar().addMenu("&Datei")
-        for a in (self.a_open, None, self.a_dxf, self.a_dwg, self.a_svg, self.a_nc, None,
+        for a in (self.a_open, None, self.a_dxf, self.a_dwg, self.a_svg, self.a_nc,
+                  self.a_preview, None,
                   self.a_save_set, self.a_load_set, None, self.a_quit):
             m.addSeparator() if a is None else m.addAction(a)
         dm = m.addMenu("DXF-Version")
@@ -320,7 +324,8 @@ class MainWindow(QMainWindow):
                  self.a_nc: "G-Code", self.a_svg: "SVG", self.a_crop: "Zuschneiden",
                  self.a_rot_l: "⟲ 90°", self.a_rot_r: "⟳ 90°", self.a_fit: "Einpassen",
                  self.a_show_bin: "Binärbild", self.a_batch: "Stapel …",
-                 self.a_ai_suggest: "✨ KI-Analyse", self.a_ai_show: "KI-Chat"}
+                 self.a_ai_suggest: "✨ KI-Analyse", self.a_ai_show: "KI-Chat",
+                 self.a_preview: "Vorschau"}
         for a, t in short.items():
             a.setIconText(t)
         tb = QToolBar("Werkzeuge")
@@ -343,6 +348,7 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         tb.addAction(self.a_dxf)
         tb.addAction(self.a_nc)
+        tb.addAction(self.a_preview)
         tb.addAction(self.a_svg)
         tb.addSeparator()
         tb.addAction(self.a_crop)
@@ -398,7 +404,8 @@ class MainWindow(QMainWindow):
             a.setEnabled(has_img and not busy)
         for a in (self.a_corner, self.a_ortho, self.a_gaps, self.a_join, self.a_explode):
             a.setEnabled(has_vec and not busy)
-        for a in (self.a_dxf, self.a_dwg, self.a_svg, self.a_nc, self.a_delete, self.a_select_all,
+        for a in (self.a_dxf, self.a_dwg, self.a_svg, self.a_nc, self.a_preview, self.a_delete,
+                  self.a_select_all,
                   self.a_select_layer, self.a_ai_texts, self.a_ai_review):
             a.setEnabled(has_vec and not busy)
         self.panel.btn_convert.setEnabled(has_img and not busy)
@@ -1254,9 +1261,13 @@ class MainWindow(QMainWindow):
                 elif kind == "begradigen":
                     self.deskew_now()
                     msg = "Begradigt"
+                elif kind == "gcode_vorschau":
+                    from PySide6.QtCore import QTimer
+                    QTimer.singleShot(0, self.gcode_preview)
+                    msg = "G-Code-Vorschau geöffnet"
                 elif kind == "exportieren":
                     export_fmt = "." + str(a.get("format", "dxf")).lower().lstrip(".")
-                    if export_fmt not in (".dxf", ".svg", ".nc"):
+                    if export_fmt not in (".dxf", ".dwg", ".svg", ".nc"):
                         export_fmt = ".dxf"
                     msg = f"Export {export_fmt.upper()[1:]} vorbereitet"
                 else:
@@ -1317,6 +1328,33 @@ class MainWindow(QMainWindow):
         self.canvas.set_entities(self.drawing.entities)
         self.refresh_layers()
         return f"{len(hits)} Text(e) ersetzt"
+
+    def gcode_preview(self):
+        if not self.drawing or not self.drawing.entities:
+            self.statusBar().showMessage("Erst konvertieren – dann gibt es Werkzeugwege.")
+            return
+        from .gcode_preview import GcodePreviewDialog
+        s = self.panel.settings().scale
+        if s:
+            self.drawing.scale = s
+        base = os.path.splitext(os.path.basename(self.path or "zeichnung"))[0]
+        start = os.path.join(self.qs.value("export_dir", os.path.dirname(self.path or "")),
+                             base + ".nc")
+        try:
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            try:
+                dlg = GcodePreviewDialog(self, self.drawing, self.panel.gcode_settings(),
+                                         self.visible_layers(), start)
+            finally:
+                QApplication.restoreOverrideCursor()
+        except Exception as exc:
+            import logging
+            logging.getLogger("traceify").exception("G-Code-Vorschau")
+            QMessageBox.critical(self, "G-Code-Vorschau", str(exc))
+            return
+        if dlg.exec() and getattr(dlg, "saved_path", None):
+            self.qs.setValue("export_dir", os.path.dirname(dlg.saved_path))
+            self.statusBar().showMessage(f"Gespeichert: {dlg.saved_path}")
 
     # ------------------------------------------------------- DWG / Support
     def _ensure_oda(self) -> bool:

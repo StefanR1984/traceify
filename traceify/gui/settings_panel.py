@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBo
 from ..core.ocr import available_languages, tesseract_available
 from ..core.pipeline import ConvertSettings
 from ..core.vectorize import MODE_CENTERLINE, MODE_OUTLINE
-from ..export.gcode import MACHINE_LASER, MACHINE_MILL, GcodeSettings
+from ..export.gcode import COMP_LABELS, MACHINE_LASER, MACHINE_MILL, GcodeSettings
 
 from ..gui_presets import PRESETS  # noqa: E402
 
@@ -214,6 +214,30 @@ class SettingsPanel(QScrollArea):
         self.optimize = QCheckBox("Fahrwege optimieren")
         self.optimize.setChecked(True)
         f.addRow(self.optimize)
+        self.tool_d = _spin(0, 50, 3, 0.5, 2, " mm")
+        f.addRow("Fräser-Ø:", self.tool_d)
+        self.comp = QComboBox()
+        for key, label in COMP_LABELS.items():
+            self.comp.addItem(label, key)
+        self.comp.setToolTip("Radiuskorrektur: Werkzeugweg um den Fräserradius versetzen, damit "
+                             "das Teil maßhaltig wird. „Automatisch“: Außenkonturen außen, Löcher "
+                             "innen, Löcher zuerst.")
+        f.addRow("Radiuskorrektur:", self.comp)
+        self.climb = QCheckBox("Gleichlauf (sonst Gegenlauf)")
+        self.climb.setChecked(True)
+        f.addRow(self.climb)
+        self.tabs = _spin(0, 20, 0)
+        self.tabs.setSpecialValueText("keine")
+        self.tabs.setToolTip("Haltestege je Außenkontur – das Teil bleibt mit der Platte verbunden")
+        f.addRow("Haltestege:", self.tabs)
+        self.tab_w = _spin(0.2, 50, 4, 0.5, 1, " mm")
+        f.addRow("Steg-Breite:", self.tab_w)
+        self.tab_h = _spin(0.1, 50, 1, 0.1, 2, " mm")
+        f.addRow("Steg-Höhe:", self.tab_h)
+        self.rapid = _spin(100, 50000, 3000, 100, 0, " mm/min")
+        f.addRow("Eilgang (Zeitschätzung):", self.rapid)
+        self.btn_preview = QPushButton("G-Code-Vorschau …")
+        f.addRow(self.btn_preview)
         lay.addWidget(g)
         lay.addStretch(1)
 
@@ -317,7 +341,12 @@ class SettingsPanel(QScrollArea):
                              plunge_rate=self.plunge.value(), spindle_speed=self.spindle.value(),
                              safe_z=self.safe_z.value(), cut_depth=self.depth.value(),
                              step_down=self.step_down.value(),
-                             optimize_order=self.optimize.isChecked())
+                             optimize_order=self.optimize.isChecked(),
+                             tool_diameter=self.tool_d.value(),
+                             compensation=self.comp.currentData(),
+                             climb=self.climb.isChecked(), tabs=self.tabs.value(),
+                             tab_width=self.tab_w.value(), tab_height=self.tab_h.value(),
+                             rapid_rate=self.rapid.value())
 
 
     # ------------------------------------------------------------------
@@ -354,6 +383,8 @@ class SettingsPanel(QScrollArea):
                 "luecken_schliessen": self.thicken, "glaetten": self.smooth,
                 "min_laenge": self.min_length, "eckenwinkel": self.corner,
                 "vorschub": self.feed, "fraestiefe": self.depth, "zustellung": self.step_down,
+                "fraeser_durchmesser": self.tool_d, "haltestege": self.tabs,
+                "steg_breite": self.tab_w, "steg_hoehe": self.tab_h,
                 "anzahl_farben": self.color_count}
         if n in nums:
             return f"{name}: {num(nums[n], value)}"
@@ -363,6 +394,13 @@ class SettingsPanel(QScrollArea):
         if n == "massstab_mm_pro_px":
             self.set_manual_scale(float(value))
             return f"Maßstab: {float(value):.5f} mm/px"
+        if n == "radiuskorrektur":
+            v = str(value).lower()
+            key = next((k for k in COMP_LABELS if v.startswith(k[:3])), None)
+            if not key:
+                raise ValueError(f"unbekannte Radiuskorrektur {value}")
+            self.comp.setCurrentIndex(self.comp.findData(key))
+            return f"Radiuskorrektur: {self.comp.currentText()}"
         if n == "maschine":
             self.machine.setCurrentIndex(1 if str(value).lower().startswith(("l", "p")) else 0)
             return f"Maschine: {self.machine.currentText()}"

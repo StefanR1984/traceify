@@ -215,7 +215,9 @@ ACTIONS_DOC = """Verfügbare Aktionen (nur verwenden, wenn der Nutzer etwas ver�
          ocr (bool), ocr_sprache ("deu+eng" …), massstab_mm_pro_px (Zahl),
          strichlinien (bool), strichstaerken (bool), dicke_linien_layer (bool),
          farben_trennen (bool), anzahl_farben (0=auto), massstab_aus_plan (bool), pdf_vektoren (bool),
-         vorschub (mm/min), fraestiefe (mm), zustellung (mm), maschine ("fraese"|"laser")
+         vorschub (mm/min), fraestiefe (mm), zustellung (mm), maschine ("fraese"|"laser"),
+         fraeser_durchmesser (mm), radiuskorrektur ("keine"|"aussen"|"innen"|"auto"),
+         haltestege (Anzahl, 0=aus), steg_breite (mm), steg_hoehe (mm)
 {"aktion":"konvertieren"}                       – mit aktuellen Einstellungen neu vektorisieren
 {"aktion":"layer_loeschen","layer":LAYER}        – alle Objekte eines Layers entfernen
 {"aktion":"layer_sichtbar","layer":LAYER,"sichtbar":bool}
@@ -223,7 +225,8 @@ ACTIONS_DOC = """Verfügbare Aktionen (nur verwenden, wenn der Nutzer etwas ver�
 {"aktion":"text_ersetzen","alt":TEXT,"neu":TEXT}  – CAD-Text ändern
 {"aktion":"drehen","richtung":"links"|"rechts"}
 {"aktion":"begradigen"}
-{"aktion":"exportieren","format":"dxf"|"svg"|"nc"} – Speichern-Dialog öffnen
+{"aktion":"exportieren","format":"dxf"|"dwg"|"svg"|"nc"} – Speichern-Dialog öffnen
+{"aktion":"gcode_vorschau"}                     – G-Code-Vorschau mit Zeitschätzung öffnen
 Layer heißen: LINIEN, BOEGEN, KREISE, POLYLINIEN, KONTUREN, TEXT.""" % ", ".join(PRESET_NAMES)
 
 SYSTEM_PROMPT = """Du bist der KI-Assistent in Traceify, einer Desktop-Software, die gescannte Zeichnungen,
