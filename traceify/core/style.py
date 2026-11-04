@@ -61,10 +61,19 @@ def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
     replaced = {}
     new_lines = []
     info.sort(key=lambda t: (round(t[1] / angle_tol), round(t[2] / offset_tol)))
+    # Raster aus (Winkel, Abstand)-Zellen: Kandidaten nur aus Nachbarzellen -> linear statt quadratisch
+    n_ang = int(math.ceil(180.0 / angle_tol))
+    buckets = {}
+    for t in info:
+        buckets.setdefault((int(t[1] // angle_tol) % n_ang, int(math.floor(t[2] / offset_tol))),
+                           []).append(t)
     for i, (l, ang, rho, ux, uy) in enumerate(info):
         if id(l) in used:
             continue
-        group = [t for t in info if id(t[0]) not in used and
+        ai, ri = int(ang // angle_tol) % n_ang, int(math.floor(rho / offset_tol))
+        near = [t for da in (-1, 0, 1) for dr in (-1, 0, 1)
+                for t in buckets.get(((ai + da) % n_ang, ri + dr), ())]
+        group = [t for t in near if id(t[0]) not in used and
                  min(abs(t[1] - ang), 180 - abs(t[1] - ang)) <= angle_tol and
                  abs(t[2] - rho) <= offset_tol]
         if len(group) < s.dash_min_count:

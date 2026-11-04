@@ -149,15 +149,22 @@ def recognize(gray: np.ndarray, s: OcrSettings) -> Tuple[List[Text], List[Tuple[
         return [], []
     H, W = gray.shape
     texts, boxes = [], []
-    for x, y, w, h, txt in _run(gray, s):
+    # Waagrechter und senkrechter Durchgang gleichzeitig (Tesseract läuft als eigener Prozess)
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_h = ex.submit(_run, gray, s)
+        # Von unten nach oben laufender Text wird durch Drehung im
+        # Uhrzeigersinn waagrecht. Original (x, y) -> gedreht (H-1-y, x)
+        f_v = ex.submit(_run, np.ascontiguousarray(np.rot90(gray, -1)), s) \
+            if s.vertical_text else None
+        horizontal = f_h.result()
+        vertical = f_v.result() if f_v is not None else []
+    for x, y, w, h, txt in horizontal:
         texts.append(Text(txt, (float(x), float(y + h)), float(h) * 0.8, 0.0))
         boxes.append((x, y, w, h))
 
     if s.vertical_text:
-        # Von unten nach oben laufender Text wird durch Drehung im
-        # Uhrzeigersinn waagrecht. Original (x, y) -> gedreht (H-1-y, x)
-        rot = np.ascontiguousarray(np.rot90(gray, -1))
-        for x, y, w, h, txt in _run(rot, s):
+        for x, y, w, h, txt in vertical:
             ox, oy, ow, oh = y, H - (x + w), h, w
             if any(_overlap((ox, oy, ow, oh), b) > 0.3 for b in boxes):
                 continue

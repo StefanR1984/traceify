@@ -47,9 +47,41 @@ _NB8 = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 _NB_ORDER = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
 
 
+def skeletonize_fast(mask: np.ndarray, tile_px: int = 3000, margin: int = 160) -> np.ndarray:
+    """Skelettierung; große Bilder in überlappenden Kacheln auf allen Kernen.
+
+    Zhang-Suen ist ein lokales Verfahren: Mit einem Rand breiter als die halbe Strichstärke
+    ist das Ergebnis pixelgenau gleich wie bei der Berechnung am Stück.
+    """
+    H, W = mask.shape
+    if H * W <= 2 * tile_px * tile_px:
+        return skeletonize(mask)
+    import os
+    from concurrent.futures import ThreadPoolExecutor
+    out = np.zeros(mask.shape, dtype=bool)
+    tiles = [(y, x, min(H, y + tile_px), min(W, x + tile_px))
+             for y in range(0, H, tile_px) for x in range(0, W, tile_px)]
+
+    def job(t):
+        y0, x0, y1, x1 = t
+        Y0, X0, Y1, X1 = max(0, y0 - margin), max(0, x0 - margin), min(H, y1 + margin), \
+            min(W, x1 + margin)
+        sub = mask[Y0:Y1, X0:X1]
+        if not sub.any():
+            return t, None
+        sk = skeletonize(sub)
+        return t, sk[y0 - Y0:y1 - Y0, x0 - X0:x1 - X0]
+
+    with ThreadPoolExecutor(max_workers=max(1, min(8, os.cpu_count() or 2))) as ex:
+        for (y0, x0, y1, x1), sk in ex.map(job, tiles):
+            if sk is not None:
+                out[y0:y1, x0:x1] = sk
+    return out
+
+
 def trace_skeleton(bw: np.ndarray) -> List[Tuple[List[Tuple[float, float]], bool]]:
     """Zerlegt das Skelett in Pfade. Gibt Liste von (Punkte[x,y], geschlossen) zurück."""
-    skel = skeletonize(bw > 0)
+    skel = skeletonize_fast(bw > 0)
     skel = np.pad(skel, 1).astype(np.uint8)
     k = np.ones((3, 3), np.uint8)
     k[1, 1] = 0
