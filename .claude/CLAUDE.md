@@ -45,6 +45,9 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
   `pdf_vector.py` (Vektor-PDF direkt), `scale_detect.py` (M 1:N), `symbols.py` (Blöcke),
   `quality.py` (Ampel), `edit.py` (Ecke, Ausrichten, Lücken, Knoten),
   `cad.py` (Fang, Schnittpunkte, Stutzen, Dehnen, SnapIndex).
+- `core/benchmark.py` + `tools/pruefstand.py` – Prüfstand (Objekte, Splitter, Abdeckung,
+  Texte), `core/dxf_import.py` liest fremde DXF (z. B. Scan2CAD) und richtet sie aufs Bild aus.
+  Echte Scans liegen **nicht** im Repo (Datenschutz) – der Nutzer liefert sie bei Bedarf.
 - `export/` – dxf, dwg (ODA File Converter), svg, gcode (`plan()` = gemeinsame Basis für
   G-Code, Vorschau, Zeit; Radiuskorrektur, Haltestege).
 - `ai/` – Ollama-Client (stdlib urllib), Assistent, KI-Stapelregeln.
@@ -68,8 +71,14 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - Esc ist ein Fenster-Kürzel („Auswahl“); die Zeichenfläche fängt es beim Zeichnen über
   `ShortcutOverride` ab.
 - Performance-Referenz: A0 mit 400 dpi (13245×9362) ≈ 21 s mit OCR auf 2 Kernen.
+- PDF-DPI 0 = automatisch (`loader.resolve_dpi`): Scan-PDFs in Originalauflösung, sonst 300.
 
 ## Offene Ideen
-- Test mit echten Scans und Vergleich mit Vergleichssoftware
+- Prüfstand-Stand 0.11.0 (9 Bauplan-Scans, Vergleich Scan2CAD bei image-11/image-4):
+  Traceify hat weniger Objekte und mehr Abdeckung; Scan2CAD ist bei der OCR klar besser
+  (liest auch schräge Texte unter 40–50°, Handschrift teilweise) und erzeugt kaum Bögen
+  (Traceify: viele kleine Bögen in nicht erkannten Buchstaben und an Rechteckecken).
+- Ideen: OCR für schräge Texte, Ecken-Rundungen nicht als Bogen, Wände als Doppellinie
+  oder Schraffur-Block statt Einzellinien.
 - Echter ODA-Konverter und echtes Ollama sind nur mit Attrappen getestet.
 - Dehnen bisher nur für einzelne Linien (nicht Polylinien/Bögen).

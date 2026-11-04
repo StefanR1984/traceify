@@ -38,6 +38,7 @@ class VectorizeSettings:
     snap_distance: float = 3.0    # Endpunkte innerhalb dieser Distanz verbinden
     contour_smooth: int = 2       # Glättung der Umrisse (CNC), 0 = aus
     corner_angle: float = 40.0    # ab diesem Knickwinkel wird an einer Ecke getrennt
+    merge_junctions: bool = True  # kollineare Linien über Abzweigungen hinweg verbinden
 
 
 # --------------------------------------------------------------------------
@@ -141,8 +142,13 @@ def _extend(pts, dist):
     return list(pts) + [(x + dx / n * ext, y + dy / n * ext)]
 
 
-def trace_skeleton(bw: np.ndarray, prune: bool = True) -> List[Tuple[List[Tuple[float, float]], bool]]:
-    """Zerlegt das Skelett in Pfade. Gibt Liste von (Punkte[x,y], geschlossen) zurück."""
+def trace_skeleton(bw: np.ndarray, prune: bool = True, with_links: bool = False) -> list:
+    """Zerlegt das Skelett in Pfade. Gibt Liste von (Punkte[x,y], geschlossen) zurück.
+
+    with_links: zusätzlich ein drittes Feld – True, wenn der Pfad zwei Abzweigungen
+    verbindet (solche Stücke sind Teil einer längeren Linie und dürfen nicht als „zu kurz“
+    verworfen werden).
+    """
     skel = skeletonize_fast(bw > 0)
     skel = np.pad(skel, 1).astype(np.uint8)
     k = np.ones((3, 3), np.uint8)
@@ -220,13 +226,14 @@ def trace_skeleton(bw: np.ndarray, prune: bool = True) -> List[Tuple[List[Tuple[
                     pts = _extend(pts[::-1], dist)[::-1]
                 if not _ends_at_junction(pts, centroid_set):
                     pts = _extend(pts, dist)
-            paths.append((pts, False))
+            linked = bool(lab) and _ends_at_junction(pts, centroid_set)
+            paths.append((pts, False, linked) if with_links else (pts, False))
 
     # 2) übrig gebliebene Ringe (geschlossene Kurven ohne Knoten)
     for y, x in zip(ys, xs):
         if not visited[y, x]:
             pts = walk(y, x, 0)
-            paths.append((pts, True))
+            paths.append((pts, True, False) if with_links else (pts, True))
 
     return paths
 
@@ -341,6 +348,10 @@ class Fitter:
                     return [Circle((float(c[0]), float(c[1])), float(c[2]))] if s.detect_circles else \
                         self._split(pts, i, depth)
                 if span >= s.min_arc_angle:
+                    if span < 60 and dev <= 2 * s.tolerance:
+                        # flache Mini-Bögen sind fast immer Scanrauschen (z. B. eine Kante,
+                        # die an einer Abzweigung leicht ausbeult) -> gerade Linie
+                        return [Line(_pt(pts[0]), _pt(pts[-1]))]
                     if a1 < a0:
                         a0, a1 = a1, a0
                     return [Arc((float(c[0]), float(c[1])), float(c[2]), a0 % 360, a1 % 360)]
@@ -450,13 +461,92 @@ def snap_endpoints(ents: list, dist: float) -> None:
                 ents[idx].p2 = c
 
 
+def merge_through_junctions(ents: list, angle_tol: float = 3.0, tol: float = 1.5,
+                            junction_tol: float = 0.0) -> list:
+    """Verbindet kollineare Linien, die sich einen Endpunkt teilen – auch an Abzweigungen.
+
+    Das Skelett zerfällt an jeder Abzweigung (z. B. Schraffur an einer Wandkante) in
+    einzelne Pfade. Eine durchgehende Kante wird so wieder zu einer Linie, solange alle
+    ursprünglichen Stützpunkte höchstens ``tol`` Pixel von ihr entfernt liegen. Die
+    Abzweigpunkte selbst dürfen um ``junction_tol`` abweichen (das Fangen der Endpunkte
+    zieht sie zur abzweigenden Linie hin).
+    """
+    junction_tol = max(tol, junction_tol)
+    key = lambda p: (round(p[0], 1), round(p[1], 1))  # noqa: E731
+    lines = [e for e in ents if isinstance(e, Line)]
+    if len(lines) < 2:
+        return ents
+    nodes = {}
+    for i, l in enumerate(lines):
+        nodes.setdefault(key(l.p1), set()).add(i)
+        nodes.setdefault(key(l.p2), set()).add(i)
+    alive = [True] * len(lines)
+    pts = [[(l.p1, False), (l.p2, False)] for l in lines]  # Stützpunkte (Punkt, Abzweig?)
+    cos_tol = math.cos(math.radians(angle_tol))
+
+    def unit(a, b):
+        d = math.dist(a, b)
+        return ((b[0] - a[0]) / d, (b[1] - a[1]) / d) if d > 1e-9 else (0.0, 0.0)
+
+    def fits(a, b, cloud):
+        d = math.dist(a, b)
+        if d < 1e-9:
+            return False
+        ux, uy = (b[0] - a[0]) / d, (b[1] - a[1]) / d
+        return all(abs(-(p[0] - a[0]) * uy + (p[1] - a[1]) * ux) <= (junction_tol if j else tol)
+                   for p, j in cloud)
+
+    for i, li in enumerate(lines):
+        if not alive[i]:
+            continue
+        for end in (0, 1):
+            while True:
+                far, here = (li.p2, li.p1) if end == 0 else (li.p1, li.p2)
+                u = unit(far, here)                     # Richtung zum offenen Ende
+                best, best_c2 = None, -1.0
+                for j in nodes.get(key(here), ()):
+                    if j == i or not alive[j]:
+                        continue
+                    lj = lines[j]
+                    if lj.layer != li.layer or lj.linetype != li.linetype:
+                        continue
+                    other = lj.p2 if key(lj.p1) == key(here) else lj.p1
+                    v = unit(here, other)
+                    c = u[0] * v[0] + u[1] * v[1]
+                    # kurze Stücke haben eine unsichere Richtung: Winkelgrenze lockern,
+                    # die Genauigkeit sichert danach die Punktprüfung (fits)
+                    ln = math.dist(here, other)
+                    lim = cos_tol if ln >= 8 * tol else min(cos_tol, math.cos(
+                        math.atan2(2 * junction_tol, max(ln, 1e-6))))
+                    if c > lim and c > best_c2:
+                        best, best_c2 = (j, other), c
+                if best is None:
+                    break
+                j, other = best
+                cloud = [(p, j_ or key(p) == key(here)) for p, j_ in pts[i] + pts[j]]
+                if not fits(far, other, cloud):
+                    break
+                alive[j] = False
+                for q in (lines[j].p1, lines[j].p2):
+                    nodes.get(key(q), set()).discard(j)
+                nodes.get(key(here), set()).discard(i)
+                if end == 0:
+                    li.p1 = other
+                else:
+                    li.p2 = other
+                nodes.setdefault(key(other), set()).add(i)
+                pts[i] = cloud
+    dead = {id(l) for l, a in zip(lines, alive) if not a}
+    return [e for e in ents if id(e) not in dead]
+
+
 def vectorize_centerline(bw: np.ndarray, s: VectorizeSettings) -> list:
     max_r = 3 * max(bw.shape)
     fitter = Fitter(s, max_r)
     ents = []
-    for pts, closed in trace_skeleton(bw):
+    for pts, closed, linked in trace_skeleton(bw, with_links=True):
         a = np.asarray(pts, dtype=float)
-        if len(a) < 2 or _path_length(a) < s.min_length:
+        if len(a) < 2 or (_path_length(a) < s.min_length and not linked):
             continue
         if s.output_polylines:
             approx = cv2.approxPolyDP(a.astype(np.float32).reshape(-1, 1, 2),
@@ -466,6 +556,9 @@ def vectorize_centerline(bw: np.ndarray, s: VectorizeSettings) -> list:
             ents.extend(merge_collinear(fitter.fit(a, closed)))
     if not s.output_polylines:
         snap_endpoints(ents, s.snap_distance)
+        if s.merge_junctions:
+            ents = merge_through_junctions(ents, tol=max(1.0, s.tolerance),
+                                           junction_tol=s.snap_distance + s.tolerance)
     # degenerierte (fast punktförmige) Linien entfernen
     ents = [e for e in ents if not (isinstance(e, Line) and
                                     math.dist(e.p1, e.p2) < max(1.0, s.tolerance))]

@@ -35,11 +35,12 @@ from .export import GcodeSettings, export
 
 
 def open_file(path: str, page: int = 0, settings: Optional[ConvertSettings] = None,
-              pdf_dpi: int = 300, progress=None) -> ConvertResult:
+              pdf_dpi: int = 0, progress=None) -> ConvertResult:
     """Lädt eine Datei (Bild oder PDF-Seite) und vektorisiert sie.
 
     Enthält eine PDF-Seite Vektordaten, werden diese direkt übernommen
-    (abschaltbar über settings.pdf.enabled = False).
+    (abschaltbar über settings.pdf.enabled = False). pdf_dpi = 0: automatisch –
+    gescannte PDFs in ihrer Originalauflösung, alle anderen mit 300 dpi.
     """
     settings = settings or ConvertSettings()
     gray, scale = loader.load(path, page, pdf_dpi)
@@ -49,7 +50,7 @@ def open_file(path: str, page: int = 0, settings: Optional[ConvertSettings] = No
 
 
 def ai_settings(path: str, page: int = 0, model: str | None = None,
-                base: Optional[ConvertSettings] = None, pdf_dpi: int = 300):
+                base: Optional[ConvertSettings] = None, pdf_dpi: int = 0):
     """Lässt die KI (Ollama) die Datei ansehen und passende Einstellungen wählen.
 
     Gibt (ConvertSettings, Vorschlag-dict) zurück.
@@ -65,7 +66,7 @@ def ai_settings(path: str, page: int = 0, model: str | None = None,
 
 def convert_file(src: str, dst: str, settings: Optional[ConvertSettings] = None,
                  page: int = 0, gcode: Optional[GcodeSettings] = None,
-                 dxf_version: str = "R2010", pdf_dpi: int = 300) -> ConvertResult:
+                 dxf_version: str = "R2010", pdf_dpi: int = 0) -> ConvertResult:
     res = open_file(src, page, settings, pdf_dpi)
     export(res.drawing, dst, gcode, dxf_version)
     return res
@@ -98,7 +99,7 @@ def batch_jobs(sources: Iterable[str]):
 def batch_convert(src: str, out_dir: str, formats=(".dxf",),
                   settings: Optional[ConvertSettings] = None,
                   gcode: Optional[GcodeSettings] = None, recursive: bool = False,
-                  dxf_version: str = "R2010", pdf_dpi: int = 300,
+                  dxf_version: str = "R2010", pdf_dpi: int = 0,
                   progress: Optional[Callable[[int, int, str], None]] = None,
                   should_stop: Optional[Callable[[], bool]] = None,
                   ai: bool = False, rules: str = "", ai_model: Optional[str] = None,
@@ -135,7 +136,7 @@ def batch_convert(src: str, out_dir: str, formats=(".dxf",),
             s_job, g_job, fmts = settings, gcode, list(formats)
             if ai:
                 from .ai.batch_rules import plan_for_file
-                gray, _ = loader.load(path, page, min(150, pdf_dpi))
+                gray, _ = loader.load(path, page, min(150, loader.resolve_dpi(path, page, pdf_dpi)))
                 fp = plan_for_file(client, ai_model, gray, os.path.basename(path), rules,
                                    copy.deepcopy(settings), copy.deepcopy(gcode))
                 item.note = fp.note()

@@ -134,6 +134,48 @@ def test_gui_opens_vector_pdf(tmp_path, monkeypatch):
     w.close()
 
 
+def test_gui_scan_pdf_automatische_aufloesung(tmp_path, monkeypatch):
+    """Gescannte PDFs öffnen in Originalauflösung; die DPI-Einstellung steht auf automatisch."""
+    import pymupdf
+    from traceify import config
+    monkeypatch.setattr(config, "CONFIG_PATH", str(tmp_path / "config.json"))
+    img = np.full((1240, 1754), 255, np.uint8)               # A4 quer mit 150 dpi
+    cv2.rectangle(img, (150, 150), (1600, 1100), 0, 5)
+    cv2.line(img, (150, 600), (1600, 600), 0, 5)
+    for x in range(200, 1500, 60):                           # Schraffur an der Mittellinie
+        cv2.line(img, (x, 600), (x + 40, 560), 0, 2)
+    ok, png = cv2.imencode(".png", img)
+    doc = pymupdf.open()
+    pg = doc.new_page(width=841.89, height=595.28)
+    pg.insert_image(pg.rect, stream=png.tobytes())
+    pdf = tmp_path / "scan.pdf"
+    doc.save(str(pdf))
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    from traceify.gui.main_window import MainWindow
+    w = MainWindow()
+    assert w.panel.pdf_dpi.value() == 0
+    assert w.panel.pdf_dpi.text() == "automatisch"
+    w.panel.ocr.setChecked(False)
+    w.open_file(str(pdf))
+    assert abs(w.gray.shape[0] - 1240) <= 2 and abs(w.gray.shape[1] - 1754) <= 2
+    assert abs(25.4 / w.img_scale - 150) < 0.5
+    w.run_convert()
+    wait(app, lambda: w.worker is None and w.drawing is not None)
+    from traceify.core.model import Line
+    mid = [e for e in w.drawing.entities if isinstance(e, Line)
+           and abs(e.p1[1] - 600) < 4 and abs(e.p2[1] - 600) < 4]
+    assert len(mid) == 1          # Mittellinie trotz Schraffur in einem Stück
+    # feste DPI per Eingabe wie ein Nutzer
+    w.panel.pdf_dpi.selectAll()
+    QtTest = pytest.importorskip("PySide6.QtTest")
+    QtTest.QTest.keyClicks(w.panel.pdf_dpi, "300")
+    w.panel.pdf_dpi.interpretText()
+    w.open_file(str(pdf))
+    assert w.gray.shape[1] > 3400
+    w.close()
+
+
 def test_gui_tools(tmp_path, monkeypatch):
     from traceify import config
     from traceify.core.model import Line

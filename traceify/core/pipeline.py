@@ -155,7 +155,20 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
     if settings.ocr.enabled:
         step(25, "Texterkennung (OCR) …")
         ocr_src = 255 - bw  # sauberes Schwarz-auf-Weiß-Bild für Tesseract
-        texts, boxes = ocr_mod.recognize(ocr_src, settings.ocr)
+        ppm = 1.0 / dpi_scale
+        # grober Scan: Original vergrößern und neu aufbereiten – kleine Schrift wird so
+        # deutlich besser gelesen; die Linien bleiben in Originalauflösung. (Mit
+        # Schräglagenkorrektur passen die Koordinaten nicht zum Original – dann nicht.)
+        zoom = 1 if settings.preprocess.deskew else ocr_mod.ocr_zoom(ppm)
+        if zoom > 1:
+            import cv2
+            up = cv2.resize(gray, None, fx=zoom, fy=zoom, interpolation=cv2.INTER_LINEAR)
+            ocr_src = 255 - to_binary(up, settings.preprocess)
+            for r in regions:
+                if r.mode == REGION_IGNORE:
+                    sy, sx = r.slices(bw.shape)
+                    ocr_src[sy.start * zoom:sy.stop * zoom, sx.start * zoom:sx.stop * zoom] = 255
+        texts, boxes = ocr_mod.recognize(ocr_src, settings.ocr, px_per_mm=ppm * zoom, zoom=zoom)
         bw_vec = ocr_mod.erase_boxes(bw, boxes, settings.ocr.erase_padding)
     else:
         bw_vec = bw
@@ -250,10 +263,13 @@ def convert_pdf_vectors(path: str, page: int, dpi: int, settings: ConvertSetting
 
 
 def convert_source(path: str, page: int, settings: ConvertSettings, gray: np.ndarray,
-                   dpi_scale: float, pdf_dpi: int = 300, source: str = "",
+                   dpi_scale: float, pdf_dpi: int = 0, source: str = "",
                    progress: Optional[Callable[[int, str], None]] = None,
                    allow_vectors: bool = True, color: Optional[np.ndarray] = None) -> ConvertResult:
     """Wählt automatisch: Vektor-PDF direkt übernehmen oder Raster vektorisieren."""
+    if path and (not pdf_dpi or pdf_dpi <= 0):
+        from .loader import resolve_dpi
+        pdf_dpi = resolve_dpi(path, page, 0)
     if allow_vectors and path and has_vectors(path, page, settings.pdf):
         return convert_pdf_vectors(path, page, pdf_dpi, settings, gray, progress)
     return convert(gray, settings, dpi_scale, source, progress, color=color)

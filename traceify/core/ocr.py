@@ -24,7 +24,9 @@ class OcrSettings:
     language: str = "deu+eng"
     min_confidence: int = 60
     vertical_text: bool = True     # zusätzlich um 90° gedrehte Texte suchen
+    upside_down: bool = True       # auch auf dem Kopf stehende Texte (180°/270°) suchen
     max_height_ratio: float = 0.08  # Textzeilen höher als 8 % der Bildhöhe ignorieren
+    max_char_mm: float = 15.0      # größere Objekte (Linien, Flächen) vor der OCR ausblenden
     erase_padding: int = 2
 
 
@@ -92,6 +94,26 @@ def _usable_lang(lang: str) -> str:
     return "+".join(parts) or ("eng" if "eng" in have else sorted(have)[0])
 
 
+_WORDISH = re.compile(r"[0-9A-Za-zÄÖÜäöüß]{2,}|\d")
+_ODD = re.compile(r"[<>|{}\[\]~\\@#$^*«»¢£¥©®§¶]")   # in Plänen praktisch nie, bei Schraffur oft
+
+
+def plausible(txt: str) -> bool:
+    """Grober Filter gegen Zeichensalat aus Schraffuren und Linien („Mm“, „om>Z“, „%y“)."""
+    t = txt.strip()
+    if not t or not _WORDISH.search(t) or _ODD.search(t):
+        return False
+    alnum = sum(c.isalnum() for c in t)
+    if alnum < 0.6 * len(t.replace(" ", "")):
+        return False
+    letters = [c for c in t if c.isalpha()]
+    if len(letters) == len(t) and len(t) <= 3:
+        # kurze reine Buchstabenfolgen nur als Großbuchstaben-Kürzel (WC, KG, HK, BR)
+        # oder als ganzes Wort mit Großbuchstaben am Anfang (Bad, Gang)
+        return t.isupper() or (t[0].isupper() and t[1:].islower() and len(t) == 3)
+    return True
+
+
 def _run(gray: np.ndarray, s: OcrSettings):
     pytesseract = _setup()
     data = pytesseract.image_to_data(gray, lang=_usable_lang(s.language),
@@ -104,29 +126,29 @@ def _run(gray: np.ndarray, s: OcrSettings):
             conf = float(data["conf"][i])
         except (TypeError, ValueError):
             conf = -1
-        if not txt or conf < s.min_confidence or not _ALNUM.search(txt):
+        if not txt or conf < s.min_confidence or not _ALNUM.search(txt) or not plausible(txt):
             continue
         x, y, w, h = (data[k][i] for k in ("left", "top", "width", "height"))
         if h > max(gray.shape[0] * s.max_height_ratio, 80) or h < 5:
             continue
-        if len(txt) == 1 and conf < 85:  # Einzelzeichen sind oft Fehlerkennungen
+        if len(txt) <= 2 and conf < 85:  # Einzelzeichen/Kürzel sind oft Fehlerkennungen
             continue
         key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
-        words.append((key, x, y, w, h, txt))
+        words.append((key, x, y, w, h, txt, conf))
     return _group_lines(words)
 
 
 def _group_lines(words):
     """Fasst Wörter derselben Zeile zu einem Text zusammen (wenn nah genug)."""
     lines = {}
-    for key, x, y, w, h, txt in words:
-        lines.setdefault(key, []).append((x, y, w, h, txt))
+    for key, x, y, w, h, txt, conf in words:
+        lines.setdefault(key, []).append((x, y, w, h, txt, conf))
     out = []
     for ws in lines.values():
         ws.sort()
         cur = [ws[0]]
         for wd in ws[1:]:
-            px, py, pw, ph, _ = cur[-1]
+            px, py, pw, ph = cur[-1][:4]
             if wd[0] - (px + pw) < 1.5 * max(ph, wd[3]):
                 cur.append(wd)
             else:
@@ -139,38 +161,94 @@ def _group_lines(words):
         y0 = min(g[1] for g in grp)
         x1 = max(g[0] + g[2] for g in grp)
         y1 = max(g[1] + g[3] for g in grp)
-        res.append((x0, y0, x1 - x0, y1 - y0, " ".join(g[4] for g in grp)))
+        txt = " ".join(g[4] for g in grp)
+        # Güte: mittlere Sicherheit, gewichtet mit der Zahl erkannter Zeichen
+        score = sum(g[5] * len(g[4]) for g in grp)
+        res.append((x0, y0, x1 - x0, y1 - y0, txt, score))
     return res
 
 
-def recognize(gray: np.ndarray, s: OcrSettings) -> Tuple[List[Text], List[Tuple[int, int, int, int]]]:
-    """Gibt (Texte, Boxen zum Ausradieren) zurück. Boxen: (x, y, w, h) in Bildpixeln."""
+def text_layer(ink: np.ndarray, px_per_mm: float, max_char_mm: float) -> np.ndarray:
+    """Nur Objekte in Schriftgröße behalten (ink: 255 = Tinte).
+
+    Lange Linien, Wände und Schraffurflächen führen bei Tesseract zu Zeichensalat und
+    verdecken echte Texte – sie werden vor der Erkennung ausgeblendet.
+    """
+    import cv2
+    lim = max(12.0, max_char_mm * px_per_mm)
+    n, lab, st, _ = cv2.connectedComponentsWithStats((ink > 0).astype(np.uint8), connectivity=8)
+    keep = np.zeros(n, bool)
+    w, h, a = st[:, 2], st[:, 3], st[:, 4]
+    big, small = np.maximum(w, h), np.minimum(w, h)
+    # Schriftgröße – oder ein zusammenhängend geschriebenes Wort (Handschrift): mäßig lang
+    # und nicht linienartig dünn
+    wordlike = (big <= 4 * lim) & (small >= 0.15 * big) & (small <= lim)
+    solid = (a >= 0.85 * w * h) & (small > lim / 3)
+    keep[((big <= lim) | wordlike) & ~solid] = True
+    keep[0] = False
+    return np.where(keep[lab], 255, 0).astype(np.uint8)
+
+
+def ocr_zoom(px_per_mm: float) -> int:
+    """Vergrößerung für grobe Scans (unter ~130 dpi), damit Tesseract etwa 300 dpi sieht."""
+    return max(2, int(round(11.8 / px_per_mm))) if 0 < px_per_mm < 5 else 1
+
+
+def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: int = 1
+              ) -> Tuple[List[Text], List[Tuple[int, int, int, int]]]:
+    """Gibt (Texte, Boxen zum Ausradieren) zurück. Boxen: (x, y, w, h) in Bildpixeln.
+
+    gray: Schwarz-auf-Weiß-Bild. px_per_mm: seine Auflösung (0 = unbekannt) – damit werden
+    Linien und Flächen vor der OCR ausgeblendet. zoom: um diesen Faktor vergrößertes Bild;
+    Texte und Boxen werden auf das Original zurückgerechnet.
+    """
     if not s.enabled or not tesseract_available():
         return [], []
-    H, W = gray.shape
-    texts, boxes = [], []
-    # Waagrechter und senkrechter Durchgang gleichzeitig (Tesseract läuft als eigener Prozess)
+    src = gray
+    if px_per_mm > 0:
+        src = 255 - text_layer(255 - gray, px_per_mm, s.max_char_mm)
+    H, W = src.shape
+    # Drehungen im Uhrzeigersinn: k=0 waagrecht, k=1 von unten nach oben laufender Text,
+    # k=2 auf dem Kopf, k=3 von oben nach unten
+    ks = [0] + ([1] if s.vertical_text else []) + ([2, 3] if s.upside_down else [])
+    if not s.vertical_text and s.upside_down:
+        ks = [0, 2]
     from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=2) as ex:
-        f_h = ex.submit(_run, gray, s)
-        # Von unten nach oben laufender Text wird durch Drehung im
-        # Uhrzeigersinn waagrecht. Original (x, y) -> gedreht (H-1-y, x)
-        f_v = ex.submit(_run, np.ascontiguousarray(np.rot90(gray, -1)), s) \
-            if s.vertical_text else None
-        horizontal = f_h.result()
-        vertical = f_v.result() if f_v is not None else []
-    for x, y, w, h, txt in horizontal:
-        texts.append(Text(txt, (float(x), float(y + h)), float(h) * 0.8, 0.0))
-        boxes.append((x, y, w, h))
-
-    if s.vertical_text:
-        for x, y, w, h, txt in vertical:
-            ox, oy, ow, oh = y, H - (x + w), h, w
-            if any(_overlap((ox, oy, ow, oh), b) > 0.3 for b in boxes):
-                continue
-            # Text läuft von unten nach oben; Basislinie liegt rechts
-            texts.append(Text(txt, (float(ox + ow), float(oy + oh)), float(h) * 0.8, 90.0))
-            boxes.append((ox, oy, ow, oh))
+    with ThreadPoolExecutor(max_workers=len(ks)) as ex:
+        futs = {k: ex.submit(_run, np.ascontiguousarray(np.rot90(src, -k)), s) for k in ks}
+        found = {k: f.result() for k, f in futs.items()}
+    cands = []
+    for k, items in found.items():
+        for x, y, w, h, txt, score in items:
+            # Box zurück ins Originalbild drehen
+            if k == 0:
+                ox, oy, ow, oh = x, y, w, h
+            elif k == 1:                       # gedreht (H-1-y, x)
+                ox, oy, ow, oh = y, H - (x + w), h, w
+            elif k == 2:
+                ox, oy, ow, oh = W - (x + w), H - (y + h), w, h
+            else:                              # gegen Uhrzeigersinn zurück
+                ox, oy, ow, oh = W - (y + h), x, h, w
+            cands.append((score, k, ox, oy, ow, oh, txt, h))
+    # Überlappende Treffer aus verschiedenen Richtungen: der bessere gewinnt
+    cands.sort(key=lambda c: -c[0])
+    texts, boxes = [], []
+    for score, k, ox, oy, ow, oh, txt, th in cands:
+        if any(_overlap((ox, oy, ow, oh), b) > 0.3 for b in boxes):
+            continue
+        boxes.append((ox, oy, ow, oh))
+        X, Y, Wd, Hd = ox / zoom, oy / zoom, ow / zoom, oh / zoom
+        height = th / zoom * 0.8
+        if k == 0:
+            texts.append(Text(txt, (X, Y + Hd), height, 0.0))
+        elif k == 1:   # läuft von unten nach oben; Basislinie rechts
+            texts.append(Text(txt, (X + Wd, Y + Hd), height, 90.0))
+        elif k == 2:   # auf dem Kopf; Basislinie oben, Start rechts
+            texts.append(Text(txt, (X + Wd, Y), height, 180.0))
+        else:          # läuft von oben nach unten; Basislinie links
+            texts.append(Text(txt, (X, Y), height, 270.0))
+    if zoom != 1:
+        boxes = [(x // zoom, y // zoom, -(-w // zoom), -(-h // zoom)) for x, y, w, h in boxes]
     return texts, boxes
 
 

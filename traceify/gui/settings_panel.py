@@ -175,7 +175,10 @@ class SettingsPanel(QScrollArea):
         self.auto_scale.setToolTip("Steht im Plan „M 1:100“, wird in Originalgröße exportiert "
                                    "(1 cm auf dem Papier = 1 m). Nur ohne manuellen Maßstab.")
         f.addRow(self.auto_scale)
-        self.pdf_dpi = _spin(72, 1200, 300, 50, 0, " dpi")
+        self.pdf_dpi = _spin(0, 1200, 0, 50, 0, " dpi")
+        self.pdf_dpi.setSpecialValueText("automatisch")
+        self.pdf_dpi.setToolTip("Automatisch: gescannte PDFs in ihrer Originalauflösung "
+                                "(schneller, keine Hochrechnung), sonst 300 dpi")
         f.addRow("PDF-Render-DPI:", self.pdf_dpi)
         lay.addWidget(g)
 

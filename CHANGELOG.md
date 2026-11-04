@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.11.0 – 04.11.2026
+### Getestet mit echten Scans
+Grundlage dieser Version ist ein Prüfstand mit 9 echten Bauplan-Scans (96–150 dpi, sauber bis stark verrauscht, teils handschriftlich, teils gedreht) und ein Vergleich mit Scan2CAD.
+
+- **Saubere, durchgehende Kanten:** Eine gerade Linie zerfiel bisher an jeder Abzweigung, etwa an jeder Schraffurlinie einer Wand, in viele kurze Stücke. Jetzt werden kollineare Stücke über Abzweigungen hinweg zu **einer Linie** verbunden, solange alle Stützpunkte innerhalb der Toleranz liegen. Ergebnis bei den Testplänen: **47–80 % weniger Objekte** bei gleicher Abdeckung und deutlich weniger Splitter unter 1 mm.
+- **Keine Lücken an dichten Abzweigungen:** Kurze Verbindungsstücke zwischen zwei nahen Abzweigungen wurden als „zu kurz“ verworfen, sodass Kanten dort unterbrochen waren. Sie bleiben jetzt erhalten.
+- **Keine Mini-Bögen aus Rauschen:** Flache, kurze Ausbeulungen (unter 60° und höchstens doppelte Toleranz Abweichung) werden als gerade Linie ausgegeben statt als Bogen.
+- **Gescannte PDFs in Originalauflösung:** Die PDF-Render-DPI steht jetzt standardmäßig auf **automatisch**. Besteht eine Seite aus einem Scan-Bild, liest Traceify sie in dessen Auflösung, statt sie auf 300 dpi hochzurechnen. Das ist etwa doppelt so schnell und liefert weniger Kleinteile. Vektor-PDFs und gemischte Seiten werden weiter mit 300 dpi gelesen; eine feste DPI kann wie bisher eingestellt werden. In der Python-API bedeutet `pdf_dpi=0` dasselbe (neuer Standard).
+- **Bessere Texterkennung:**
+  - Texte werden in **allen vier Richtungen** gesucht, auch auf dem Kopf stehend (180°) und von oben nach unten (270°). Liefern zwei Richtungen an derselben Stelle etwas, gewinnt die sicherere Erkennung. Abschaltbar über `ocr.upside_down`.
+  - **Linien, Wände und Schraffuren** werden vor der Erkennung ausgeblendet; handschriftliche Wörter bleiben dabei erhalten.
+  - **Zeichensalat-Filter:** Treffer wie „Mm“, „om>Z“ oder „%y“ aus Schraffuren werden verworfen, kurze Kürzel (WC, KG, BR) nur bei hoher Sicherheit übernommen.
+  - **Grobe Scans** (unter ca. 130 dpi) werden für die Texterkennung intern auf etwa 300 dpi vergrößert. Die Linien bleiben in Originalauflösung.
+  - Ergebnis auf einem A1-Plan: 33 statt 19 Wörter wie bei Scan2CAD, 8 statt 51 Mülltexte.
+- **Prüfstand** `tools/pruefstand.py`: misst Zeit, Objekte, Splitter, Abdeckung, Genauigkeit und Texte für einen ganzen Ordner. Er liest DXF-Dateien anderer Programme ein (neu: `traceify.core.dxf_import`), richtet sie automatisch auf den Scan aus und bewertet sie mit denselben Kennzahlen.
+
+### Behoben
+- **Absturz** beim Konvertieren mancher Scans („'<' not supported between instances of 'Line' and 'Line'“): In der Strichlinien-Erkennung wurden bei deckungsgleichen Strichen Linienobjekte verglichen.
+
+
 ## 0.10.0 – 04.11.2026
 ### Neu: Echter Updater
 - **Jetzt installieren** statt nur Hinweis: Traceify lädt das neue Setup selbst herunter (mit Fortschrittsanzeige und Abbrechen), beendet sich, installiert das Update still und startet danach von selbst neu. Einstellungen bleiben erhalten.

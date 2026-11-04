@@ -35,7 +35,7 @@ class ConvertWorker(QThread):
     done = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, gray, settings, scale, source, path="", page=0, pdf_dpi=300,
+    def __init__(self, gray, settings, scale, source, path="", page=0, pdf_dpi=0,
                  allow_vectors=True, color=None):
         super().__init__()
         self.args = (gray, settings, scale, source, path, page, pdf_dpi, allow_vectors, color)
@@ -1993,7 +1993,10 @@ class MainWindow(QMainWindow):
             "<b>Symbole</b> – Werkzeug Symbol (Y): Rechteck um ein Beispiel ziehen, alle gleichen "
             "werden als CAD-Block eingesetzt.<br><br>"
             "<b>Vektor-PDFs</b> aus CAD-Programmen werden automatisch erkannt und direkt "
-            "übernommen. Steht „M 1:100“ im Plan, wird in Originalgröße exportiert.<br><br>"
+            "übernommen. Steht „M 1:100“ im Plan, wird in Originalgröße exportiert. "
+            "<b>Gescannte PDFs</b> öffnen in ihrer Originalauflösung (PDF-Render-DPI "
+            "»automatisch«).<br><br>"
+            "<b>Texte</b> werden in allen vier Richtungen erkannt, auch auf dem Kopf.<br><br>"
             "<b>Updates</b> – Klick auf »⬆ Update verfügbar« unten rechts, dann »Jetzt "
             "installieren«: Traceify lädt, prüft und installiert das Update und startet neu."
             "<br><br>"

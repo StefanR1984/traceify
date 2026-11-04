@@ -17,13 +17,13 @@ Traceify wandelt gescannte Zeichnungen, Pläne, Skizzen und Logos in saubere CAD
 
 | Bereich | Was es kann |
 |---|---|
-| **Eingabe** | PNG, JPG, BMP, TIFF, GIF, WebP und PDF (auch mehrseitig). Öffnen per Menü oder Drag & Drop. |
+| **Eingabe** | PNG, JPG, BMP, TIFF, GIF, WebP und PDF (auch mehrseitig). Öffnen per Menü oder Drag & Drop. **Gescannte PDFs** werden automatisch in ihrer Originalauflösung gelesen – ohne künstliches Hochrechnen, dadurch schneller und mit weniger Kleinteilen (einstellbar unter „PDF-Render-DPI“). |
 | **Vektor-PDF** | PDFs aus CAD-Programmen werden erkannt und **direkt übernommen**: Linien, Kreise, Bögen, Texte, Farben, Strichstärken und gestrichelte Linien – millimetergenau, ohne Umweg über ein Rasterbild. Abschaltbar unter „Vektor-PDF“. |
 | **Raster-Werkzeuge** | Schwellwert (automatisch, fest oder adaptiv), Flecken entfernen, Löcher füllen, Glätten, Lücken schließen, Invertieren, Drehen, Zuschneiden, Schräglage begradigen. Mit der Binärbild-Vorschau prüfst du das Ergebnis. |
-| **CAD-Modus (Mittellinie)** | Skelettierung mit Eckenerkennung. Daraus entstehen Linien, Bögen und Kreise, nahe Endpunkte werden zusammengeführt. Alternativ gibt es eine reine Polylinien-Ausgabe, zum Beispiel für Höhenlinien. |
+| **CAD-Modus (Mittellinie)** | Skelettierung mit Eckenerkennung. Daraus entstehen Linien, Bögen und Kreise, nahe Endpunkte werden zusammengeführt. Gerade Kanten bleiben **eine Linie**, auch wenn Schraffur oder andere Linien abzweigen; flache Rausch-„Beulen“ werden nicht zu Mini-Bögen. Alternativ gibt es eine reine Polylinien-Ausgabe, zum Beispiel für Höhenlinien. |
 | **CNC-Modus (Umriss)** | Geschlossene, geglättete Außen- und Innenkonturen. Runde Bohrungen werden als echte Kreise erkannt. |
 | **Linien und Farben** | **Strichlinien** (gestrichelt, Strichpunkt) werden zu echten Linientypen (DASHED, CENTER) auf dem Layer STRICHLINIEN zusammengefasst. **Strichstärken** werden gemessen und als DXF-Strichstärke übernommen; deutlich dickere Linien (z. B. Wände) landen auf DICKE_LINIEN. **Farbige Pläne** lassen sich nach Farbe auf eigene Layer trennen (FARBE_ROT, FARBE_BLAU, …) – auch bei Vektor-PDFs. |
-| **OCR** | Texterkennung mit Tesseract (Deutsch und Englisch, weitere Sprachen möglich), auch für senkrechten Text. Erkannte Texte landen als echte CAD-Texte auf dem Layer `TEXT` und erzeugen keinen Linienwirrwarr. |
+| **OCR** | Texterkennung mit Tesseract (Deutsch und Englisch, weitere Sprachen möglich) in **allen vier Richtungen** – auch senkrecht und auf dem Kopf stehend. Linien, Wände und Schraffuren werden vor der Erkennung ausgeblendet, Zeichensalat wird herausgefiltert, grobe Scans (unter ca. 130 dpi) werden für die Erkennung intern vergrößert. Erkannte Texte landen als echte CAD-Texte auf dem Layer `TEXT` und erzeugen keinen Linienwirrwarr. |
 | **Raster bereinigen** | **Radierer** (E) für Flecken, Stempel und Lochungen, **Stift** (P) zum Nachziehen unterbrochener Linien – Pinselgröße in der Werkzeugleiste. |
 | **Bereiche** | Rechteck aufziehen (R) und festlegen: *ignorieren*, *CAD – Mittellinie*, *CNC – Umriss* oder *nur Text*. So wird z. B. der Plan als Linien, das Logo im Schriftfeld als Umriss und die Legende gar nicht übernommen. Rechtsklick auf einen Bereich ändert oder entfernt ihn. |
 | **Bearbeiten** | Objekte anklicken oder per Rahmen markieren und mit Entf löschen. Bei einem markierten Objekt erscheinen **Knoten zum Ziehen** (verbundene Linien wandern mit). **Ecke schließen** (C), **gerade ausrichten** (O, rechte Winkel bleiben verbunden), **Lücken schließen** (L), **zu Polylinie verbinden** (J), **auflösen** (X). Strg+Z macht alles rückgängig. Layer lassen sich ein- und ausblenden. |
@@ -133,6 +133,8 @@ py -3.12 -m venv .venv
 .venv\Scripts\python -m traceify            &rem Oberfläche
 .venv\Scripts\python -m traceify --selbsttest
 ```
+
+**Prüfstand mit echten Scans:** `python tools/pruefstand.py SCANS\ [--vergleich DXF_ORDNER --name Scan2CAD] [--bericht bericht.md]` wandelt alle Dateien eines Ordners um und misst Zeit, Objekte, „Splitter“ (Linien unter 1 mm), Abdeckung, Genauigkeit und Texte. Liegen im Vergleichsordner gleichnamige DXF-Dateien eines anderen Programms, werden sie automatisch auf den Scan ausgerichtet und mit denselben Kennzahlen bewertet (inkl. Wort-Vergleich der Texte). Scans gehören aus Datenschutzgründen nicht ins Repo.
 
 **EXE lokal bauen:** `python tools/make_icons.py`, `python tools/make_version_info.py`, dann `pyinstaller --noconfirm packaging/traceify.spec`. Soll Tesseract mit hinein, vorher einen Tesseract-Ordner (mit `tessdata\`) nach `packaging\tesseract\` kopieren. Den Installer baut anschließend `iscc /DAppVersion=x.y.z packaging\windows\traceify.iss`.
 

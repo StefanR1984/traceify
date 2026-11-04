@@ -107,7 +107,8 @@ def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
             a = t[0].p1[0] * ux + t[0].p1[1] * uy
             b = t[0].p2[0] * ux + t[0].p2[1] * uy
             return (min(a, b), max(a, b), t[0])
-        spans = sorted(span(t) for t in group)
+        # nur nach Lage sortieren – bei gleichen Werten würde sonst Line mit Line verglichen
+        spans = sorted((span(t) for t in group), key=lambda sp: (sp[0], sp[1]))
         med_len = float(np.median([b - a for a, b, _ in spans]))
         base_gap = max(8.0, 1.6 * med_len)
         gaps0 = [b[0] - a[1] for a, b in zip(spans, spans[1:]) if 0.5 < b[0] - a[1] <= base_gap]
