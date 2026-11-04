@@ -1,7 +1,7 @@
 """Prüfstand: Traceify an echten Scans messen und mit anderen Programmen vergleichen.
 
 Aufruf:
-    python tools/pruefstand.py SCAN_ORDNER [--vergleich DXF_ORDNER] [--name Scan2CAD]
+    python tools/pruefstand.py SCAN_ORDNER [--vergleich DXF_ORDNER] [--name Vergleich]
                                [--bericht bericht.md] [--einstellungen gui.json]
 
 Im Vergleichsordner werden DXF-Dateien mit gleichem Namen wie der Scan gesucht

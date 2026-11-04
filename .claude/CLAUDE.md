@@ -1,6 +1,6 @@
 # Traceify – Hinweise für Claude
 
-Desktop-App (nur Windows) à la Scan2CAD: Raster/PDF → DXF/DWG/SVG/G-Code, mit GUI,
+Desktop-App (nur Windows) nach dem Vorbild kommerzieller Vektorisierungsprogramme: Raster/PDF → DXF/DWG/SVG/G-Code, mit GUI,
 OCR, KI über Ollama oder vLLM. Python 3.12, PySide6. Lizenz AGPL-3.0. Repo: StefanR1984/traceify.
 
 ## Zusammenarbeit
@@ -49,7 +49,7 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
   `hatch.py` (Schraffur-Flächen für den DXF-Export),
   `cad.py` (Fang, Schnittpunkte, Stutzen, Dehnen, SnapIndex).
 - `core/benchmark.py` + `tools/pruefstand.py` – Prüfstand (Objekte, Splitter, Abdeckung,
-  Texte), `core/dxf_import.py` liest fremde DXF (z. B. Scan2CAD) und richtet sie aufs Bild aus.
+  Texte), `core/dxf_import.py` liest fremde DXF (z. B. eines kommerziellen Vektorisierungsprogramms) und richtet sie aufs Bild aus.
   Echte Scans liegen **nicht** im Repo (Datenschutz) – der Nutzer liefert sie bei Bedarf.
 - `export/` – dxf, dwg (ODA File Converter), svg, gcode (`plan()` = gemeinsame Basis für
   G-Code, Vorschau, Zeit; Radiuskorrektur, Haltestege).
@@ -81,11 +81,11 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - Neue Exporte/Ansichten: `Drawing.export_view()` verwenden (dreht die Schräglage heraus).
 
 ## Offene Ideen
-Gemessen mit `tools/pruefstand.py` an 9 echten Bauplan-Scans (96–150 dpi) und Scan2CAD-DXFs für
+Gemessen mit `tools/pruefstand.py` an 9 echten Bauplan-Scans (96–150 dpi) und DXF-Dateien eines kommerziellen Vergleichsprogramms für
 image-11 (A1 Apotheke) und image-4 (verrauschter Kellerplan, Handschrift). Die Scans liegen
 nicht im Repo; der Nutzer liefert sie bei Bedarf.
 
-Stand 0.15.0 (Traceify / Scan2CAD):
+Stand 0.15.0 (Traceify / Vergleichsprogramm):
 | | image-11 | image-4 |
 |---|---|---|
 | Abdeckung | 98,0 % / 86,1 % | 96,9 % / 88,4 % |
@@ -93,7 +93,7 @@ Stand 0.15.0 (Traceify / Scan2CAD):
 | Bögen | 412 / 51 | 672 / 253 |
 | exakt waagrecht/senkrecht | 48 % / 51 % | 43 % / 49 % |
 | offene Enden | 1698 / 1330 | 2475 / 4173 |
-| Wörter wie Scan2CAD | 47 von 129 | 3 von 22 |
+| Wörter wie Vergleichsprogramm | 47 von 129 | 3 von 22 |
 
 1. **Schraffur-Flächen vervollständigen** – beim DXF-Export werden aus 900 Schraffurlinien
    (image-94) nur 43 HATCH-Flächen, 368 Linien (41 %) bleiben übrig; image-4: 26 Flächen,
@@ -105,7 +105,7 @@ Stand 0.15.0 (Traceify / Scan2CAD):
 3. **Handschrift mit echter KI testen** – „Unerkannte Schrift mit KI lesen“ und vLLM sind nur mit
    Attrappen getestet. Mit echtem Ollama-Modell bzw. vLLM-Server des Nutzers an image-4 prüfen,
    Prompt nachschärfen. Den Workflow „Integration (echt)“ **nicht ungefragt starten**.
-4. **Ortho-Anteil** an Scan2CAD heranführen (48 % / 43 % gegen 51 % / 49 %): Wandkanten vor dem
+4. **Ortho-Anteil** an das Vergleichsprogramm heranführen (48 % / 43 % gegen 51 % / 49 %): Wandkanten vor dem
    Ausrichten zu durchgehenden Linien zusammenfassen; Schraffur und Text aus der Messung nehmen.
 5. **Weniger Bögen** – der Rest stammt aus nicht erkannten Buchstaben: schriftähnliche Bereiche
    (`textlines.py`) ohne OCR-Treffer auf eigenen Layer legen; Mini-Bögen unter ca. 1 mm Radius

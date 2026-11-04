@@ -1,7 +1,7 @@
 """Prüfstand: Ergebnisse an echten Scans messen und mit anderen Programmen vergleichen.
 
 Für jede Zeichnung werden dieselben Kennzahlen erhoben – egal, ob die Vektoren von
-Traceify stammen oder aus einer DXF-Datei eines anderen Programms (z. B. Scan2CAD):
+Traceify stammen oder aus der DXF-Datei eines anderen Vektorisierungsprogramms:
 
 * Abdeckung / Genauigkeit – wie in der Qualitätsampel (Vektoren gegen die Scan-Tinte),
   aber ohne Strichstärken, damit alle Programme gleich behandelt werden

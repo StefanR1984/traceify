@@ -19,7 +19,7 @@ _UNI = re.compile(r"\\U\+([0-9A-Fa-f]{4})")
 
 
 def _plain(s: str) -> str:
-    """\\U+XXXX-Folgen (z. B. aus Scan2CAD) in Zeichen umwandeln."""
+    """\\U+XXXX-Folgen (z. B. aus kommerziellen Vektorisierungsprogrammen) in Zeichen umwandeln."""
     return _UNI.sub(lambda m: chr(int(m.group(1), 16)), s or "").strip()
 
 

@@ -20,8 +20,8 @@
 - **Kommandozeile:** `--ki-server vllm|ollama`, `--ki-url`, `--ki-schluessel` (zusammen mit `--ki` / `--ki-regeln` / `--ki-modell`) gelten nur für diesen Lauf und ändern die gespeicherten Einstellungen nicht. In der Python-API heißt das `batch_convert(..., ai_server={...})`.
 
 ### Genauer
-- **Zahlen mit Dezimalpunkt:** Die Texterkennung entfleckt schwächer als die Linienerkennung (neue Einstellung `ocr.despeckle`, Standard 3 px²). So bleiben Punkte und Kommas in „143.50 qm“ erhalten. Auf dem A1-Testplan stimmen jetzt 47 statt 41 Wörter mit Scan2CAD überein.
-- **Auch kurze Linien werden ausgerichtet:** Stücke, deren Enden höchstens 1,5 px neben der Achse liegen, werden beim Ausrichten mitgenommen, auch wenn ihr Winkel im Scan größer wirkt. Der Anteil exakt waagrechter/senkrechter Linien steigt bei den Testplänen z. B. von 39 auf 43 %, von 41 auf 44 % und von 46 auf 48 % (Scan2CAD: 49 bzw. 51 %).
+- **Zahlen mit Dezimalpunkt:** Die Texterkennung entfleckt schwächer als die Linienerkennung (neue Einstellung `ocr.despeckle`, Standard 3 px²). So bleiben Punkte und Kommas in „143.50 qm“ erhalten. Auf dem A1-Testplan stimmen jetzt 47 statt 41 Wörter mit dem Vergleichsprogramm überein.
+- **Auch kurze Linien werden ausgerichtet:** Stücke, deren Enden höchstens 1,5 px neben der Achse liegen, werden beim Ausrichten mitgenommen, auch wenn ihr Winkel im Scan größer wirkt. Der Anteil exakt waagrechter/senkrechter Linien steigt bei den Testplänen z. B. von 39 auf 43 %, von 41 auf 44 % und von 46 auf 48 % (Vergleichsprogramm: 49 bzw. 51 %).
 - **Kleine Lücken schließen** (neu, Standard 0,8 mm, einstellbar oder „aus“): Linienenden, die knapp vor einem anderen Objekt enden, werden bis dorthin verlängert. Ecken und T-Stöße sind damit geschlossen, Türöffnungen bleiben offen. Offene Enden bei den Testplänen: 8–28 % weniger.
 - KI-Stapelregeln und Chat kennen `luecken_mm`.
 
@@ -44,7 +44,7 @@
 
 ## 0.12.0 – 04.11.2026
 ### Neu
-- **Schräge Texte:** Beschriftungen in beliebigem Winkel (z. B. 45° an schrägen Wänden) werden gefunden, geradegerückt und gelesen. Traceify sucht dazu schriftähnliche Zeichengruppen, die die normale Erkennung übrig gelassen hat, bestimmt ihre Lage und liest alle in einem Tesseract-Durchgang, jeweils in beiden Leserichtungen. Strichlinien und Fliesenraster werden dabei ausgeschlossen. Abschaltbar unter „Schräge Texte nachlesen“. Auf dem A1-Testplan sind jetzt 41 statt 33 Wörter gleich wie bei Scan2CAD, z. B. „Dusche“, „BR 900“ und „Pos 01“.
+- **Schräge Texte:** Beschriftungen in beliebigem Winkel (z. B. 45° an schrägen Wänden) werden gefunden, geradegerückt und gelesen. Traceify sucht dazu schriftähnliche Zeichengruppen, die die normale Erkennung übrig gelassen hat, bestimmt ihre Lage und liest alle in einem Tesseract-Durchgang, jeweils in beiden Leserichtungen. Strichlinien und Fliesenraster werden dabei ausgeschlossen. Abschaltbar unter „Schräge Texte nachlesen“. Auf dem A1-Testplan sind jetzt 41 statt 33 Wörter gleich wie beim Vergleichsprogramm, z. B. „Dusche“, „BR 900“ und „Pos 01“.
 - **Unerkannte Schrift mit KI lesen** (KI-Panel und Menü KI): Traceify sucht Stellen, die wie Schrift aussehen, aber von der OCR nicht gelesen wurden (typisch Handschrift wie „Privat Keller“), und lässt sie vom Bildmodell lesen, auch auf dem Kopf. Die Vorschläge erscheinen in einer Liste. Übernommene Texte ersetzen die Linien der Buchstaben, alles mit Strg+Z rückgängig.
 - **Erkannte Texte mit KI prüfen** schneidet jetzt auch gedrehte und schräge Texte richtig aus.
 - **Schräglage ausgleichen:** Traceify erkennt, wie schief der Scan liegt (bei den Testplänen 0,5–1,3°), richtet fast waagrechte und senkrechte Linien exakt an diesen Achsen aus und dreht die Schräglage beim Export (DXF, DWG, SVG, G-Code) heraus. Auf dem Scan bleiben die Vektoren deckungsgleich, Ecken bleiben verbunden. Ortho beim Zeichnen und „Gerade ausrichten“ (O) folgen der Schräglage. Anteil exakt waagrechter/senkrechter Linien bei den Testplänen: z. B. 66 % statt 16 % und 39 % statt 17 %. Abschaltbar unter „Linien gerade ausrichten“.
@@ -61,7 +61,7 @@
 
 ## 0.11.0 – 04.11.2026
 ### Getestet mit echten Scans
-Grundlage dieser Version ist ein Prüfstand mit 9 echten Bauplan-Scans (96–150 dpi, sauber bis stark verrauscht, teils handschriftlich, teils gedreht) und ein Vergleich mit Scan2CAD.
+Grundlage dieser Version ist ein Prüfstand mit 9 echten Bauplan-Scans (96–150 dpi, sauber bis stark verrauscht, teils handschriftlich, teils gedreht) und ein Vergleich mit einem kommerziellen Vektorisierungsprogramm.
 
 - **Saubere, durchgehende Kanten:** Eine gerade Linie zerfiel bisher an jeder Abzweigung, etwa an jeder Schraffurlinie einer Wand, in viele kurze Stücke. Jetzt werden kollineare Stücke über Abzweigungen hinweg zu **einer Linie** verbunden, solange alle Stützpunkte innerhalb der Toleranz liegen. Ergebnis bei den Testplänen: **47–80 % weniger Objekte** bei gleicher Abdeckung und deutlich weniger Splitter unter 1 mm.
 - **Keine Lücken an dichten Abzweigungen:** Kurze Verbindungsstücke zwischen zwei nahen Abzweigungen wurden als „zu kurz“ verworfen, sodass Kanten dort unterbrochen waren. Sie bleiben jetzt erhalten.
@@ -72,7 +72,7 @@ Grundlage dieser Version ist ein Prüfstand mit 9 echten Bauplan-Scans (96–150
   - **Linien, Wände und Schraffuren** werden vor der Erkennung ausgeblendet; handschriftliche Wörter bleiben dabei erhalten.
   - **Zeichensalat-Filter:** Treffer wie „Mm“, „om>Z“ oder „%y“ aus Schraffuren werden verworfen, kurze Kürzel (WC, KG, BR) nur bei hoher Sicherheit übernommen.
   - **Grobe Scans** (unter ca. 130 dpi) werden für die Texterkennung intern auf etwa 300 dpi vergrößert. Die Linien bleiben in Originalauflösung.
-  - Ergebnis auf einem A1-Plan: 33 statt 19 Wörter wie bei Scan2CAD, 8 statt 51 Mülltexte.
+  - Ergebnis auf einem A1-Plan: 33 statt 19 Wörter wie beim Vergleichsprogramm, 8 statt 51 Mülltexte.
 - **Prüfstand** `tools/pruefstand.py`: misst Zeit, Objekte, Splitter, Abdeckung, Genauigkeit und Texte für einen ganzen Ordner. Er liest DXF-Dateien anderer Programme ein (neu: `traceify.core.dxf_import`), richtet sie automatisch auf den Scan aus und bewertet sie mit denselben Kennzahlen.
 
 ### Behoben
