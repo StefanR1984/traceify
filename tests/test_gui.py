@@ -120,6 +120,8 @@ def test_gui_opens_vector_pdf(tmp_path, monkeypatch):
     monkeypatch.setattr(QtWidgets.QMessageBox, "critical",
                         staticmethod(lambda *a, **k: msgs.append(a[2])))
     w = MainWindow()
+    # wie auf einem Rechner ohne Tesseract: OCR aus – PDF-Texte müssen trotzdem kommen
+    w.panel.ocr.setChecked(False)
     w.open_file(str(pdf))
     assert not msgs, msgs
     assert w.is_vector_pdf
