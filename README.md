@@ -57,16 +57,22 @@ Einstellungen liegen unter `%APPDATA%\Traceify\config.json`.
 Repo klonen oder als ZIP herunterladen und `Traceify_Start_Windows.bat` doppelklicken. Beim ersten Start holt die Datei alles selbst: Python 3.12, alle Bibliotheken (in `.venv`), Tesseract mit Sprachdaten und auf Wunsch Ollama samt KI-Modell.
 Optionen: `--ja` (alles bestätigen), `--ohne-ki`, `--modell qwen2.5vl:7b`, `--nur-pruefen`.
 
-## KI-Assistent (Ollama)
+## KI-Assistent (Ollama oder vLLM)
 
-Die KI läuft **lokal** auf deinem Rechner über [Ollama](https://ollama.com). Es gehen keine Daten ins Internet. Der Assistent sitzt rechts als Reiter neben den Einstellungen (Strg+Umschalt+K).
+Die KI läuft **lokal** auf deinem Rechner über [Ollama](https://ollama.com) – oder auf einem eigenen KI-Server mit **[vLLM](https://docs.vllm.ai)** bzw. einem anderen OpenAI-kompatiblen Server (LM Studio, llama.cpp-Server, LocalAI). Es gehen keine Daten ins Internet. Der Assistent sitzt rechts als Reiter neben den Einstellungen (Strg+Umschalt+K).
+
+**KI-Server wählen:** Im KI-Panel auf **⚙** klicken → *Ollama* oder *vLLM / OpenAI-kompatibel*, Adresse (z. B. `http://gpu-server:8000/v1`) und – falls der Server einen verlangt – API-Schlüssel eintragen. vLLM legt das Modell beim Start fest, z. B.:
+```
+vllm serve Qwen/Qwen2.5-VL-7B-Instruct --port 8000
+```
+Für die Bild-Funktionen braucht es ein Bildmodell (VL/Vision). Alle KI-Funktionen – Analyse, Textprüfung, Handschrift, Chat, KI-Stapel – laufen mit beiden Servern gleich. Das gewählte Modell wird je Server getrennt gemerkt.
 
 - **✨ KI-Analyse** (Strg+Umschalt+A): Die KI sieht sich das Bild an und erkennt die Art der Zeichnung (Grundriss, technische Zeichnung, Logo …). Dann wählt sie Vorlage, Modus, Entrauschen, Begradigen und OCR und konvertiert sofort.
 - **Texte mit KI prüfen**: Jeder OCR-Text wird als Ausschnitt einzeln von einem Bildmodell nachgelesen (auch gedrehte und schräge Texte). Korrekturen siehst du in einer Liste und kannst sie einzeln übernehmen.
 - **Unerkannte Schrift mit KI lesen**: Traceify sucht Stellen, die wie Schrift aussehen, aber von der OCR nicht gelesen wurden – typisch Handschrift wie „Privat Keller“ – und lässt sie vom Bildmodell lesen. Übernommene Texte ersetzen die Linien der Buchstaben.
 - **Ergebnis bewerten**: Die KI vergleicht Original und Vektoren und schlägt Verbesserungen vor. Auf Wunsch setzt sie diese gleich um.
 - **Chat mit Aufträgen**: Zum Beispiel „Lösche alle Texte und exportiere als DXF“, „Toleranz auf 3 und neu konvertieren“, „Entferne alles unter 0,5 mm“ oder „Ersetze ‚Kuche‘ durch ‚Küche‘“. Die KI antwortet und führt die passenden Aktionen aus. Ist „Aktionen sofort ausführen“ abgehakt, musst du erst bestätigen. Alles lässt sich mit Strg+Z zurücknehmen.
-- **Modelle**: Im Panel wählen und mit „Laden“ herunterladen. Empfohlen: `gemma3:4b` (schnell), `qwen2.5vl:7b` (beste Texterkennung), `gemma3:12b` (genauer, braucht ca. 16 GB RAM bzw. eine gute Grafikkarte).
+- **Modelle**: Im Panel wählen und (bei Ollama) mit „Laden“ herunterladen. Empfohlen: `gemma3:4b` (schnell), `qwen2.5vl:7b` (beste Texterkennung), `gemma3:12b` (genauer, braucht ca. 16 GB RAM bzw. eine gute Grafikkarte).
 - **Ergebnis bewerten**: nutzt zusätzlich die Qualitätsampel (Problemstellen mit Koordinaten).
 - **Stapel mit Regeln in Klartext** (Stapel-Dialog oder `--ki-regeln`): z. B. „Grundrisse als DXF mit Maßstab aus dem Plan, Logos als CNC-Umriss mit 2 mm Frästiefe als G-Code, handschriftliche Notizen überspringen“. Die KI sieht sich jede Datei an und setzt Einstellungen, Formate oder überspringt sie; das Protokoll zeigt jede Entscheidung.
   ```

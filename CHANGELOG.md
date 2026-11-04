@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.13.0 – 04.11.2026
+### Neu: vLLM und andere OpenAI-kompatible KI-Server
+- Statt Ollama kann die KI jetzt auch über **vLLM** laufen, etwa auf einem eigenen GPU-Server im Netz. Das geht ebenso mit jedem anderen Server, der die OpenAI-Schnittstelle anbietet (LM Studio, llama.cpp-Server, LocalAI).
+- Umschalten im KI-Panel über **⚙ → KI-Server**: Art, Adresse (z. B. `http://gpu-server:8000/v1`), optionaler API-Schlüssel und Zeitlimit.
+- Alle KI-Funktionen laufen mit beiden Servern gleich: Bild analysieren, Texte prüfen, unerkannte Schrift lesen, Chat mit Aufträgen und KI-Stapel (auch über Kommandozeile und Python-API).
+- Bilder werden als `image_url` mitgeschickt, Antwortvorgaben als `response_format` (JSON-Schema). Lehnt der Server das Schema ab, fragt Traceify automatisch mit einfacherer Vorgabe nach.
+- Die Modellliste zeigt die Modelle, die der Server anbietet. Das gewählte Modell wird je Server getrennt gemerkt. Fehlt einem Modell die Bildfähigkeit, gibt es einen Hinweis. „Laden“ entfällt, weil vLLM sein Modell beim Start festlegt.
+- Ollama wird beim Programmstart nur noch automatisch gestartet, wenn Ollama als KI-Server gewählt ist.
+
+### Behoben
+- Workflow *Integration (echt)*: Der Ollama-Installer kehrte auf dem Runner nie zurück (er startet am Ende die Ollama-App). Jetzt wird das portable Ollama-ZIP genutzt, und jeder Schritt hat ein eigenes Zeitlimit.
+
+
 ## 0.12.0 – 04.11.2026
 ### Neu
 - **Schräge Texte:** Beschriftungen in beliebigem Winkel (z. B. 45° an schrägen Wänden) werden gefunden, geradegerückt und gelesen. Traceify sucht dazu schriftähnliche Zeichengruppen, die die normale Erkennung übrig gelassen hat, bestimmt ihre Lage und liest alle in einem Tesseract-Durchgang, jeweils in beiden Leserichtungen. Strichlinien und Fliesenraster werden dabei ausgeschlossen. Abschaltbar unter „Schräge Texte nachlesen“. Auf dem A1-Testplan sind jetzt 41 statt 33 Wörter gleich wie bei Scan2CAD, z. B. „Dusche“, „BR 900“ und „Pos 01“.

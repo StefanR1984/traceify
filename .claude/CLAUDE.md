@@ -50,7 +50,8 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
   Echte Scans liegen **nicht** im Repo (Datenschutz) – der Nutzer liefert sie bei Bedarf.
 - `export/` – dxf, dwg (ODA File Converter), svg, gcode (`plan()` = gemeinsame Basis für
   G-Code, Vorschau, Zeit; Radiuskorrektur, Haltestege).
-- `ai/` – Ollama-Client (stdlib urllib), Assistent, KI-Stapelregeln.
+- `ai/` – Ollama-Client und `openai_client.py` (vLLM/OpenAI-kompatibel, gleiche Schnittstelle;
+  Auswahl über config `ki_server`, `make_client`), beide stdlib urllib; Assistent, KI-Stapelregeln.
 - `gui/main_window.py` – Aktionen, Menüs, Leisten, Undo-Stack
   (`("entities", liste)`, `("drawing", d)`, `("raster", …)`, `("raster_only", …)`).
   Ändern sich Leisten/Docks: `UI_STATE_VERSION` erhöhen.
@@ -91,4 +92,6 @@ Workflow „Integration (echt)“ für Ollama/ODA.
    nur für Enden, die fast eine Linie treffen (bis 1 mm).
 5. **Schraffur als DXF-HATCH** statt Einzellinien (Fläche aus Wandumriss + Muster ANSI31).
 6. Workflow „Integration (echt)“: ODA-Download-Link wird von der Website gelesen – bricht, wenn
-   sich die Seite ändert.
+   sich die Seite ändert. Ollama läuft dort aus dem portablen ZIP (Installer hängt).
+7. vLLM nur gegen nachgebauten Server getestet (Runner ohne GPU) – mit echtem vLLM-Server des
+   Nutzers ausprobieren.

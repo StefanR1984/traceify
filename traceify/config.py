@@ -12,6 +12,10 @@ DEFAULTS = {
     "ollama_url": "http://127.0.0.1:11434",
     "ollama_model": "gemma3:4b",
     "ollama_timeout": 300,
+    "ki_server": "ollama",           # "ollama" oder "openai" (vLLM, LM Studio, llama.cpp …)
+    "openai_url": "http://127.0.0.1:8000/v1",
+    "openai_key": "",
+    "openai_model": "",
 }
 
 

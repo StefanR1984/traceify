@@ -12,6 +12,9 @@ class OllamaError(RuntimeError):
 
 
 class OllamaClient:
+    kind = "ollama"
+    can_pull = True
+
     def __init__(self, url: str = "http://127.0.0.1:11434", timeout: float = 300):
         self.url = url.rstrip("/")
         self.timeout = timeout

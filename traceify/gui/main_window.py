@@ -1466,7 +1466,7 @@ class MainWindow(QMainWindow):
             from PySide6.QtCore import QTimer
             QTimer.singleShot(800, self._ask_first_ai)
             return
-        if ki != "ja":
+        if ki != "ja" or (config.load().get("ki_server") or "ollama") != "ollama":
             return
 
         def job(_w):
@@ -2065,6 +2065,7 @@ class MainWindow(QMainWindow):
             "»automatisch«).<br><br>"
             "<b>Texte</b> werden in allen vier Richtungen erkannt, auch auf dem Kopf und schräg. "
             "Handschrift liest die KI (KI → Unerkannte Schrift mit KI lesen).<br>"
+            "<b>KI-Server</b> – im KI-Panel über ⚙: Ollama oder vLLM / OpenAI-kompatibel.<br>"
             "<b>Schräglage</b> des Scans wird erkannt, Linien werden ausgerichtet und beim "
             "Export gerade gedreht. Schraffur kommt auf den Layer SCHRAFFUR, Wände auf Wunsch "
             "als Umriss auf WAENDE.<br><br>"
@@ -2078,7 +2079,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(self, "Über Traceify",
                           f"<b>Traceify {__version__}</b><br>Raster- und PDF-Zeichnungen in "
                           "DXF, SVG und G-Code umwandeln.<br><br>Verwendet OpenCV, scikit-image, "
-                          "ezdxf, PyMuPDF, Tesseract OCR, Ollama und Qt (PySide6).<br><br>"
+                          "ezdxf, PyMuPDF, Tesseract OCR, Ollama bzw. vLLM und Qt (PySide6).<br><br>"
                           "Freie Software unter der GNU AGPL v3.<br>"
                           '<a href="https://github.com/StefanR1984/traceify">'
                           "github.com/StefanR1984/traceify</a>")

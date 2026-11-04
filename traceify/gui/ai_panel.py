@@ -1,16 +1,73 @@
-"""KI-Assistent (Ollama) als Seitenleiste."""
+"""KI-Assistent als Seitenleiste – mit Ollama oder einem vLLM-/OpenAI-kompatiblen Server."""
 from __future__ import annotations
 
 import html
 import traceback
 
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QHBoxLayout, QLabel,
-                               QMessageBox, QPlainTextEdit, QProgressBar, QPushButton,
-                               QTextBrowser, QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+                               QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPlainTextEdit,
+                               QProgressBar, QPushButton, QSpinBox, QTextBrowser, QToolButton,
+                               QVBoxLayout, QWidget)
 
 from .. import config
-from ..ai import RECOMMENDED_MODELS, Assistant, OllamaClient
+from ..ai import (RECOMMENDED_MODELS, RECOMMENDED_VLLM_MODELS, SERVER_KINDS, Assistant,
+                  make_client, model_key)
+
+
+class ServerDialog(QDialog):
+    """Welcher KI-Server: Ollama (Standard) oder vLLM / OpenAI-kompatibel."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("KI-Server")
+        cfg = config.load()
+        f = QFormLayout(self)
+        self.kind = QComboBox()
+        for k, label in SERVER_KINDS.items():
+            self.kind.addItem(label, k)
+        self.kind.setCurrentIndex(max(0, self.kind.findData(cfg.get("ki_server") or "ollama")))
+        f.addRow("Server:", self.kind)
+        self.ollama_url = QLineEdit(cfg.get("ollama_url") or "http://127.0.0.1:11434")
+        f.addRow("Ollama-Adresse:", self.ollama_url)
+        self.openai_url = QLineEdit(cfg.get("openai_url") or "http://127.0.0.1:8000/v1")
+        self.openai_url.setToolTip("z. B. http://gpu-server:8000/v1 (vLLM), "
+                                   "http://localhost:1234/v1 (LM Studio)")
+        f.addRow("vLLM-/OpenAI-Adresse:", self.openai_url)
+        self.openai_key = QLineEdit(cfg.get("openai_key") or "")
+        self.openai_key.setEchoMode(QLineEdit.Password)
+        self.openai_key.setPlaceholderText("nur nötig, wenn der Server einen verlangt (--api-key)")
+        f.addRow("API-Schlüssel:", self.openai_key)
+        self.timeout = QSpinBox()
+        self.timeout.setRange(10, 3600)
+        self.timeout.setSuffix(" s")
+        self.timeout.setValue(int(cfg.get("ollama_timeout") or 300))
+        f.addRow("Zeitlimit je Anfrage:", self.timeout)
+        hint = QLabel("vLLM lädt sein Modell beim Start, z. B.<br><code>vllm serve "
+                      "Qwen/Qwen2.5-VL-7B-Instruct --port 8000</code><br>Für Bild-Funktionen "
+                      "braucht es ein Bildmodell (VL/Vision).")
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: gray; font-size: 11px;")
+        f.addRow(hint)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        f.addRow(bb)
+        self.kind.currentIndexChanged.connect(self._sync)
+        self._sync()
+
+    def _sync(self):
+        o = self.kind.currentData() == "openai"
+        self.ollama_url.setEnabled(not o)
+        for w in (self.openai_url, self.openai_key):
+            w.setEnabled(o)
+
+    def values(self) -> dict:
+        return {"ki_server": self.kind.currentData(),
+                "ollama_url": self.ollama_url.text().strip() or "http://127.0.0.1:11434",
+                "openai_url": self.openai_url.text().strip() or "http://127.0.0.1:8000/v1",
+                "openai_key": self.openai_key.text().strip(),
+                "ollama_timeout": self.timeout.value()}
 
 
 class FuncWorker(QThread):
@@ -44,8 +101,8 @@ class AiPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         cfg = config.load()
-        self.client = OllamaClient(cfg["ollama_url"], cfg.get("ollama_timeout") or 300)
-        self.assistant = Assistant(self.client, cfg["ollama_model"])
+        self.client = make_client(cfg)
+        self.assistant = Assistant(self.client, cfg.get(model_key(cfg)) or "")
         self.workers = []
         self.pending_actions = []
 
@@ -59,6 +116,11 @@ class AiPanel(QWidget):
         self.btn_start.clicked.connect(self.start_ollama)
         self.btn_start.setVisible(False)
         row.addWidget(self.btn_start)
+        self.btn_server = QToolButton()
+        self.btn_server.setText("⚙")
+        self.btn_server.setToolTip("KI-Server wählen: Ollama oder vLLM / OpenAI-kompatibel")
+        self.btn_server.clicked.connect(self.choose_server)
+        row.addWidget(self.btn_server)
         lay.addLayout(row)
 
         row = QHBoxLayout()
@@ -205,39 +267,81 @@ class AiPanel(QWidget):
         w = self.run_bg(job, self._on_refresh, busy=False)
         w.background = True
 
+    @property
+    def is_ollama(self) -> bool:
+        return getattr(self.client, "kind", "ollama") == "ollama"
+
+    def choose_server(self):
+        dlg = ServerDialog(self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        self.set_server(dlg.values())
+
+    def set_server(self, values: dict):
+        """Neuen KI-Server übernehmen (speichern, Client neu anlegen, Modelle neu laden)."""
+        cfg = config.save(values)
+        self.client = make_client(cfg)
+        self.assistant.client = self.client
+        self.assistant.model = cfg.get(model_key(cfg)) or ""
+        self.model.blockSignals(True)
+        self.model.setCurrentText(self.assistant.model)
+        self.model.blockSignals(False)
+        self.say("system", f"KI-Server: {html.escape(SERVER_KINDS[cfg['ki_server']])} "
+                           f"({html.escape(getattr(self.client, 'url', ''))})")
+        self.refresh()
+
     def _on_refresh(self, res):
-        cur = self.model_name or config.load().get("ollama_model")
+        cfg = config.load()
+        cur = self.model_name or cfg.get(model_key(cfg))
         self.model.blockSignals(True)
         self.model.clear()
+        what = "Ollama" if self.is_ollama else "KI-Server"
         if res is None:
-            self.status.setText('<span style="color:#c0392b">● Ollama nicht erreichbar</span>')
-            self.btn_start.setVisible(True)
+            self.status.setText(f'<span style="color:#c0392b">● {what} nicht erreichbar</span>')
+            self.btn_start.setVisible(self.is_ollama)
             names = []
         else:
             ver, names = res
-            self.status.setText(f'<span style="color:#1a8a4a">● Ollama {ver} verbunden</span>')
+            label = f"Ollama {ver}" if self.is_ollama else ver
+            self.status.setText(f'<span style="color:#1a8a4a">● {html.escape(label)} verbunden'
+                                '</span>')
             self.btn_start.setVisible(False)
         for n in names:
             self.model.addItem(n)
-        for n, desc in RECOMMENDED_MODELS:
-            if n not in names:
-                self.model.addItem(f"{n}")
-                self.model.setItemData(self.model.count() - 1, desc, Qt.ToolTipRole)
+        recommended = RECOMMENDED_MODELS if self.is_ollama else RECOMMENDED_VLLM_MODELS
+        if self.is_ollama:     # vLLM: nur Modelle, die der Server wirklich anbietet
+            for n, desc in recommended:
+                if n not in names:
+                    self.model.addItem(f"{n}")
+                    self.model.setItemData(self.model.count() - 1, desc, Qt.ToolTipRole)
         self.model.blockSignals(False)
         self.installed = set(names)
-        self.model.setCurrentText(cur or (names[0] if names else RECOMMENDED_MODELS[0][0]))
+        if not self.is_ollama and names and cur not in names:
+            cur = names[0]                  # vLLM bietet meist genau ein Modell an
+        fallback = RECOMMENDED_MODELS[0][0] if self.is_ollama else ""
+        self.model.setCurrentText(cur or (names[0] if names else fallback))
         self.on_model_changed(self.model_name)
 
     def on_model_changed(self, name: str):
         name = name.strip()
         self.assistant.model = name
         if name:
-            config.save({"ollama_model": name})
+            config.save({model_key(config.load()): name})
         inst = name in getattr(self, "installed", set())
-        desc = dict(RECOMMENDED_MODELS).get(name, "")
-        self.model_info.setText(("✓ installiert" if inst else "nicht installiert – „Laden“ drücken")
-                                + (f" · {desc}" if desc else ""))
-        self.btn_pull.setEnabled(not inst and bool(name))
+        if self.is_ollama:
+            desc = dict(RECOMMENDED_MODELS).get(name, "")
+            self.model_info.setText(("✓ installiert" if inst
+                                     else "nicht installiert – „Laden“ drücken")
+                                    + (f" · {desc}" if desc else ""))
+        else:
+            desc = dict(RECOMMENDED_VLLM_MODELS).get(name, "")
+            vision = "" if self.client.has_vision(name) else \
+                " · vermutlich kein Bildmodell – Bild-Funktionen gehen dann nicht"
+            self.model_info.setText(("✓ auf dem Server verfügbar" if inst
+                                     else "nicht auf dem Server (Modell wird beim Start von vLLM "
+                                          "festgelegt)") + (f" · {desc}" if desc else "") + vision)
+        self.btn_pull.setVisible(self.is_ollama)
+        self.btn_pull.setEnabled(self.is_ollama and not inst and bool(name))
 
     def start_ollama(self):
         from .. import installer

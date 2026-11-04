@@ -68,6 +68,7 @@ def environment_report() -> str:
         f"KI: {cfg.get('ki') or '-'}, Modell: {cfg.get('ollama_model') or '-'}",
     ]
     try:
+        rows.append(f"KI-Server: {cfg.get('ki_server') or 'ollama'}")
         rows.append(f"Ollama erreichbar: {'ja' if installer.ollama_running(cfg.get('ollama_url') or installer.OLLAMA_URL) else 'nein'}")
     except Exception:
         pass

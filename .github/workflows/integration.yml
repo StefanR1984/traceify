@@ -11,6 +11,7 @@ on:
         description: "Ollama-Modell, das getestet wird"
         required: false
         default: "gemma3:4b"
+      # kleiner und schneller auf der CPU des Runners: z. B. "qwen2.5vl:3b" oder "moondream"
 
 permissions:
   contents: read
@@ -24,7 +25,7 @@ env:
 jobs:
   echt:
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 75
     defaults:
       run:
         shell: pwsh
@@ -44,13 +45,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Ollama installieren und starten
+      - name: Ollama starten (portables ZIP, ohne Installer)
+        timeout-minutes: 10
         run: |
-          $setup = "$env:RUNNER_TEMP\OllamaSetup.exe"
-          Invoke-WebRequest -Uri "https://ollama.com/download/OllamaSetup.exe" -OutFile $setup
-          Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/NORESTART","/SUPPRESSMSGBOXES" -Wait
-          $exe = Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama.exe"
-          if (-not (Test-Path $exe)) { throw "ollama.exe nicht gefunden" }
+          # Der Windows-Installer startet am Ende die Ollama-App im Infobereich und kehrt
+          # dann nie zurück - deshalb das portable ZIP und direkt "ollama serve".
+          $zip = "$env:RUNNER_TEMP\ollama.zip"
+          $dir = "$env:RUNNER_TEMP\ollama"
+          Invoke-WebRequest -Uri "https://github.com/ollama/ollama/releases/latest/download/ollama-windows-amd64.zip" -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $dir -Force
+          $exe = Get-ChildItem $dir -Recurse -Filter ollama.exe | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $exe) { throw "ollama.exe nicht im ZIP gefunden" }
+          "OLLAMA_EXE=$exe" >> $env:GITHUB_ENV
           Start-Process -FilePath $exe -ArgumentList "serve" -WindowStyle Hidden
           $ok = $false
           for ($i = 0; $i -lt 60; $i++) {
@@ -58,11 +64,16 @@ jobs:
             catch { Start-Sleep -Seconds 2 }
           }
           if (-not $ok) { throw "Ollama-Server startet nicht" }
-          & $exe pull $env:TRACEIFY_MODELL
+
+      - name: KI-Modell laden
+        timeout-minutes: 20
+        run: |
+          & $env:OLLAMA_EXE pull $env:TRACEIFY_MODELL
           if ($LASTEXITCODE -ne 0) { throw "Modell konnte nicht geladen werden" }
-          & $exe list
+          & $env:OLLAMA_EXE list
 
       - name: ODA File Converter installieren
+        timeout-minutes: 10
         run: |
           $page = Invoke-WebRequest -Uri "https://www.opendesign.com/guestfiles/oda_file_converter" -UseBasicParsing
           $m = [regex]::Matches($page.Content, "ODAFileConverter_QT6_vc1[0-9]_amd64dll_[0-9.]+\.msi") | Select-Object -ExpandProperty Value -Unique
@@ -75,4 +86,5 @@ jobs:
           Get-ChildItem "C:\Program Files\ODA" -Recurse -Filter ODAFileConverter.exe | Select-Object FullName | Out-Host
 
       - name: Tests mit echtem Ollama und ODA
+        timeout-minutes: 30
         run: python -m pytest -v tests/test_echt.py
