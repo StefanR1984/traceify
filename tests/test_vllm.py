@@ -182,7 +182,9 @@ def test_gui_vllm_server_waehlen_und_chat(tmp_path, fake_vllm, monkeypatch):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     from traceify.gui.ai_panel import AiPanel, ServerDialog
     p = AiPanel()
+    p.refresh()
     _wait(app, lambda: "nicht erreichbar" in p.status.text())
+    _wait(app, lambda: not p.workers)
 
     # Server-Dialog wie ein Nutzer ausfüllen
     def fill():
@@ -202,6 +204,12 @@ def test_gui_vllm_server_waehlen_und_chat(tmp_path, fake_vllm, monkeypatch):
     res = p.assistant.ask("Toleranz hoch")
     assert res["aktionen"][0]["wert"] == 2.5
     # zurück auf Ollama: eigenes Modell bleibt getrennt gespeichert
-    p.set_server({"ki_server": "ollama"})
+    p.set_server({"ki_server": "ollama", "ollama_url": "http://127.0.0.1:9"})
     assert config.load()["openai_model"] == "Qwen/Qwen2.5-VL-7B-Instruct"
+    # Hintergrund-Threads (Verbindungsprüfung) erst beenden lassen – unter Windows stürzt
+    # Python sonst beim Beenden ab („QThread: Destroyed while thread is still running“)
+    _wait(app, lambda: not p.workers, timeout=60)
+    for w in list(p.workers):
+        w.wait(5000)
     p.deleteLater()
+    app.processEvents()
