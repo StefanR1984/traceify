@@ -114,3 +114,33 @@ def test_style_settings_roundtrip(tmp_path):
     s2 = tf.load_settings(str(p))
     assert s2.style.color_layers and s2.style.thick_ratio == 2.2
     assert isinstance(s2.style, style.StyleSettings)
+
+
+def test_thick_wall_ends_without_spurs():
+    """Dicke Wände: keine Fransen-Bögen an den Enden, Mittellinie reicht bis zur Stirnseite."""
+    img = np.full((400, 900), 255, np.uint8)
+    cv2.line(img, (100, 200), (800, 200), 0, 22)
+    d = tf.convert(img, _settings()).drawing
+    assert not d.by_type(tf.Arc)
+    lines = d.by_type(tf.Line)
+    assert len(lines) == 1
+    xs = sorted([lines[0].p1[0], lines[0].p2[0]])
+    # cv2 zeichnet mit runden Enden: ±11 px über die Endpunkte hinaus
+    assert abs(xs[0] - 89) < 6 and abs(xs[1] - 811) < 6
+
+
+def test_dashed_line_with_slightly_tilted_dash():
+    img = np.full((200, 1600), 255, np.uint8)
+    x = 100
+    k = 0
+    while x < 1450:
+        dy = 1 if k == 10 else 0          # ein Strich minimal schief (Scanfehler)
+        cv2.line(img, (x, 100), (x + 58, 100 + dy), 0, 4)
+        x += 95
+        k += 1
+    d = tf.convert(img, _settings()).drawing
+    dashed = [l for l in d.by_type(tf.Line) if l.linetype == "DASHED"]
+    assert len(dashed) == 1
+    l = dashed[0]
+    assert abs(l.p1[1] - l.p2[1]) < 0.6           # waagrecht trotz schiefem Strich
+    assert l.p1[0] < 105 and l.p2[0] > 1380        # über die ganze Länge

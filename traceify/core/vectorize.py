@@ -79,7 +79,69 @@ def skeletonize_fast(mask: np.ndarray, tile_px: int = 3000, margin: int = 160) -
     return out
 
 
-def trace_skeleton(bw: np.ndarray) -> List[Tuple[List[Tuple[float, float]], bool]]:
+def _prune_spurs(skel: np.ndarray, nb: np.ndarray, dist: np.ndarray, factor: float = 2.0) -> int:
+    """Entfernt kurze Seitenäste („Fransen“), die die Skelettierung an Enden und Ecken
+    dicker Striche erzeugt. Ein Ast gilt als Franse, wenn er von einem Endpunkt bis zu einem
+    Knoten kürzer ist als ~1,4 × halbe Strichstärke am Knoten. Ändert skel in place."""
+    ys, xs = np.nonzero((nb == 1) & (skel > 0))
+    removed = 0
+    H, W = skel.shape
+    limit = 2 + int(factor * float(dist.max()))  # obere Schranke, verfeinert am Knoten
+    for y0, x0 in zip(ys, xs):
+        path = [(y0, x0)]
+        prev = None
+        cy, cx = y0, x0
+        junction = None
+        while len(path) <= limit:
+            nxt = []
+            for dy, dx in _NB8:
+                ny, nx = cy + dy, cx + dx
+                if 0 <= ny < H and 0 <= nx < W and skel[ny, nx] and (ny, nx) != prev \
+                        and (ny, nx) not in path:
+                    nxt.append((ny, nx))
+            if not nxt:
+                break                      # isolierter kurzer Strich – kein Seitenast
+            if len(nxt) > 1 or nb[nxt[0]] >= 3:
+                junction = nxt[0] if len(nxt) == 1 else (cy, cx)
+                break
+            prev = (cy, cx)
+            cy, cx = nxt[0]
+            path.append((cy, cx))
+        if junction is None:
+            continue
+        thick = float(dist[junction])
+        if thick < 2.5:                    # dünne Linien: echte kurze Striche behalten
+            continue
+        if len(path) <= max(2, factor * thick):
+            for (py, px) in path:
+                if (py, px) != junction:
+                    skel[py, px] = 0
+            removed += 1
+    return removed
+
+
+def _ends_at_junction(pts, centroid_set) -> bool:
+    return tuple(pts[-1]) in centroid_set
+
+
+def _extend(pts, dist):
+    """Verlängert das Ende einer Punktfolge in Laufrichtung um (Abstandswert - 1)."""
+    x, y = pts[-1]
+    xi, yi = int(round(x)) + 1, int(round(y)) + 1   # dist ist um 1 Pixel gepolstert
+    if not (0 <= yi < dist.shape[0] and 0 <= xi < dist.shape[1]):
+        return pts
+    ext = float(dist[yi, xi]) - 1.0
+    if ext < 1.5:
+        return pts
+    k = min(len(pts) - 1, 8)
+    dx, dy = x - pts[-1 - k][0], y - pts[-1 - k][1]
+    n = math.hypot(dx, dy)
+    if n < 1e-6:
+        return pts
+    return list(pts) + [(x + dx / n * ext, y + dy / n * ext)]
+
+
+def trace_skeleton(bw: np.ndarray, prune: bool = True) -> List[Tuple[List[Tuple[float, float]], bool]]:
     """Zerlegt das Skelett in Pfade. Gibt Liste von (Punkte[x,y], geschlossen) zurück."""
     skel = skeletonize_fast(bw > 0)
     skel = np.pad(skel, 1).astype(np.uint8)
@@ -87,6 +149,11 @@ def trace_skeleton(bw: np.ndarray) -> List[Tuple[List[Tuple[float, float]], bool
     k[1, 1] = 0
     nb = cv2.filter2D(skel, -1, k, borderType=cv2.BORDER_CONSTANT)
     nb = nb * skel
+    dist = None
+    if prune:
+        dist = cv2.distanceTransform(np.pad((bw > 0).astype(np.uint8), 1), cv2.DIST_L2, 3)
+        if _prune_spurs(skel, nb, dist):
+            nb = cv2.filter2D(skel, -1, k, borderType=cv2.BORDER_CONSTANT) * skel
 
     junction = (nb >= 3) & (skel > 0)
     n_j, jlab = cv2.connectedComponents(junction.astype(np.uint8), connectivity=8)
@@ -98,6 +165,7 @@ def trace_skeleton(bw: np.ndarray) -> List[Tuple[List[Tuple[float, float]], bool
             sel = labs == lab
             centroids[lab] = (float(xs[sel].mean()) - 1, float(ys[sel].mean()) - 1)
 
+    centroid_set = set(centroids.values())
     normal = (skel > 0) & ~junction
     visited = np.zeros_like(normal)
     paths: List[Tuple[List[Tuple[float, float]], bool]] = []
@@ -144,7 +212,15 @@ def trace_skeleton(bw: np.ndarray) -> List[Tuple[List[Tuple[float, float]], bool
                 starts.append((y, x, lab))
     for y, x, lab in starts:
         if not visited[y, x]:
-            paths.append((walk(y, x, lab), False))
+            pts = walk(y, x, lab)
+            if dist is not None and len(pts) >= 3:
+                # Freie Enden um die halbe Strichstärke verlängern: das Skelett endet sonst
+                # eine halbe Breite vor der Stirnseite dicker Striche (z. B. Wandenden)
+                if not lab:
+                    pts = _extend(pts[::-1], dist)[::-1]
+                if not _ends_at_junction(pts, centroid_set):
+                    pts = _extend(pts, dist)
+            paths.append((pts, False))
 
     # 2) übrig gebliebene Ringe (geschlossene Kurven ohne Knoten)
     for y, x in zip(ys, xs):

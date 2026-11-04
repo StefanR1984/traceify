@@ -17,13 +17,14 @@ import numpy as np
 
 from .model import Arc, Circle, LAYER_DASHED, LAYER_THICK, Line, Polyline, Text
 
+RHO_CELL = 60.0   # px – Zellengröße für die Vorauswahl (Abstand der Trägergeraden)
 ISO_PENS = [0.13, 0.18, 0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0]
 
 
 @dataclass
 class StyleSettings:
     detect_dashed: bool = True
-    dash_max_len: float = 60.0      # px – längere Stücke sind keine Striche
+    dash_max_len: float = 120.0     # px – längere Stücke sind keine Striche (5 mm bei 400 dpi ≈ 80 px)
     dash_max_gap: float = 40.0      # px – größte Lücke zwischen zwei Strichen (absolut)
     dash_min_count: int = 3         # so viele Striche mindestens
     measure_widths: bool = True
@@ -65,19 +66,42 @@ def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
     n_ang = int(math.ceil(180.0 / angle_tol))
     buckets = {}
     for t in info:
-        buckets.setdefault((int(t[1] // angle_tol) % n_ang, int(math.floor(t[2] / offset_tol))),
+        buckets.setdefault((int(t[1] // angle_tol) % n_ang, int(math.floor(t[2] / RHO_CELL))),
                            []).append(t)
     for i, (l, ang, rho, ux, uy) in enumerate(info):
         if id(l) in used:
             continue
-        ai, ri = int(ang // angle_tol) % n_ang, int(math.floor(rho / offset_tol))
-        near = [t for da in (-1, 0, 1) for dr in (-1, 0, 1)
+        ai, ri = int(ang // angle_tol) % n_ang, int(math.floor(rho / RHO_CELL))
+        near = [t for da in (-1, 0, 1) for dr in (-2, -1, 0, 1, 2)
                 for t in buckets.get(((ai + da) % n_ang, ri + dr), ())]
-        group = [t for t in near if id(t[0]) not in used and
-                 min(abs(t[1] - ang), 180 - abs(t[1] - ang)) <= angle_tol and
-                 abs(t[2] - rho) <= offset_tol]
+        # Kandidaten: ähnlicher Winkel, Mittelpunkt nahe der Geraden (mit etwas Spiel für
+        # leicht schräge Striche), danach Ausgleichsgerade durch alle und streng prüfen
+        mx0, my0 = (l.p1[0] + l.p2[0]) / 2, (l.p1[1] + l.p2[1]) / 2
+        cand2 = []
+        for t in near:
+            if id(t[0]) in used or min(abs(t[1] - ang), 180 - abs(t[1] - ang)) > angle_tol:
+                continue
+            mx, my = (t[0].p1[0] + t[0].p2[0]) / 2, (t[0].p1[1] + t[0].p2[1]) / 2
+            along = (mx - mx0) * ux + (my - my0) * uy
+            perp = abs(-(mx - mx0) * uy + (my - my0) * ux)
+            if perp <= offset_tol + 0.03 * abs(along):
+                cand2.append((t, mx, my))
+        group = []
+        if len(cand2) >= s.dash_min_count:
+            P = np.array([[c[1], c[2]] for c in cand2])
+            c0 = P.mean(axis=0)
+            _, _, vt = np.linalg.svd(P - c0, full_matrices=False)
+            nx_, ny_ = -vt[0][1], vt[0][0]
+            group = [c[0] for c in cand2
+                     if abs((c[1] - c0[0]) * nx_ + (c[2] - c0[1]) * ny_) <= offset_tol]
         if len(group) < s.dash_min_count:
             continue
+        # Richtung und Lage der Ausgleichsgeraden (nicht die eines einzelnen Strichs)
+        fx, fy = float(vt[0][0]), float(vt[0][1])
+        if fx * ux + fy * uy < 0:
+            fx, fy = -fx, -fy
+        ux, uy = fx, fy
+        base_pt = (float(c0[0]), float(c0[1]))
         # entlang der Richtung sortieren
         def span(t):
             a = t[0].p1[0] * ux + t[0].p1[1] * uy
@@ -85,7 +109,11 @@ def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
             return (min(a, b), max(a, b), t[0])
         spans = sorted(span(t) for t in group)
         med_len = float(np.median([b - a for a, b, _ in spans]))
-        max_gap = min(s.dash_max_gap, max(8.0, 1.6 * med_len))
+        base_gap = max(8.0, 1.6 * med_len)
+        gaps0 = [b[0] - a[1] for a, b in zip(spans, spans[1:]) if 0.5 < b[0] - a[1] <= base_gap]
+        # etwas Spiel für einzelne kürzere Striche (Scanfehler, Rauschen)
+        max_gap = base_gap if not gaps0 else max(base_gap, 1.8 * float(np.median(gaps0)))
+        max_gap = min(max(s.dash_max_gap, 1.6 * med_len), max_gap)
         chain = [spans[0]]
         chains = []
         for sp in spans[1:]:
@@ -117,8 +145,8 @@ def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
                     ltype = "CENTER"   # Punkte zu klein -> erkennbar am Wechsel der Lücken
             first, last = ch[0][2], ch[-1][2]
             t0, t1 = ch[0][0], ch[-1][1]
-            # Endpunkte auf der Trägergeraden des ersten Strichs
-            base = first.p1
+            # Endpunkte auf der Ausgleichsgeraden
+            base = base_pt
             b0 = base[0] * ux + base[1] * uy
             p_start = (base[0] + (t0 - b0) * ux, base[1] + (t0 - b0) * uy)
             p_end = (base[0] + (t1 - b0) * ux, base[1] + (t1 - b0) * uy)
