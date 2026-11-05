@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.15.1 – 05.11.2026
+### Behoben
+- **Texterkennung brach unter Windows mit „Error opening data file …\\tessdata"/deu.traineddata“ ab** („Konvertierung fehlgeschlagen“, Tesseract konnte keine Sprache laden). Ursache: Der Sprachdaten-Ordner wurde als `--tessdata-dir "…"` übergeben; pytesseract wertet die Anführungszeichen unter Windows nicht aus, Tesseract bekam sie als Teil des Pfads. Der Ordner wird jetzt über `TESSDATA_PREFIX` gesetzt – das funktioniert auch bei Leerzeichen im Pfad.
+- **Viele kurz aufblitzende cmd-Fenster beim Konvertieren:** Alle Tesseract-Aufrufe (auch die Sprachliste) starten jetzt ohne Konsolenfenster.
+- Der EXE-Selbsttest macht jetzt eine echte Texterkennung („HALLO 123“) und schlägt fehl, wenn die Sprachdaten nicht lesbar sind. So fällt ein solcher Fehler schon im Build auf.
+
 ## 0.15.0 – 04.11.2026
 ### Neu: Schraffur als Fläche (DXF-HATCH)
 - Regelmäßige Schraffuren (Layer SCHRAFFUR) kommen im DXF und DWG jetzt als **eine Schraffur-Fläche** mit Umriss, Winkel und Linienabstand statt als viele Einzellinien. Im CAD lässt sich die Schraffur so als Ganzes auswählen, umfärben, im Abstand ändern oder löschen.

@@ -134,3 +134,35 @@ def test_selftest_entrypoint(tmp_path, monkeypatch):
     # Protokoll in den Testordner statt nach %TEMP% (stört sonst den EXE-Selbsttest im Build)
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     assert selftest() == 0
+
+
+@pytest.mark.skipif(not tesseract_available(), reason="Tesseract nicht installiert")
+def test_tessdata_ordner_mit_leerzeichen(tmp_path, monkeypatch):
+    """Sprachdaten-Ordner wird ohne Anführungszeichen-Falle übergeben (Windows-Fehler
+    „Error opening data file "…\\tessdata"/deu.traineddata“)."""
+    import os
+    import shutil
+    from traceify.core import ocr
+    d = tmp_path / "Mein Ordner" / "tessdata"
+    d.mkdir(parents=True)
+    pfad = None
+    for kandidat in ("/usr/share/tesseract-ocr/5/tessdata", "/usr/share/tessdata",
+                     "/usr/share/tesseract-ocr/4.00/tessdata", "/usr/local/share/tessdata"):
+        if os.path.isfile(os.path.join(kandidat, "eng.traineddata")):
+            pfad = kandidat
+            break
+    if pfad is None:
+        pytest.skip("keine eng.traineddata zum Kopieren gefunden")
+    shutil.copy(os.path.join(pfad, "eng.traineddata"), d / "eng.traineddata")
+    from traceify import config
+    monkeypatch.setattr(config, "load", lambda: {"tessdata_dir": str(d)})
+    monkeypatch.setattr("traceify.installer.bundled_tesseract", lambda: (None, None))
+    monkeypatch.setattr(ocr, "_LANG_CACHE", {})
+    monkeypatch.setenv("TESSDATA_PREFIX", "")
+    assert ocr._tess_config() == ""               # keine Pfad-Option mit Anführungszeichen
+    assert os.environ["TESSDATA_PREFIX"] == str(d)
+    assert "eng" in ocr.available_languages()
+    img = np.full((200, 700), 255, np.uint8)
+    cv2.putText(img, "HALLO 123", (20, 130), cv2.FONT_HERSHEY_SIMPLEX, 3, 0, 6)
+    texts, _ = ocr.recognize(img, ocr.OcrSettings(language="eng"))
+    assert any("123" in t.text or "HALLO" in t.text.upper() for t in texts)

@@ -59,22 +59,46 @@ def _tesseract_cmd():
 
 
 def _tess_config() -> str:
-    """Eigener Sprachdaten-Ordner (vom Installer), falls vorhanden."""
+    """Eigener Sprachdaten-Ordner (vom Installer), falls vorhanden.
+
+    Der Ordner wird über TESSDATA_PREFIX übergeben und nicht über „--tessdata-dir "…"“:
+    pytesseract zerlegt die Optionen unter Windows ohne Anführungszeichen-Auswertung, so dass
+    Tesseract den Pfad samt Anführungszeichen bekam („"D:\\…\\tessdata"/deu.traineddata“ ließ
+    sich nicht öffnen). Mit der Umgebungsvariable gibt es das Problem nicht, auch nicht bei
+    Leerzeichen im Pfad. Tesseract 5 erwartet dort den tessdata-Ordner selbst.
+    Rückgabe: zusätzliche Optionen für den Aufruf (derzeit immer leer)."""
     import os
     from .. import config
     from ..installer import bundled_tesseract
     exe, bd = bundled_tesseract()
     d = bd if (exe and bd) else config.load().get("tessdata_dir")
     if d and os.path.isdir(d) and any(f.endswith(".traineddata") for f in os.listdir(d)):
-        return f'--tessdata-dir "{d}"'
+        os.environ["TESSDATA_PREFIX"] = d
     return ""
 
 
+_NO_WINDOW = 0x08000000   # CREATE_NO_WINDOW
+
+
 def _setup():
+    import os
     import pytesseract
     cmd = _tesseract_cmd()
     if cmd:
         pytesseract.pytesseract.tesseract_cmd = cmd
+    _tess_config()
+    if os.name == "nt":
+        pp = pytesseract.pytesseract
+        if not getattr(pp, "_traceify_kein_fenster", False):
+            orig = pp.subprocess_args
+
+            def subprocess_args(*a, **kw):
+                args = orig(*a, **kw)
+                args["creationflags"] = args.get("creationflags", 0) | _NO_WINDOW
+                return args
+
+            pp.subprocess_args = subprocess_args      # kein kurz aufblitzendes cmd-Fenster
+            pp._traceify_kein_fenster = True
     return pytesseract
 
 
@@ -82,12 +106,29 @@ def tesseract_available() -> bool:
     return _tesseract_cmd() is not None
 
 
+_LANG_CACHE: dict = {}
+
+
 def available_languages() -> List[str]:
-    try:
-        pt = _setup()
-        return sorted(l for l in pt.get_languages(config=_tess_config()) if l != "osd")
-    except Exception:
+    """Von Tesseract gefundene Sprachen (ohne „osd“). Leer, wenn Tesseract fehlt/nicht läuft."""
+    import os
+    import subprocess
+    cmd = _tesseract_cmd()
+    if not cmd:
         return []
+    _tess_config()
+    key = (cmd, os.environ.get("TESSDATA_PREFIX", ""))
+    if key not in _LANG_CACHE:
+        try:
+            kw = {"creationflags": _NO_WINDOW} if os.name == "nt" else {}
+            r = subprocess.run([cmd, "--list-langs"], stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, timeout=30, **kw)
+            langs = [l.strip() for l in r.stdout.decode("utf-8", "replace").splitlines()]
+            _LANG_CACHE[key] = sorted(l for l in langs if re.fullmatch(r"[A-Za-z_]+", l)
+                                      and l != "osd")
+        except Exception:
+            return []
+    return list(_LANG_CACHE[key])
 
 
 def _usable_lang(lang: str) -> str:

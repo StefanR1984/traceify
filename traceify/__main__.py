@@ -42,6 +42,16 @@ def selftest() -> int:
     except OSError:
         pass
     ok = st["Kreise"] >= 1 and st["Linien"] >= 4
+    if tesseract_available():
+        # echte Texterkennung: fängt fehlende/unlesbare Sprachdaten schon im Build ab
+        from .core.ocr import OcrSettings, recognize
+        t = np.full((200, 700), 255, np.uint8)
+        cv2.putText(t, "HALLO 123", (20, 130), cv2.FONT_HERSHEY_SIMPLEX, 3, 0, 6)
+        texts, _ = recognize(t, OcrSettings())
+        print("OCR-Probe:", [x.text for x in texts])
+        if not any("HALLO" in x.text.upper() or "123" in x.text for x in texts):
+            print("FEHLER: Texterkennung liefert nichts (Sprachdaten lesbar?)")
+            ok = False
     return 0 if ok else 1
 
 
