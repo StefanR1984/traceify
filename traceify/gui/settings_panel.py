@@ -84,6 +84,8 @@ class SettingsPanel(QScrollArea):
         self.thicken = _spin(0, 10, 0, suffix=" px")
         f.addRow("Lücken schließen:", self.thicken)
         b = QPushButton("Binärbild anzeigen")
+        b.setToolTip("Zeigt das Schwarz-Weiß-Bild nach der Vorverarbeitung – so siehst du, was "
+                     "tatsächlich umgewandelt wird, und kannst Schwellwert & Co. einstellen.")
         b.clicked.connect(self.previewBinaryRequested)
         f.addRow(b)
         lay.addWidget(g)
@@ -140,6 +142,9 @@ class SettingsPanel(QScrollArea):
         self.close_gaps.setToolTip("Linienenden, die knapp vor einem anderen Objekt enden, werden "
                                    "bis dorthin verlängert (Ecken und T-Stöße schließen)")
         f.addRow("Kleine Lücken schließen bis:", self.close_gaps)
+        self.spurs = _spin(0.0, 5.0, 1.5, 0.1, 1, " mm")
+        self.spurs.setSpecialValueText("aus")
+        f.addRow("Fransen entfernen bis:", self.spurs)
         self.hatch = QCheckBox("Schraffur erkennen (Layer SCHRAFFUR)")
         self.hatch.setToolTip("Schräge Schraffurlinien (z. B. in Wänden) kommen auf einen eigenen "
                               "Layer und lassen sich im CAD mit einem Klick ausblenden")
@@ -195,6 +200,9 @@ class SettingsPanel(QScrollArea):
                                     "bleiben unverändert")
         self.ocr_numbers.setChecked(True)
         f.addRow(self.ocr_numbers)
+        self.ocr_dict = QCheckBox("Wörterbuch für Planbegriffe")
+        self.ocr_dict.setChecked(True)
+        f.addRow(self.ocr_dict)
         if not tesseract_available():
             self.ocr.setChecked(False)
             self.ocr.setEnabled(False)
@@ -288,6 +296,8 @@ class SettingsPanel(QScrollArea):
         f.addRow(self.btn_preview)
         lay.addWidget(g)
         lay.addStretch(1)
+        from .tips import SETTINGS, apply_tips
+        apply_tips(self, SETTINGS)
 
     # ------------------------------------------------------------------
     def apply_preset(self, name: str):
@@ -331,6 +341,7 @@ class SettingsPanel(QScrollArea):
         o.upside_down = self.ocr_upside.isChecked()
         o.free_angles = self.ocr_free.isChecked()
         o.fix_numbers = self.ocr_numbers.isChecked()
+        o.dictionary = self.ocr_dict.isChecked()
         s.scale = None if self.scale_auto.isChecked() else self.mmpx.value()
         s.auto_scale = self.auto_scale.isChecked()
         st = s.style
@@ -343,6 +354,7 @@ class SettingsPanel(QScrollArea):
         st.hatch_areas = self.hatch_areas.isChecked()
         st.straighten = self.straighten.isChecked()
         st.close_gaps_mm = self.close_gaps.value()
+        st.spurs_mm = self.spurs.value()
         st.color_layers = self.color_layers.isChecked()
         st.color_count = self.color_count.value()
         s.symbols_auto = self.symbols_auto.isChecked()
@@ -378,6 +390,7 @@ class SettingsPanel(QScrollArea):
         self.ocr_upside.setChecked(o.upside_down)
         self.ocr_free.setChecked(o.free_angles)
         self.ocr_numbers.setChecked(o.fix_numbers)
+        self.ocr_dict.setChecked(o.dictionary)
         self.scale_auto.setChecked(s.scale is None)
         self.auto_scale.setChecked(s.auto_scale)
         self.dashed.setChecked(s.style.detect_dashed)
@@ -389,6 +402,7 @@ class SettingsPanel(QScrollArea):
         self.hatch_areas.setChecked(s.style.hatch_areas)
         self.straighten.setChecked(s.style.straighten)
         self.close_gaps.setValue(s.style.close_gaps_mm)
+        self.spurs.setValue(s.style.spurs_mm)
         self.color_layers.setChecked(s.style.color_layers)
         self.color_count.setValue(s.style.color_count)
         self.symbols_auto.setChecked(s.symbols_auto)
@@ -444,14 +458,14 @@ class SettingsPanel(QScrollArea):
                   "waende_umriss": self.walls_outline, "schraffur_layer": self.hatch,
                   "schraffur_flaeche": self.hatch_areas,
                   "schraege_texte": self.ocr_free, "zahlen_nachlesen": self.ocr_numbers,
-                  "gerade_ausrichten": self.straighten,
+                  "woerterbuch": self.ocr_dict, "gerade_ausrichten": self.straighten,
                   "massstab_aus_plan": self.auto_scale, "pdf_vektoren": self.pdf_vectors,
                   "symbole_automatisch": self.symbols_auto}
         if n in checks:
             checks[n].setChecked(b(value))
             return f"{name}: {'an' if checks[n].isChecked() else 'aus'}"
         nums = {"toleranz": self.tolerance, "schwellwert": self.threshold, "flecken": self.despeckle,
-                "luecken_mm": self.close_gaps,
+                "luecken_mm": self.close_gaps, "fransen_mm": self.spurs,
                 "luecken_schliessen": self.thicken, "glaetten": self.smooth,
                 "min_laenge": self.min_length, "eckenwinkel": self.corner,
                 "vorschub": self.feed, "fraestiefe": self.depth, "zustellung": self.step_down,

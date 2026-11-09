@@ -553,6 +553,92 @@ def close_gaps(ents: list, dist: float) -> int:
     return n
 
 
+def _length(e) -> float:
+    if isinstance(e, Line):
+        return math.dist(e.p1, e.p2)
+    if isinstance(e, Polyline):
+        pts = list(e.points) + ([e.points[0]] if e.closed and e.points else [])
+        return sum(math.dist(a, b) for a, b in zip(pts, pts[1:]))
+    if isinstance(e, Arc):
+        return math.radians((e.end_angle - e.start_angle) % 360 or 360) * e.radius
+    if isinstance(e, Circle):
+        return 2 * math.pi * e.radius
+    return 0.0
+
+
+def remove_spurs(ents: list, max_len: float, tol: float = 1.5, min_angle: float = 25.0,
+                 skip_layers=()) -> int:
+    """Kurze Seitenstummel („Fransen“) entfernen: Linien bis ``max_len``, deren eines Ende
+    frei ist und deren anderes Ende schräg (≥ min_angle) mitten auf einem mindestens
+    dreimal so langen Objekt sitzt – Reste rauer Wandkanten oder überstehender Schraffur.
+
+    Verlängerungen (gleiche Richtung), Ecken (Stummel am Ende des anderen Objekts) und
+    freistehende Striche bleiben erhalten. Entfernt aus ``ents``, gibt die Anzahl zurück."""
+    if max_len <= 0:
+        return 0
+    prims = [(pr, e) for e in ents if not isinstance(e, (Text, Insert)) for pr in primitives(e)]
+    cell = 32.0
+    grid = {}
+    for k, (pr, _) in enumerate(prims):
+        if isinstance(pr, Seg):
+            xs, ys = (pr.a[0], pr.b[0]), (pr.a[1], pr.b[1])
+        else:
+            xs, ys = (pr.c[0] - pr.r, pr.c[0] + pr.r), (pr.c[1] - pr.r, pr.c[1] + pr.r)
+        for gx in range(int((min(xs) - tol) // cell), int((max(xs) + tol) // cell) + 1):
+            for gy in range(int((min(ys) - tol) // cell), int((max(ys) + tol) // cell) + 1):
+                grid.setdefault((gx, gy), []).append(k)
+
+    def touches(p, owner):
+        """[(Primitiv, Objekt, Punkt)] aller anderen Objekte in Reichweite."""
+        out = []
+        for k in grid.get((int(p[0] // cell), int(p[1] // cell)), ()):
+            pr, src = prims[k]
+            if src is owner:
+                continue
+            q = closest_on_seg(pr.a, pr.b, p) if isinstance(pr, Seg) else closest_on_circ(pr, p)
+            if math.dist(p, q) <= tol:
+                out.append((pr, src, q))
+        return out
+
+    drop = set()
+    for e in ents:
+        if not isinstance(e, Line) or e.layer in skip_layers:
+            continue
+        L = math.dist(e.p1, e.p2)
+        if L < 1e-6 or L > max_len:
+            continue
+        t1, t2 = touches(e.p1, e), touches(e.p2, e)
+        if bool(t1) == bool(t2):
+            continue                       # beide frei (Strich) oder beide verbunden
+        base, tip, hits = (e.p1, e.p2, t1) if t1 else (e.p2, e.p1, t2)
+        ux, uy = (tip[0] - base[0]) / L, (tip[1] - base[1]) / L
+        ok = False
+        for pr, src, q in hits:
+            if id(src) in drop or _length(src) < 3 * L:
+                continue
+            if isinstance(pr, Seg):
+                sl = math.dist(pr.a, pr.b)
+                if sl < 1e-6 or min(math.dist(q, pr.a), math.dist(q, pr.b)) <= tol:
+                    continue              # am Ende des anderen Objekts: Ecke/Verlängerung
+                vx, vy = (pr.b[0] - pr.a[0]) / sl, (pr.b[1] - pr.a[1]) / sl
+            else:
+                if pr.a0 is not None and min(math.dist(q, _arc_point(pr, pr.a0)),
+                                             math.dist(q, _arc_point(pr, pr.a1))) <= tol:
+                    continue
+                rx, ry = q[0] - pr.c[0], q[1] - pr.c[1]
+                rl = math.hypot(rx, ry) or 1.0
+                vx, vy = -ry / rl, rx / rl
+            ang = math.degrees(math.acos(min(1.0, abs(ux * vx + uy * vy))))
+            if ang >= min_angle:
+                ok = True
+                break
+        if ok:
+            drop.add(id(e))
+    if drop:
+        ents[:] = [e for e in ents if id(e) not in drop]
+    return len(drop)
+
+
 def pick(ents: Iterable, p: Point, radius: float):
     """Objekt, dessen Kontur dem Punkt am nächsten liegt (innerhalb radius)."""
     best, bd = None, radius

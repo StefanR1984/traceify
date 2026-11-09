@@ -38,10 +38,38 @@ class StyleSettings:
     straighten: bool = True         # Schräglage erkennen, fast achsparallele Linien ausrichten
     straighten_tol: float = 3.0     # bis zu dieser Abweichung (Grad) wird ausgerichtet
     close_gaps_mm: float = 0.8      # Linienenden bis zu diesem Abstand ans nächste Objekt führen
+    spurs_mm: float = 1.5           # kurze Seitenstummel (Fransen) bis zu dieser Länge entfernen
     color_count: int = 0            # 0 = automatisch, sonst feste Anzahl Farben
 
 
 # ------------------------------------------------------------------ Schraffur
+def building_axes(ents: list, min_len: float, share: float = 0.04) -> List[float]:
+    """Schräge Bauachsen: Richtungen (Grad, 0..90), in denen viele lange Linien verlaufen.
+
+    Waagrecht/senkrecht zählt nicht (das ist ohnehin keine Schraffur). Eine Richtung zählt,
+    wenn darin mindestens ``share`` der Länge aller langen Linien liegt."""
+    hist = np.zeros(90)
+    for e in ents:
+        if not isinstance(e, Line):
+            continue
+        L = math.dist(e.p1, e.p2)
+        if L <= min_len:
+            continue
+        a = math.degrees(math.atan2(e.p2[1] - e.p1[1], e.p2[0] - e.p1[0])) % 90.0
+        hist[int(a) % 90] += L
+    tot = hist.sum()
+    if tot <= 0:
+        return []
+    sm = sum(np.roll(hist, k) for k in range(-2, 3))      # über ±2° glätten (zyklisch)
+    out = []
+    for a in range(90):
+        if min(a, 90 - a) < 8:
+            continue
+        if sm[a] >= share * tot and sm[a] == max(sm[(a + k) % 90] for k in range(-3, 4)):
+            out.append(float(a))
+    return out
+
+
 def detect_hatch(ents: list, mm_per_px: float, min_count: int = 5,
                  max_len_mm: float = 40.0, max_spacing_mm: float = 20.0) -> int:
     """Schräge Schraffur erkennen: Gruppen paralleler, kurzer Linien in regelmäßigem Abstand.
@@ -53,6 +81,7 @@ def detect_hatch(ents: list, mm_per_px: float, min_count: int = 5,
     """
     ppm = 1.0 / mm_per_px if mm_per_px > 0 else 1.0
     max_len, max_sp, min_sp = max_len_mm * ppm, max_spacing_mm * ppm, 0.25 * ppm
+    axes = building_axes(ents, max_len)
     cand = []
     for e in ents:
         if not isinstance(e, Line) or e.layer == LAYER_DASHED:
@@ -63,6 +92,9 @@ def detect_hatch(ents: list, mm_per_px: float, min_count: int = 5,
             continue
         a = math.degrees(math.atan2(dy, dx)) % 180.0
         if not (10 <= a <= 80 or 100 <= a <= 170):
+            continue
+        # schräger Gebäudeteil: Linien entlang seiner Wände sind Wände/Möbel, keine Schraffur
+        if any(abs((a - ax + 45.0) % 90.0 - 45.0) <= 4.0 for ax in axes):
             continue
         mx, my = (e.p1[0] + e.p2[0]) / 2, (e.p1[1] + e.p2[1]) / 2
         cand.append((e, a, mx, my, L))

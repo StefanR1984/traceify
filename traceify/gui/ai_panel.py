@@ -61,6 +61,8 @@ class ServerDialog(QDialog):
         bb.accepted.connect(self.accept)
         bb.rejected.connect(self.reject)
         f.addRow(bb)
+        from .tips import AI, apply_tips
+        apply_tips(self, AI)
         self.kind.currentIndexChanged.connect(self._sync)
         self._sync()
 
@@ -225,6 +227,7 @@ class AiPanel(QWidget):
         row.addWidget(self.busy, 1)
         b = QPushButton("Verlauf leeren")
         b.clicked.connect(self.clear_chat)
+        b.setToolTip("Löscht den bisherigen Gesprächsverlauf – die KI fängt wieder ohne Vorwissen an.")
         row.addWidget(b)
         self.btn_send = QPushButton("Senden")
         self.btn_send.setDefault(True)
@@ -234,6 +237,8 @@ class AiPanel(QWidget):
 
         self.say("system", "Lokale KI über <b>Ollama</b>. Alles bleibt auf deinem Rechner. "
                  "Bildfunktionen brauchen ein Bildmodell (z. B. gemma3 oder qwen2.5vl).")
+        from .tips import AI, apply_tips
+        apply_tips(self, AI)
         self.refresh()
 
     # ------------------------------------------------------------ Helfer

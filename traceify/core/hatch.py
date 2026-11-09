@@ -85,7 +85,7 @@ def _spacing(offs: np.ndarray) -> float:
 def find_regions(ents: list, min_count: int = 4, max_residual: float = 0.22,
                  simplify: float = 0.7) -> List[HatchRegion]:
     """Schraffur-Flächen aus den Linien auf dem Layer SCHRAFFUR bilden."""
-    from shapely.geometry import LineString, MultiPolygon, Polygon
+    from shapely.geometry import LineString, Polygon
     from shapely.ops import unary_union
 
     lines = [e for e in ents if isinstance(e, Line) and e.layer == LAYER_HATCH
@@ -122,69 +122,208 @@ def find_regions(ents: list, min_count: int = 4, max_residual: float = 0.22,
         if not (loc > 0).any():
             continue
         sp = float(np.median(loc[loc > 0]))
-        quads = []
-        # Vierecke zwischen benachbarten Schraffurlinien, die sich entlang der Richtung
-        # überlappen – ihre Vereinigung ist die Fläche, begrenzt von den Linienenden
+        # Nachbarn: parallele Linien mit Überlappung entlang der Richtung, ein bis zwei
+        # Rasterschritte entfernt; dazwischen ein Viereck (Vereinigung = Fläche)
+        edges = {}
+        quads = {}
         for i, nb in enumerate(near):
             if loc[i] <= 0:
                 continue
             for j in nb:
                 do = offs[j] - offs[i]
-                if do < 0.5 * loc[i] or do > 1.6 * loc[i] or not overlap(i, j):
+                if do < 0.5 * loc[i] or do > 2.6 * loc[i] or not overlap(i, j):
                     continue
-                q = Polygon([iv[i][0], iv[i][1], iv[j][1], iv[j][0]])
-                if not q.is_valid:
-                    q = q.buffer(0)
-                if not q.is_empty:
-                    quads.append(q)
-        if not quads:
-            continue
+                step = int(round(do / loc[i]))
+                edges.setdefault(i, []).append((j, step))
+                edges.setdefault(j, []).append((i, -step))
+                if step == 1:
+                    q = Polygon([iv[i][0], iv[i][1], iv[j][1], iv[j][0]])
+                    if not q.is_valid:
+                        q = q.buffer(0)
+                    if not q.is_empty:
+                        quads[(i, j)] = q
         geoms = [LineString([l.p1, l.p2]) for l in grp]
-        area = unary_union(quads).buffer(0.01)
-        polys = list(area.geoms) if isinstance(area, MultiPolygon) else \
-            [area] if isinstance(area, Polygon) else []
-        for poly in polys:
-            if poly.is_empty or poly.area < sp * sp:
+        for comp, kk in _number_lines(len(grp), edges, offs):
+            if len(comp) < min_count:
                 continue
-            pb = poly.buffer(0.5)
-            midx = [i for i, g in enumerate(geoms) if pb.contains(g.centroid)]
-            members = [grp[i] for i in midx]
-            if len(members) < min_count:
+            keep = _fit_grid(offs[comp], kk, max_residual)
+            if keep is None:
                 continue
-            nn = loc[midx]
-            nn = nn[nn > 0]
-            if len(nn) < min_count:
-                continue
-            med = float(np.median(nn))
-            # gleichmäßig: die Abstände zur jeweils nächsten Nachbarin streuen kaum
-            if float(np.median(np.abs(nn - med))) > 0.2 * med:
-                continue
-            ang = _mean_angle(members)
-            offs = _offsets(members, ang)
-            msp = _spacing(offs)
-            if msp <= 0:
-                continue
-            longest = max(members, key=lambda l: math.dist(l.p1, l.p2))
-            base = ((longest.p1[0] + longest.p2[0]) / 2, (longest.p1[1] + longest.p2[1]) / 2)
-            o0 = _offsets([longest], ang)[0]
-            k = (offs - o0) / msp
-            if float(np.median(np.abs(k - np.round(k)))) > max_residual:
-                continue                         # kein festes Raster: Einzellinien behalten
-            # Lücken im Raster (fehlende Linien) dürfen sein, aber nicht überwiegen
-            if len(set(np.round(k).astype(int))) < 0.6 * (np.ptp(np.round(k)) + 1):
-                continue
-            p = poly.simplify(simplify, preserve_topology=True)
-            # Rand minimal nach außen: die äußersten Schraffurlinien liegen sonst genau auf
-            # dem Umriss und werden im CAD je nach Rundung mal gezeichnet, mal nicht
-            p = p.buffer(max(0.25, 0.03 * msp), join_style="mitre", mitre_limit=3.0)
-            if not isinstance(p, Polygon) or p.is_empty:
-                continue
-            out.append(HatchRegion(
-                outline=[tuple(map(float, c)) for c in list(p.exterior.coords)[:-1]],
-                holes=[[tuple(map(float, c)) for c in list(h.coords)[:-1]] for h in p.interiors],
-                angle=ang, spacing=msp, base=base, members=members))
+            comp = [c for c, ok in zip(comp, keep) if ok]
+            kmap = dict(zip(comp, kk[keep]))
+            cs = set(comp)
+            area = unary_union([q for (i, j), q in quads.items() if i in cs and j in cs])
+            for poly in _pieces(area.buffer(0.01)):
+                if poly.area < sp * sp:
+                    continue
+                pb = poly.buffer(0.5)
+                mem = [i for i in comp if pb.contains(geoms[i].centroid)]
+                reg = _make_region(poly, [grp[i] for i in mem],
+                                   np.array([kmap[i] for i in mem], float),
+                                   min_count, max_residual, simplify)
+                if reg is not None:
+                    out.append(reg)
+    _adopt_rest(out, lines)
     return out
 
+
+def _pieces(geom) -> list:
+    """Polygone einer (Multi-)Geometrie."""
+    from shapely.geometry import MultiPolygon, Polygon
+    if isinstance(geom, MultiPolygon):
+        return [g for g in geom.geoms if not g.is_empty]
+    return [geom] if isinstance(geom, Polygon) and not geom.is_empty else []
+
+
+def _number_lines(n: int, edges: dict, offs: np.ndarray = None, tol: float = 0.3):
+    """Rasternummern vergeben: von Linie zu Nachbarlinie weiterzählen (Breitensuche).
+
+    Stücke derselben, im Scan zerrissenen Linie bekommen dieselbe Nummer. Eine Gruppe wächst
+    nur, solange die neue Linie zum bisherigen Raster passt (Lage = a + b·k, Abweichung
+    höchstens tol·b) – so trennen sich aneinanderstoßende Wände mit versetztem Raster.
+    Gibt [(Indizes, Nummern-Array)] je Gruppe."""
+    seen = {}
+    comps = []
+    for s0 in range(n):
+        if s0 in seen or s0 not in edges:
+            continue
+        kk = {s0: 0}
+        seen[s0] = True
+        order, queue = [s0], [s0]
+        # Summen für die laufende Ausgleichsgerade
+        S = [1.0, 0.0, 0.0, 0.0, 0.0] if offs is None else \
+            [1.0, 0.0, 0.0, float(offs[s0]), 0.0]      # n, Σk, Σk², Σo, Σko
+        qi = 0
+        while qi < len(queue):
+            i = queue[qi]
+            qi += 1
+            for j, st in edges[i]:
+                if j in seen:
+                    continue
+                kj = kk[i] + st
+                if offs is not None:
+                    nn, sk, skk, so, sko = S
+                    den = nn * skk - sk * sk
+                    if den > 1e-9:
+                        b = (nn * sko - sk * so) / den
+                        a_ = (so - b * sk) / nn
+                        if b <= 0 or abs(offs[j] - (a_ + b * kj)) > tol * b:
+                            continue
+                    o = float(offs[j])
+                    S = [S[0] + 1, S[1] + kj, S[2] + kj * kj, S[3] + o, S[4] + kj * o]
+                seen[j] = True
+                kk[j] = kj
+                order.append(j)
+                queue.append(j)
+        comps.append((order, np.array([kk[i] for i in order], float)))
+    return comps
+
+def _fit_grid(offs: np.ndarray, k: np.ndarray, max_residual: float = 0.22):
+    """Prüft, ob Lage = a + b·k gut passt. Gibt eine Maske der passenden Linien (Ausreißer
+    raus) oder None, wenn die Gruppe insgesamt kein festes Raster bildet."""
+    if len(set(k)) < 2:
+        return None
+    keep = np.ones(len(k), bool)
+    for _ in range(3):
+        if len(set(k[keep])) < 2:
+            return None
+        b, a = np.polyfit(k[keep], offs[keep], 1)
+        if b <= 0:
+            return None
+        res = np.abs(offs - (a + b * k))
+        new = res <= 0.35 * b
+        if (new == keep).all():
+            break
+        keep = new
+    if keep.sum() < 0.6 * len(k) or float(np.median(res[keep])) > max_residual * b:
+        return None
+    return keep
+
+
+def _make_region(poly, members: List[Line], k: np.ndarray, min_count: int,
+                 max_residual: float, simplify: float):
+    """HatchRegion für eine Fläche, deren Linien (Rasternummern k) ein festes Raster bilden."""
+    from shapely.geometry import Polygon
+    if len(members) < min_count or len(set(k)) < max(2, min_count - 1):
+        return None
+    # Schraffur besteht aus vielen kurzen Strichen; wenige lange Parallelen (Wandkanten,
+    # Möbel) sind keine Fläche
+    nk = len(set(k.astype(int)))
+    if nk < 3:
+        return None
+    ang = _mean_angle(members)
+    offs = _offsets(members, ang)
+    msp, a = np.polyfit(k, offs, 1)
+    msp, a = float(msp), float(a)
+    if msp <= 0:
+        return None
+    med_len = float(np.median([math.dist(l.p1, l.p2) for l in members]))
+    if (med_len > 12 * msp and nk < 8) or (nk < 4 and med_len > 6 * msp):
+        return None
+    res = np.abs(offs - (a + msp * k))
+    if float(np.median(res)) > max_residual * msp:
+        return None                              # kein festes Raster: Einzellinien behalten
+    # Lücken im Raster (fehlende Linien) dürfen sein, aber nicht überwiegen
+    if len(set(k.astype(int))) < 0.6 * (np.ptp(k) + 1):
+        return None
+    # Basispunkt genau auf die angepasste Rasterlinie k = 0 legen
+    r = math.radians(ang)
+    nx, ny = -math.sin(r), math.cos(r)
+    longest = max(members, key=lambda l: math.dist(l.p1, l.p2))
+    mx, my = (longest.p1[0] + longest.p2[0]) / 2, (longest.p1[1] + longest.p2[1]) / 2
+    shift = a - (mx * nx + my * ny)
+    base = (mx + shift * nx, my + shift * ny)
+    p = poly.simplify(simplify, preserve_topology=True)
+    # Rand minimal nach außen: die äußersten Schraffurlinien liegen sonst genau auf
+    # dem Umriss und werden im CAD je nach Rundung mal gezeichnet, mal nicht
+    p = p.buffer(max(0.25, 0.03 * msp), join_style="mitre", mitre_limit=3.0)
+    if not isinstance(p, Polygon) or p.is_empty:
+        return None
+    return HatchRegion(
+        outline=[tuple(map(float, c)) for c in list(p.exterior.coords)[:-1]],
+        holes=[[tuple(map(float, c)) for c in list(h.coords)[:-1]] for h in p.interiors],
+        angle=ang, spacing=msp, base=base, members=members)
+
+def _adopt_rest(regions: List[HatchRegion], lines: List[Line], tol: float = 0.3) -> None:
+    """Übrig gebliebene Schraffurlinien einer benachbarten Fläche zuordnen, wenn sie in
+    deren Raster passen (Richtung, Lage quer zur Richtung); die Fläche wächst um sie."""
+    if not regions:
+        return
+    from shapely.geometry import LineString, Polygon
+    used = {id(m) for r in regions for m in r.members}
+    rest = [l for l in lines if id(l) not in used]
+    if not rest:
+        return
+    polys = [Polygon(r.outline, r.holes) for r in regions]
+    from shapely.strtree import STRtree
+    tree = STRtree(polys)
+    for l in rest:
+        g = LineString([l.p1, l.p2])
+        best = None
+        for k in tree.query(g.buffer(2.0 * max(r.spacing for r in regions))):
+            r = regions[int(k)]
+            da = abs((_angle(l) - r.angle + 90.0) % 180.0 - 90.0)
+            if da > 6.0 or polys[k].distance(g) > 1.5 * r.spacing:
+                continue
+            o = _offsets([l], r.angle)[0] - _offsets([Line(r.base, r.base)], r.angle)[0]
+            res = abs(o / r.spacing - round(o / r.spacing))
+            if res <= tol and (best is None or res < best[0]):
+                best = (res, int(k))
+        if best is None:
+            continue
+        k = best[1]
+        r = regions[k]
+        grown = polys[k].union(g.buffer(0.5 * r.spacing, cap_style="flat"))
+        if not isinstance(grown, Polygon):
+            grown = grown.convex_hull if grown.is_empty is False and \
+                polys[k].distance(g) < 0.6 * r.spacing else None
+            if not isinstance(grown, Polygon):
+                continue
+        grown = grown.simplify(0.7, preserve_topology=True)
+        polys[k] = grown
+        r.outline = [tuple(map(float, c)) for c in list(grown.exterior.coords)[:-1]]
+        r.holes = [[tuple(map(float, c)) for c in list(h.coords)[:-1]] for h in grown.interiors]
+        r.members.append(l)
 
 def pattern_lines(reg: HatchRegion) -> List[Tuple[Point, Point]]:
     """Die Linien, die das Muster im Umriss erzeugt (für Prüfung und Vorschau)."""

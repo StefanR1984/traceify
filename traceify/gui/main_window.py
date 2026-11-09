@@ -447,6 +447,9 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         tb.addAction(self.a_batch)
         self._build_edit_toolbar()
+        from .tips import ACTIONS, WINDOW, apply_tips
+        apply_tips(self, WINDOW)
+        apply_tips(self, ACTIONS)
         tb.addSeparator()
         tb.addAction(self.a_ai_suggest)
         tb.addAction(self.a_ai_show)
@@ -2060,7 +2063,8 @@ class MainWindow(QMainWindow):
             "<b>Gescannte PDFs</b> öffnen in ihrer Originalauflösung (PDF-Render-DPI "
             "»automatisch«).<br><br>"
             "<b>Texte</b> werden in allen vier Richtungen erkannt, auch auf dem Kopf und schräg. "
-            "Maßzahlen werden nachgelesen, fehlende Kommas ergänzt. "
+            "Maßzahlen werden nachgelesen, fehlende Kommas ergänzt, verlesene Planbegriffe "
+            "per Wörterbuch korrigiert („Kuche“ → „Küche“). "
             "Handschrift liest die KI (KI → Unerkannte Schrift mit KI lesen).<br>"
             "<b>KI-Server</b> – im KI-Panel über ⚙: Ollama oder vLLM / OpenAI-kompatibel.<br>"
             "<b>Schräglage</b> des Scans wird erkannt, Linien werden ausgerichtet und beim "
@@ -2070,7 +2074,9 @@ class MainWindow(QMainWindow):
             "installieren«: Traceify lädt, prüft und installiert das Update und startet neu."
             "<br><br>"
             "Navigation: Mausrad = Zoom, mittlere Maustaste oder Umschalt+Ziehen = "
-            "Verschieben (beim Zeichnen nur mittlere Maustaste), Strg+0 = Einpassen."))
+            "Verschieben (beim Zeichnen nur mittlere Maustaste), Strg+0 = Einpassen.<br><br>"
+            "<b>Was macht dieser Schalter?</b> – Maus kurz darauf stehen lassen: Jeder Schalter "
+            "und jedes Feld zeigt eine kurze Erklärung."))
 
     def show_about(self):
         QMessageBox.about(self, "Über Traceify",

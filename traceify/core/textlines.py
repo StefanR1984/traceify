@@ -136,6 +136,19 @@ def _dashes(st, chars) -> bool:
     return float(np.median(asp)) > 3.5
 
 
+def _lex_check(txt: str, lexicon, sure: bool = False):
+    from .lexicon import correct
+    return correct(txt, lexicon, sure=sure)
+
+
+def _has_long_known(txt: str, lexicon) -> bool:
+    """Mindestens ein Wort ab 5 Buchstaben steht (nach Korrektur) im Wörterbuch."""
+    if lexicon is None:
+        return False
+    return any(len(w.strip(".,:;")) >= 5 and w.strip(".,:;").isalpha() and w in lexicon
+               for w in txt.split())
+
+
 def _straighten(c: Candidate, ink: np.ndarray, flip: bool) -> np.ndarray:
     """Ausschnitt der Gruppe, waagrecht gedreht und auf LINE_H Höhe gebracht."""
     pad = 0.35 * c.height
@@ -152,9 +165,12 @@ def _straighten(c: Candidate, ink: np.ndarray, flip: bool) -> np.ndarray:
     return 255 - crop
 
 
-def read_candidates(cands: List[Candidate], ink: np.ndarray, s, run_ocr=None
+def read_candidates(cands: List[Candidate], ink: np.ndarray, s, run_ocr=None, lexicon=None
                     ) -> Tuple[List[Text], List[Tuple[int, int, int, int]]]:
-    """Liest alle Kandidaten (beide Leserichtungen) und gibt Texte und Boxen zurück."""
+    """Liest alle Kandidaten (beide Leserichtungen) und gibt Texte und Boxen zurück.
+
+    lexicon: Wörterbuch (``lexicon.Lexicon``) – korrigiert verstümmelte Wörter und rettet
+    unsichere Lesarten, deren Wörter sich eindeutig Planbegriffen zuordnen lassen."""
     from .ocr import plausible
     if not cands:
         return [], []
@@ -164,19 +180,30 @@ def read_candidates(cands: List[Candidate], ink: np.ndarray, s, run_ocr=None
         crops = [_straighten(c, ink, flip) for c in cands]
         for k, (txt, conf) in enumerate(run_ocr(crops, s)):
             txt = (txt or "").strip()
-            if not txt or conf < max(s.min_confidence, 70) or not plausible(txt):
+            if not txt or conf < 0:
                 continue
-            n_al = sum(ch.isalnum() for ch in txt)
+            sure = conf >= max(s.min_confidence, 70)
+            if lexicon is not None:
+                fixed, nw, nk = _lex_check(txt, lexicon, sure)
+            else:
+                fixed, nw, nk = txt, 0, 0
+            # unsicher gelesen, aber die Wörter passen eindeutig zu Planbegriffen
+            rescued = (not sure and conf >= 30 and nk >= 1 and nk >= 0.6 * nw
+                       and _has_long_known(fixed, lexicon))
+            if not (sure or rescued) or not plausible(fixed):
+                continue
+            n_al = sum(ch.isalnum() for ch in fixed)
             if n_al <= 3 and conf < 85:
                 continue
             # Zeichenzahl muss zur Länge der Gruppe passen (Schrift ist etwa 0,4–1 × so
             # breit wie hoch) – sonst hat Tesseract in Strichen „Buchstaben“ gesehen
             expect = cands[k].length / max(1.0, cands[k].height)
-            if not (0.35 * expect <= len(txt) <= 3.0 * expect + 1):
+            if not (0.35 * expect <= len(fixed) <= 3.0 * expect + 1):
                 continue
-            score = conf * sum(ch.isalnum() for ch in txt)
+            bonus = 25.0 * nk
+            score = (conf + bonus) * n_al
             if best[k] is None or score > best[k][0]:
-                best[k] = (score, txt, flip)
+                best[k] = (score, fixed, flip)
     texts, boxes = [], []
     for c, b in zip(cands, best):
         if b is None:

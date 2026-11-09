@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.16.0 – 09.11.2026
+### Neu: Hilfe direkt am Schalter
+- **Tooltips überall:** Bleibt die Maus kurz auf einem Schalter, Feld oder dessen Beschriftung stehen, erscheint eine kurze Erklärung, was er bewirkt. Das gilt für alle Einstellungen, den KI-Bereich, den Dialog *KI-Server* und die Menü- und Leistenbefehle. Die Texte stehen gesammelt in `gui/tips.py`.
+
+### Schraffur-Flächen vollständiger
+- Deutlich mehr Schraffurlinien werden im DXF/DWG zu Schraffur-Flächen (HATCH). Gemessen an den echten Bauplan-Scans bleiben nur noch so viele Einzellinien übrig: 14 % statt 41 %, 14 % statt 64 %, 19 % statt 34 %, 44 % statt 57 %. Beim handschraffierten Kellerplan sind es 46 % statt 72 %. Die Musterlinien liegen weiterhin zu 96–99 % auf der Tinte des Scans.
+- **Zerrissene Schraffurlinien:** Stücke derselben Linie zählen als eine Rasterlinie, statt den Abstand zu verfälschen.
+- **Abstand darf leicht wandern** (verzerrte Scans, Handzeichnung): Das Raster wird per Ausgleichsgerade angepasst.
+- **Wände mit versetztem Raster**, die an Ecken und T-Stößen aneinanderstoßen, werden getrennt erkannt, statt die ganze Gruppe zu verwerfen.
+- Übrig gebliebene Linien, die ins Raster einer benachbarten Fläche passen, werden dieser zugeordnet.
+- **Keine Fehltreffer mehr in schrägen Gebäudeteilen:** Liegt ein Gebäudeflügel schräg, galten seine Wände, Regale und Treppen bisher als Schraffur. Beim A1-Testplan waren das 157 Linien, jetzt sind es 5. Wenige lange Parallelen ergeben keine Schraffur-Fläche mehr.
+
+### Texterkennung: Wörterbuch für Planbegriffe
+- Verlesene Wörter werden mit typischen Planbegriffen (Raumnamen, Bauteile, Abkürzungen wie WFL/NFL/BR) abgeglichen. Dazu kommen Wörter, die im selben Plan sicher gelesen wurden. Beispiele: „Schiafen“ → „Schlafen“, „Kuche“ → „Küche“, „Dele“ → „Diele“, „Bakon“ → „Balkon“, „Deckenhohe“ → „Deckenhöhe“, „Pee 05 Siehtweh“ → „Pos 05 Sichtwahl“.
+- Der Abgleich kennt typische OCR-Verwechslungen (i/l/!, v/w, rn/m, ii/ü, Umlaute) und korrigiert nur bei einem eindeutigen Treffer. Sicher gelesene Texte werden nur bei reinen Formverwechslungen und fehlenden Umlauten angepasst (aus „HALLO“ wird nie „HALLE“). Gebeugte Formen („Garagen“, „Details“) und normale Wörter wie „Kellner“, „Stuhl“, „Trockenbau“ oder Namen bleiben unverändert, „ss“ wird nicht zu „ß“. **Zahlen werden nie verändert.**
+- Unsicher gelesene schräge Beschriftungen werden übernommen, wenn ihre Wörter eindeutig Planbegriffe sind. Auf dem A1-Plan sind so „Pos 06.1 Arbeitsplatz“, „Pos 05 Sichtwahl“, „Freiwahl“ und „OFFIZIN“ dazugekommen, auf dem Kellerplan „Heizraum“ und „Keller“.
+- Einstellung „Wörterbuch für Planbegriffe“ (Standard an), für KI-Regeln und Chat `woerterbuch`.
+
+### Aufgeräumter
+- **Fransen entfernen** (neu, Standard bis 1,5 mm, einstellbar oder „aus“): Kurze Stummel, die an rauen Wandkanten oder überstehender Schraffur seitlich abstehen, werden entfernt. Verlängerungen, Ecken und freistehende Striche bleiben. Beim Kellerplan sind das 177 Objekte und 131 offene Enden weniger, bei gleicher Abdeckung. Für KI-Regeln und Chat `fransen_mm`.
+
 ## 0.15.1 – 05.11.2026
 ### Behoben
 - **Texterkennung brach unter Windows mit „Error opening data file …\\tessdata"/deu.traineddata“ ab** („Konvertierung fehlgeschlagen“, Tesseract konnte keine Sprache laden). Ursache: Der Sprachdaten-Ordner wurde als `--tessdata-dir "…"` übergeben; pytesseract wertet die Anführungszeichen unter Windows nicht aus, Tesseract bekam sie als Teil des Pfads. Der Ordner wird jetzt über `TESSDATA_PREFIX` gesetzt – das funktioniert auch bei Leerzeichen im Pfad.

@@ -32,6 +32,8 @@ class OcrSettings:
                                    # bei den Linien, damit Dezimalpunkte und Kommas erhalten bleiben
     erase_padding: int = 2
     fix_numbers: bool = True       # Maßzahlen nachlesen: fehlende/falsche Kommas ergänzen
+    dictionary: bool = True        # verstümmelte Wörter mit dem Wörterbuch für Planbegriffe
+                                   # korrigieren (Zahlen bleiben unverändert)
 
 
 def _tesseract_cmd():
@@ -189,6 +191,12 @@ def _run(gray: np.ndarray, s: OcrSettings, run_lines=None, detail=None):
         if i in units and conf >= 50 and 5 <= h:
             words.append((key, x, y, w, h, txt, conf))     # „qm“, „m²“ hinter einer Zahl
             continue
+        if s.dictionary and 35 <= conf < s.min_confidence:
+            # unsicher gelesen, aber eindeutig ein Planbegriff („Heizraurn“ → „Heizraum“)
+            hit = _plan_lexicon().best(txt)
+            if hit is not None and hit[1] <= 0.2 and len(hit[0]) >= 5:
+                from .lexicon import _case_like
+                txt, conf = _case_like(txt, hit[0]), float(s.min_confidence)
         if conf < s.min_confidence or not _ALNUM.search(txt) or not plausible(txt):
             continue
         if h > max(gray.shape[0] * s.max_height_ratio, 80) or h < 5:
@@ -197,6 +205,17 @@ def _run(gray: np.ndarray, s: OcrSettings, run_lines=None, detail=None):
             continue
         words.append((key, x, y, w, h, txt, conf))
     return _group_lines(words)
+
+
+_PLAN_LEX = None
+
+
+def _plan_lexicon():
+    global _PLAN_LEX
+    if _PLAN_LEX is None:
+        from .lexicon import Lexicon
+        _PLAN_LEX = Lexicon()
+    return _PLAN_LEX
 
 
 _UNITS = {"qm", "m²", "m2", "m³", "m3", "cm", "mm", "m", "dm", "km", "kg", "kN", "°", "%",
@@ -425,11 +444,14 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
             cands.append((score, k, ox, oy, ow, oh, txt, h))
     # Überlappende Treffer aus verschiedenen Richtungen: der bessere gewinnt
     cands.sort(key=lambda c: -c[0])
-    texts, boxes = [], []
+    texts, boxes, sure, scores = [], [], [], []
     for score, k, ox, oy, ow, oh, txt, th in cands:
         if any(_overlap((ox, oy, ow, oh), b) > 0.3 for b in boxes):
             continue
         boxes.append((ox, oy, ow, oh))
+        scores.append(score)
+        if score >= 88:
+            sure.append(txt)
         X, Y, Wd, Hd = ox / zoom, oy / zoom, ow / zoom, oh / zoom
         height = th / zoom * 0.8
         if k == 0:
@@ -440,13 +462,22 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
             texts.append(Text(txt, (X + Wd, Y), height, 180.0))
         else:          # läuft von oben nach unten; Basislinie links
             texts.append(Text(txt, (X, Y), height, 270.0))
+    lex = None
+    if s.dictionary:
+        # Wörterbuch: Planbegriffe + Wörter, die in diesem Plan sicher gelesen wurden
+        from .lexicon import Lexicon, correct, from_texts
+        lex = Lexicon()
+        lex.add_own(from_texts(sure))
+        for t, sc in zip(texts, scores):
+            # sicher gelesen: nur Formverwechslungen (i/l, rn/m) und fehlende Umlaute
+            t.text = correct(t.text, lex, sure=sc >= 80)[0]
     if s.free_angles and px_per_mm > 0:
         # schräge Beschriftungen u. Ä., die keine der vier Richtungen gefunden hat
         from . import textlines
         layer = 255 - src
         found_c = textlines.find_candidates(layer, px_per_mm, boxes,
                                             max_char_mm=min(12.0, s.max_char_mm))
-        tt, bb = textlines.read_candidates(found_c, layer, s)
+        tt, bb = textlines.read_candidates(found_c, layer, s, lexicon=lex)
         for t, b in zip(tt, bb):
             if any(_overlap(b, o) > 0.3 for o in boxes):
                 continue

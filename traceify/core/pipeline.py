@@ -7,7 +7,7 @@ from typing import Callable, List, Optional
 import numpy as np
 
 from . import ocr as ocr_mod
-from .model import Drawing, Text
+from .model import LAYER_DASHED, Drawing, Text
 from .pdf_vector import PdfVectorSettings, has_vectors, import_page
 from .preprocess import PreprocessSettings, to_binary
 from .scale_detect import find_scale, format_scale
@@ -244,6 +244,10 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         step(90, "Linien ausrichten …")
         skew = straighten(ents, gray.shape[1], gray.shape[0], settings.style.straighten_tol,
                           join_tol=max(2.0, settings.vectorize.snap_distance))
+    if settings.style.spurs_mm > 0 and settings.vectorize.mode == MODE_CENTERLINE:
+        from .cad import remove_spurs
+        remove_spurs(ents, settings.style.spurs_mm / dpi_scale,
+                     tol=max(1.0, 0.15 / dpi_scale), skip_layers=(LAYER_DASHED,))
     if settings.style.close_gaps_mm > 0 and settings.vectorize.mode == MODE_CENTERLINE:
         from .cad import close_gaps
         close_gaps(ents, settings.style.close_gaps_mm / dpi_scale)

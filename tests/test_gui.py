@@ -505,3 +505,62 @@ def test_gui_install_update(tmp_path, monkeypatch):
     app.processEvents()
     assert "SHA-256" in shown[0] and len(launched) == 1
     w2.close()
+
+
+def test_gui_tooltips_bei_mauszeiger(tmp_path, monkeypatch):
+    """Jeder Schalter erklärt sich, wenn die Maus darauf verweilt – auch die Beschriftung
+    links daneben im Formular."""
+    from traceify import config
+    from traceify.gui.tips import ACTIONS, AI, SETTINGS, WINDOW
+    monkeypatch.setattr(config, "CONFIG_PATH", str(tmp_path / "config.json"))
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    QtGui = pytest.importorskip("PySide6.QtGui")
+    QtTest = pytest.importorskip("PySide6.QtTest")
+    from traceify.gui.main_window import MainWindow
+    w = MainWindow()
+    w.resize(1400, 900)
+    w.show()
+    app.processEvents()
+    p = w.panel
+    for name in SETTINGS:
+        assert getattr(p, name).toolTip(), name
+    for name in WINDOW:
+        assert getattr(w, name).toolTip(), name
+    for name in ACTIONS:
+        a = getattr(w, name)
+        assert a.toolTip() and a.toolTip() != a.text(), name
+    ai = w.ai_panel if hasattr(w, "ai_panel") else None
+    if ai is not None:
+        for name in AI:
+            if hasattr(ai, name):
+                assert getattr(ai, name).toolTip(), name
+    # alle Kästchen und Zahlenfelder im Einstellungsbereich haben eine Erklärung
+    kinds = (QtWidgets.QCheckBox, QtWidgets.QAbstractSpinBox, QtWidgets.QComboBox,
+             QtWidgets.QRadioButton, QtWidgets.QPushButton)
+    ohne = [x.text() if hasattr(x, "text") else type(x).__name__
+            for x in p.findChildren(QtWidgets.QWidget) if isinstance(x, kinds) and not x.toolTip()]
+    assert ohne == []
+    # Beschriftung im Formular („Toleranz:“) zeigt dieselbe Erklärung
+    lab = p.tolerance.parentWidget().layout().labelForField(p.tolerance)
+    assert lab.toolTip() == p.tolerance.toolTip()
+
+    # echte Maus: auf das Kästchen „Wörterbuch“ zeigen und verweilen → Tooltip erscheint
+    p.ensureWidgetVisible(p.ocr_dict)
+    app.processEvents()
+    c = p.ocr_dict.rect().center()
+    QtTest.QTest.mouseMove(p.ocr_dict, c)
+    app.processEvents()
+    ev = QtGui.QHelpEvent(QtCore.QEvent.ToolTip, c, p.ocr_dict.mapToGlobal(c))
+    QtWidgets.QApplication.sendEvent(p.ocr_dict, ev)
+    app.processEvents()
+    assert QtWidgets.QToolTip.isVisible()
+    assert "Planbegriffe" in QtWidgets.QToolTip.text()
+    QtWidgets.QToolTip.hideText()
+    # neue Optionen kommen in den Einstellungen an
+    p.spurs.setValue(0.0)
+    p.ocr_dict.setChecked(False)
+    s = p.settings()
+    assert s.style.spurs_mm == 0.0 and s.ocr.dictionary is False
+    p.set_settings(type(s)())
+    assert p.spurs.value() == 1.5 and p.ocr_dict.isChecked()
+    w.close()
