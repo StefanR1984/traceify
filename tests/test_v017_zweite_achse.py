@@ -5,7 +5,7 @@ from traceify.core.model import LAYER_HATCH, Line
 from traceify.core.straighten import second_axes, straighten
 
 
-def _fluegel(winkel, wackeln=0.6):
+def _fluegel(winkel, wackeln=0.15):
     a = math.radians(winkel)
     u, n = (math.cos(a), math.sin(a)), (-math.sin(a), math.cos(a))
     out = []
@@ -47,3 +47,14 @@ def test_schraffur_ist_keine_zweite_achse():
 def test_ohne_fluegel_bleibt_alles_wie_es_war():
     ents = _haupt()
     assert second_axes(ents, 0.0) == []
+
+
+def test_verzogener_fluegel_wird_nicht_verbogen():
+    # lange Wand 1,2° neben der Flügelachse: Ausrichten würde ihr Ende um > 10 px verschieben
+    ents = _haupt() + _fluegel(35.0)
+    a = math.radians(36.2)
+    w = Line((520, 900), (520 + 700 * math.cos(a), 900 + 700 * math.sin(a)))
+    ents.append(w)
+    p2 = w.p2
+    straighten(ents, 1500, 1500)
+    assert math.dist(w.p2, p2) < 0.01

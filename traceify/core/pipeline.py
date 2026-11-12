@@ -243,14 +243,20 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         from .straighten import straighten
         step(90, "Linien ausrichten …")
         skew = straighten(ents, gray.shape[1], gray.shape[0], settings.style.straighten_tol,
-                          join_tol=max(2.0, settings.vectorize.snap_distance))
+                          join_tol=max(2.0, settings.vectorize.snap_distance),
+                          second_shift=max(1.5, 0.3 / dpi_scale))
     if settings.style.spurs_mm > 0 and settings.vectorize.mode == MODE_CENTERLINE:
         from .cad import remove_spurs
         remove_spurs(ents, settings.style.spurs_mm / dpi_scale,
                      tol=max(1.0, 0.15 / dpi_scale), skip_layers=(LAYER_DASHED,))
     if settings.style.close_gaps_mm > 0 and settings.vectorize.mode == MODE_CENTERLINE:
-        from .cad import close_gaps
-        close_gaps(ents, settings.style.close_gaps_mm / dpi_scale)
+        from .cad import close_gaps, ink_checker
+        ink_ok = None
+        if not settings.preprocess.deskew:       # nur, wenn Graubild und Vektoren deckungsgleich
+            ink_ok = ink_checker(255 - gray if settings.preprocess.invert else gray)
+        # bis 0,8 mm immer; bis zum 2,5-Fachen nur, wo der Scan durchgehend Tinte zeigt
+        close_gaps(ents, settings.style.close_gaps_mm / dpi_scale,
+                   far=2.5 * settings.style.close_gaps_mm / dpi_scale, ink_ok=ink_ok)
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + texts, source=source)

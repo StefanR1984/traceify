@@ -140,7 +140,10 @@ class SettingsPanel(QScrollArea):
         self.close_gaps = _spin(0.0, 5.0, 0.8, 0.1, 1, " mm")
         self.close_gaps.setSpecialValueText("aus")
         self.close_gaps.setToolTip("Linienenden, die knapp vor einem anderen Objekt enden, werden "
-                                   "bis dorthin verlängert (Ecken und T-Stöße schließen)")
+                                   "bis dorthin verlängert (T-Stöße und Ecken, die im Scan knapp "
+                                   "nicht zusammenkommen). Bis zum 2,5-Fachen dieses Werts nur, "
+                                   "wenn der Scan auf der ganzen Lücke Tinte zeigt – absichtliche "
+                                   "weiße Lücken (Strichlinien, vor Maßzahlen) bleiben offen.")
         f.addRow("Kleine Lücken schließen bis:", self.close_gaps)
         self.spurs = _spin(0.0, 5.0, 1.5, 0.1, 1, " mm")
         self.spurs.setSpecialValueText("aus")

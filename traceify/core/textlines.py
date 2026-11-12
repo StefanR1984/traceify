@@ -165,19 +165,51 @@ def _straighten(c: Candidate, ink: np.ndarray, flip: bool) -> np.ndarray:
     return 255 - crop
 
 
-def read_candidates(cands: List[Candidate], ink: np.ndarray, s, run_ocr=None, lexicon=None
+def _straighten_gray(c: Candidate, gray: np.ndarray, flip: bool) -> np.ndarray:
+    """Wie ``_straighten``, aber aus dem Graustufenbild (schwarz auf weiß): die weichen Kanten
+    helfen Tesseract bei kleiner, fetter Schrift, deren Buchstaben im Binärbild verschmelzen.
+    Nur die Umgebung der Gruppe wird übernommen, alles andere bleibt weiß."""
+    pad = 0.35 * c.height
+    a = c.angle + (180.0 if flip else 0.0)
+    scale = LINE_H / (c.height + 2 * pad)
+    x0, y0 = np.floor(c.pixels.min(axis=0)).astype(int) - 3
+    x1, y1 = np.ceil(c.pixels.max(axis=0)).astype(int) + 4
+    x0, y0 = max(0, x0), max(0, y0)
+    sub = gray[y0:y1, x0:x1]
+    mask = np.zeros(sub.shape, np.uint8)
+    pts = c.pixels.astype(np.int32) - (x0, y0)
+    mask[pts[:, 1], pts[:, 0]] = 255
+    r = max(1, int(round(0.08 * c.height)))
+    mask = cv2.dilate(mask, np.ones((2 * r + 1, 2 * r + 1), np.uint8))
+    sub = np.where(mask > 0, sub, 255).astype(np.uint8)
+    M = cv2.getRotationMatrix2D((c.center[0] - x0, c.center[1] - y0), a, scale)
+    out_w = int((c.length + 2 * pad) * scale) + 2
+    M[0, 2] += out_w / 2 - (c.center[0] - x0)
+    M[1, 2] += LINE_H / 2 - (c.center[1] - y0)
+    return cv2.warpAffine(sub, M, (out_w, LINE_H), flags=cv2.INTER_CUBIC, borderValue=255)
+
+
+def read_candidates(cands: List[Candidate], ink: np.ndarray, s, run_ocr=None, lexicon=None,
+                    gray: np.ndarray = None
                     ) -> Tuple[List[Text], List[Tuple[int, int, int, int]]]:
     """Liest alle Kandidaten (beide Leserichtungen) und gibt Texte und Boxen zurück.
 
     lexicon: Wörterbuch (``lexicon.Lexicon``) – korrigiert verstümmelte Wörter und rettet
-    unsichere Lesarten, deren Wörter sich eindeutig Planbegriffen zuordnen lassen."""
+    unsichere Lesarten, deren Wörter sich eindeutig Planbegriffen zuordnen lassen.
+    gray: dasselbe Bild in Graustufen (schwarz auf weiß, gleiche Größe wie ink) – dann wird
+    jeder Ausschnitt zusätzlich daraus gelesen; die sicherere Lesart gewinnt."""
     from .ocr import plausible
     if not cands:
         return [], []
     run_ocr = run_ocr or _tesseract_lines
     best = [None] * len(cands)
-    for flip in (False, True):
-        crops = [_straighten(c, ink, flip) for c in cands]
+    if gray is not None and gray.shape[:2] != ink.shape[:2]:
+        gray = None
+    passes = [(f, False) for f in (False, True)] + \
+             ([(f, True) for f in (False, True)] if gray is not None else [])
+    for flip, use_gray in passes:
+        crops = [_straighten_gray(c, gray, flip) if use_gray else _straighten(c, ink, flip)
+                 for c in cands]
         for k, (txt, conf) in enumerate(run_ocr(crops, s)):
             txt = (txt or "").strip()
             if not txt or conf < 0:

@@ -94,12 +94,14 @@ def _set_end(e, idx, p):
 
 
 def orthogonalize(ents: list, tol_deg: float = 3.0, join_tol: float = 2.0,
-                  min_px: float = 0.0, max_deg: float = 20.0) -> int:
+                  min_px: float = 0.0, max_deg: float = 20.0, max_shift: float = 0.0) -> int:
     """Richtet fast waagrechte/senkrechte Linien exakt aus. Gibt die Anzahl geänderter Linien zurück.
 
     Vorher verbundene Endpunkte bleiben verbunden (Ecke = x der Senkrechten, y der Waagrechten).
     min_px: kurze Linien, deren Enden höchstens so viele Pixel von der Achse abweichen, werden
     auch ausgerichtet (ihr Winkel ist im Scan unsicher) – bis höchstens max_deg.
+    max_shift: wenn > 0, nur Linien ausrichten, deren Enden sich dabei insgesamt höchstens so
+    viele Pixel quer verschieben (lange, merklich schräge Linien bleiben, wie sie sind).
     """
     lines = [e for e in ents if isinstance(e, Line)]
     pts = _endpoints(lines)
@@ -108,6 +110,8 @@ def orthogonalize(ents: list, tol_deg: float = 3.0, join_tol: float = 2.0,
     n = 0
 
     def near(dev: float, L: float) -> bool:
+        if max_shift > 0 and L * math.sin(math.radians(dev)) > max_shift:
+            return False          # Enden würden zu weit von der Tinte wandern
         if dev <= tol_deg:
             return True
         return min_px > 0 and dev <= max_deg and L * math.sin(math.radians(dev)) <= min_px
@@ -146,7 +150,7 @@ def _turn(a: Point, b: Point, c: Point) -> float:
 
 def align_axes(ents: list, skew: float = 0.0, center: Point = (0.0, 0.0),
                tol_deg: float = 3.0, join_tol: float = 2.0, min_px: float = 0.0,
-               curve_turn: float = 20.0) -> int:
+               curve_turn: float = 20.0, max_shift: float = 0.0) -> int:
     """Richtet Linien **und Polylinien-Segmente** exakt an den Achsen aus (ändert ents).
 
     skew: Schräglage in Grad (Bild); ausgerichtet wird an den um skew gedrehten Achsen.
@@ -177,7 +181,8 @@ def align_axes(ents: list, skew: float = 0.0, center: Point = (0.0, 0.0),
     if not work:
         return 0
     proxies = [rotate(w, center, -skew) if skew else w for w, _ in work]
-    n = orthogonalize(proxies, tol_deg=tol_deg, join_tol=join_tol, min_px=min_px)
+    n = orthogonalize(proxies, tol_deg=tol_deg, join_tol=join_tol, min_px=min_px,
+                      max_shift=max_shift)
     newpts: dict = {}
     for prx, (_, tgt) in zip(proxies, work):
         r = rotate(prx, center, skew) if skew else prx

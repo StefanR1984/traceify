@@ -2,7 +2,13 @@
 
 ## 0.17.0 – 12.11.2026
 ### Schräge Gebäudeflügel exakt ausgerichtet
-- **Zweite Bauachse:** Hat ein Plan einen schräg stehenden Gebäudeteil (z. B. 39° zum Rest), erkennt Traceify diese Richtung und richtet dessen Wände und Querwände parallel und rechtwinklig zueinander aus – so wie das bei den Hauptachsen schon der Fall war. Ecken bleiben verbunden, Schraffur zählt nicht als Bauachse. Beim A1-Testplan liegen so 68 % der Linienlänge exakt auf einer Bauachse (vorher 48 %). Pläne ohne schrägen Flügel bleiben unverändert.
+- **Zweite Bauachse:** Hat ein Plan einen schräg stehenden Gebäudeteil (z. B. 39° zum Rest), erkennt Traceify diese Richtung und richtet dessen Wände und Querwände parallel und rechtwinklig zueinander aus – so wie das bei den Hauptachsen schon der Fall war. Ecken bleiben verbunden, Schraffur zählt nicht als Bauachse. Ausgerichtet wird nur, wo sich eine Linie dabei höchstens um etwa 0,3 mm verschiebt: Flügel sind in Scans oft leicht verzogen, sonst würden Wandenden neben die Tinte wandern. Beim A1-Testplan liegen so 59 % der Linienlänge exakt auf einer Bauachse (vorher 54 %), die Abdeckung bleibt gleich. Pläne ohne schrägen Flügel bleiben unverändert.
+
+### Schräge Schrift besser gelesen
+- Schräge Beschriftungen werden zusätzlich aus dem **Graustufenbild** gelesen, die sicherere Lesart gewinnt. Das hilft bei kleiner, fetter Schrift, deren Buchstaben im Schwarz-Weiß-Bild zu Klecksen verschmelzen. Beim A1-Testplan kommen so u. a. „Pos 01 Handverkauf“ und „BR 850“ dazu; 85 Objekte, 24 Bögen und 47 offene Enden weniger (Splitter aus vorher ungelesener Schrift). Positionsnummern, deren Ziffern im Scan verschmiert sind („05“/„06“/„08“), bleiben unsicher.
+
+### Weniger offene Enden
+- **Lücken schließen mit Blick in den Scan:** Bis 0,8 mm (einstellbar) wird wie bisher immer verlängert, bis zum 2,5-Fachen (2 mm) jetzt auch, wenn der Scan auf der ganzen Lücke Tinte zeigt – dort endet das Skelett in dicken oder ausgefransten Strichen nur zu früh. Absichtliche weiße Lücken (Strichlinien, vor Maßzahlen, zwischen Buchstaben) bleiben offen. Auf allen neun Testplänen gibt es weniger offene Enden, z. B. 1554 statt 1636, 2218 statt 2324, 1870 statt 2013, 1310 statt 1388; Abdeckung und Genauigkeit bleiben gleich oder werden besser.
 
 ## 0.16.0 – 09.11.2026
 ### Neu: Hilfe direkt am Schalter

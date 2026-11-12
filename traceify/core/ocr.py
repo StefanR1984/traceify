@@ -477,7 +477,7 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
         layer = 255 - src
         found_c = textlines.find_candidates(layer, px_per_mm, boxes,
                                             max_char_mm=min(12.0, s.max_char_mm))
-        tt, bb = textlines.read_candidates(found_c, layer, s, lexicon=lex)
+        tt, bb = textlines.read_candidates(found_c, layer, s, lexicon=lex, gray=detail)
         for t, b in zip(tt, bb):
             if any(_overlap(b, o) > 0.3 for o in boxes):
                 continue

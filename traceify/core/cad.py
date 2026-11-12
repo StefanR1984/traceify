@@ -489,24 +489,30 @@ def _extend_arc(others, arc: Arc, click: Point) -> bool:
     return True
 
 
-def close_gaps(ents: list, dist: float) -> int:
+def close_gaps(ents: list, dist: float, far: float = 0.0, ink_ok=None) -> int:
     """Kleine Lücken schließen: freie Linienenden, die in ihrer Richtung nach höchstens
     ``dist`` auf ein anderes Objekt treffen, werden bis dorthin verlängert (T-Stöße und Ecken,
     die im Scan knapp nicht zusammenkommen). Gibt die Zahl der verlängerten Enden zurück.
 
+    far/ink_ok: Lücken bis ``far`` werden auch geschlossen, wenn ``ink_ok(p, q)`` bestätigt,
+    dass der Scan auf der ganzen Strecke p→q Tinte zeigt (das Skelett endet dort nur zu
+    früh, z. B. in dicken oder ausgefransten Strichen). Absichtliche weiße Lücken – zwischen
+    Strichen einer Strichlinie, vor Maßzahlen, zwischen Buchstaben – bleiben so offen.
+
     Ein Ende gilt als frei, wenn kein anderes Objekt näher als 1 px liegt."""
     if dist <= 0:
         return 0
+    reach = max(dist, far) if ink_ok is not None else dist
     prims = [(pr, e) for e in ents if not isinstance(e, (Text, Insert)) for pr in primitives(e)]
-    cell = max(32.0, 4 * dist)
+    cell = max(32.0, 4 * reach)
     grid = {}
     for k, (pr, _) in enumerate(prims):
         if isinstance(pr, Seg):
             xs, ys = (pr.a[0], pr.b[0]), (pr.a[1], pr.b[1])
         else:
             xs, ys = (pr.c[0] - pr.r, pr.c[0] + pr.r), (pr.c[1] - pr.r, pr.c[1] + pr.r)
-        for gx in range(int((min(xs) - dist) // cell), int((max(xs) + dist) // cell) + 1):
-            for gy in range(int((min(ys) - dist) // cell), int((max(ys) + dist) // cell) + 1):
+        for gx in range(int((min(xs) - reach) // cell), int((max(xs) + reach) // cell) + 1):
+            for gy in range(int((min(ys) - reach) // cell), int((max(ys) + reach) // cell) + 1):
                 grid.setdefault((gx, gy), []).append(k)
 
     def nearby(p, owner):
@@ -537,9 +543,11 @@ def close_gaps(ents: list, dist: float) -> int:
             if L < 1e-6 or touching(end, e):
                 continue
             t = _extend_ray(list(nearby(end, e)), prev, end, True)
-            if t is None or (t - 1.0) * L > dist:
+            if t is None or (t - 1.0) * L > reach:
                 continue
             p = _lerp(prev, end, t)
+            if (t - 1.0) * L > dist and not ink_ok(end, p):
+                continue
             if isinstance(e, Line):
                 if last:
                     e.p2 = p
@@ -551,6 +559,24 @@ def close_gaps(ents: list, dist: float) -> int:
                 e.points[0] = p
             n += 1
     return n
+
+
+def ink_checker(gray, min_dark: float = 60.0, win: int = 15):
+    """Prüffunktion für ``close_gaps``: zeigt der Scan (Graustufen, schwarz auf weiß) auf der
+    ganzen Strecke p→q Tinte? Jeder Punkt muss mindestens ``min_dark`` Graustufen dunkler
+    sein als das Papier in der Umgebung (90-%-Wert im Fenster ±win)."""
+    import numpy as np
+    H, W = gray.shape[:2]
+
+    def ok(p, q) -> bool:
+        L = math.dist(p, q)
+        n = max(3, int(L * 2) + 1)
+        xs = np.clip(np.round(np.linspace(p[0], q[0], n)).astype(int), 0, W - 1)
+        ys = np.clip(np.round(np.linspace(p[1], q[1], n)).astype(int), 0, H - 1)
+        x, y = int(min(max(p[0], 0), W - 1)), int(min(max(p[1], 0), H - 1))
+        paper = float(np.percentile(gray[max(0, y - win):y + win, max(0, x - win):x + win], 90))
+        return paper - float(gray[ys, xs].max()) >= min_dark
+    return ok
 
 
 def _length(e) -> float:

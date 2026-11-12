@@ -89,25 +89,26 @@ Gemessen mit `tools/pruefstand.py` an 9 echten Bauplan-Scans (96–150 dpi) und 
 image-11 (A1 Apotheke) und image-4 (verrauschter Kellerplan, Handschrift). Die Scans liegen
 nicht im Repo; der Nutzer liefert sie bei Bedarf.
 
-Stand 0.16.0 (Traceify / Vergleichsprogramm):
+Stand 0.17.0 (Traceify / Vergleichsprogramm):
 | | image-11 | image-4 |
 |---|---|---|
-| Abdeckung | 98,0 % / 86,1 % | 97,1 % / 88,4 % |
-| Objekte | 3007 / 2697 | 5768 / 10408 |
-| Bögen | 399 / 51 | 661 / 253 |
+| Abdeckung | 98,1 % / 86,1 % | 97,1 % / 88,4 % |
+| Objekte | 2924 / 2697 | 5768 / 10408 |
+| Bögen | 375 / 51 | 661 / 253 |
 | exakt waagrecht/senkrecht | 48 % / 51 % | 43 % / 49 % |
-| offene Enden | 1625 / 1330 | 2324 / 4173 |
-| Wörter wie Vergleichsprogramm | 50 von 129 | 5 von 22 |
+| offene Enden | 1554 / 1330 | 2218 / 4173 |
+| Wörter wie Vergleichsprogramm | 51 von 129 | 5 von 22 |
 
 Achtung: Auch das Vergleichsprogramm liest viel Unsinn („sightwal“, „poe“) – die
 Wort-Übereinstimmung ist kein Wahrheitsmaßstab. Schraffur als HATCH: Einzellinien übrig
 image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert).
 
-1. **Kleine Schrift an Möbeln/Linien** (image-11: „Pos 03 Sichtwahl“ u. Ä., ca. 1,5 mm hoch,
-   schräg) wird gar nicht als Schrift gefunden, weil sie an Linien klebt (`text_layer` /
-   `find_candidates` sehen nur freistehende Zeichen). Sie zerfällt in Splitter und Mini-Bögen –
-   Hauptquelle der übrigen Bögen (r < 1 mm, ≥ 120°) und vieler offener Enden. Idee: Linien
-   vor der Kandidatensuche abziehen statt ganze Komponenten verwerfen.
+1. **Kleine, fette Schrift** (image-11: „Pos 13 Labor“, „Pos 11 Vorräte“, ca. 11 px hoch, schräg):
+   Untersucht in 0.17 – sie klebt meist **nicht** an Linien, sondern steht frei; die Buchstaben
+   verschmelzen zu Klecksen. Von 147 Mini-Bögen (r < 1 mm) bei image-11 stammen 51 aus solcher
+   ungelesener Schrift, nur 11 aus Schrift an Linien (ein Versuch, Linien abzuziehen und den Rest
+   zu lesen, brachte nur Unsinn wie „AN“/„ME“ und wurde verworfen). Graustufen-Lesung hilft schon
+   (0.17); offen: Kandidaten besser gruppieren (Wort „Vorräte“ fehlt oft), ggf. KI für solche Stellen.
 2. **OCR** – Wörterbuch ist da (`lexicon.py`; sicher gelesen → nur Formverwechslungen; die
    Negativliste in `test_v016_ocr_fransen.py` muss grün bleiben). Offen: Zahlen weiter teils zerrissen
    („NFL 14 94“), getrennte Wörter wieder zusammensetzen („Fo renbergen Sc ube“), Ziffern hinter
@@ -121,8 +122,10 @@ image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert)
 5. **Schraffur**: Handschraffur (image-4) und viele Kleinstgruppen (image-27/-37) bleiben
    Einzellinien; viele Handschraffur-Striche erkennt schon `detect_hatch` nicht. HATCH auch in
    GUI und SVG zeigen.
-6. **Offene Enden** (image-11: 1625 gegen 1330) – Lücken 1–3 mm sind am häufigsten; Enden von
-   Schraffurlinien auf die Wandkante ziehen; gestrichelte Bögen zusammenfassen.
+6. **Offene Enden** (image-11: 1554 gegen 1330): Seit 0.17 schließt `close_gaps` bis 2,5 × Reichweite,
+   wenn `cad.ink_checker` Tinte auf der ganzen Lücke sieht. Übrig sind vor allem kurze, echte Striche
+   (Möbeldetails, Fliesenmarken, Schriftreste) – pauschal 2 mm verbinden wäre falsch (Strichlinien,
+   Maßhilfslinien, Buchstaben). Enden von Schraffurlinien auf die Wandkante ziehen ist noch offen.
 7. **Bemaßungen** (Maßketten) als DIMENSION-Objekte erkennen; dabei Maßstab plausibilisieren.
 8. Workflow „Integration (echt)“: ODA-Suchmuster angepasst (Dateiname hat keine Versionsnummer
    mehr: `ODAFileConverter_QT6_vc16_amd64dll.msi`), aber noch **nicht live getestet**.

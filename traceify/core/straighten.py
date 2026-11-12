@@ -91,11 +91,14 @@ def second_axes(ents: list, skew: float, min_len: float = 40.0, share: float = 0
 
 def straighten(ents: list, width: int, height: int, tol_deg: float = 3.0,
                join_tol: float = 2.0, min_len: float = 40.0,
-               min_px: float = 1.5, second: bool = True) -> Optional[float]:
+               min_px: float = 1.5, second: bool = True,
+               second_shift: float = 2.0) -> Optional[float]:
     """Richtet fast achsparallele Linien und Polylinien-Segmente exakt an der Schräglage aus (ändert ents).
 
     second: auch schräge Bauachsen (Gebäudeflügel) – deren Linien werden parallel/rechtwinklig
-    zueinander ausgerichtet (Toleranz enger als bei den Hauptachsen).
+    zueinander ausgerichtet – aber nur, wenn sich eine Linie dabei höchstens um second_shift
+    Pixel quer verschiebt (Flügel sind in Scans oft leicht verzogen; sonst wandern Wandenden
+    neben die Tinte).
     Gibt die Schräglage zurück (Grad, Bild) oder None, wenn keine bestimmbar war."""
     skew = estimate_skew(ents, min_len)
     if skew is None:
@@ -105,5 +108,6 @@ def straighten(ents: list, width: int, height: int, tol_deg: float = 3.0,
     if second:
         bau = [e for e in ents if getattr(e, "layer", "") != LAYER_HATCH]
         for ax in second_axes(bau, skew, min_len):
-            align_axes(bau, ax, c, tol_deg=min(tol_deg, 1.5), join_tol=join_tol)
+            align_axes(bau, ax, c, tol_deg=min(tol_deg, 1.5), join_tol=join_tol,
+                       max_shift=second_shift)
     return skew
