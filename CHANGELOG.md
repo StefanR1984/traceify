@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.0 – 12.11.2026
+### Schräge Gebäudeflügel exakt ausgerichtet
+- **Zweite Bauachse:** Hat ein Plan einen schräg stehenden Gebäudeteil (z. B. 39° zum Rest), erkennt Traceify diese Richtung und richtet dessen Wände und Querwände parallel und rechtwinklig zueinander aus – so wie das bei den Hauptachsen schon der Fall war. Ecken bleiben verbunden, Schraffur zählt nicht als Bauachse. Beim A1-Testplan liegen so 68 % der Linienlänge exakt auf einer Bauachse (vorher 48 %). Pläne ohne schrägen Flügel bleiben unverändert.
+
 ## 0.16.0 – 09.11.2026
 ### Neu: Hilfe direkt am Schalter
 - **Tooltips überall:** Bleibt die Maus kurz auf einem Schalter, Feld oder dessen Beschriftung stehen, erscheint eine kurze Erklärung, was er bewirkt. Das gilt für alle Einstellungen, den KI-Bereich, den Dialog *KI-Server* und die Menü- und Leistenbefehle. Die Texte stehen gesammelt in `gui/tips.py`.
