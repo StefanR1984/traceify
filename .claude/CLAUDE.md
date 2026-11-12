@@ -115,13 +115,14 @@ image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert)
 3. **Handschrift mit echter KI testen** – „Unerkannte Schrift mit KI lesen“ und vLLM sind nur mit
    Attrappen getestet. Mit echtem Ollama-Modell bzw. vLLM-Server des Nutzers an image-4 prüfen,
    Prompt nachschärfen. Den Workflow „Integration (echt)“ **nicht ungefragt starten**.
-4. **Ortho-Anteil** an das Vergleichsprogramm heranführen (48 % / 43 % gegen 51 % / 49 %): Wandkanten vor dem
-   Ausrichten zu durchgehenden Linien zusammenfassen; Schraffur und Text aus der Messung nehmen.
+4. **Ortho-Anteil** (48 % / 43 % gegen 51 % / 49 %): Der Rest ist bei image-11 überwiegend ein
+   echt schräger Flügel (≈39°); `straighten.second_axes` richtet ihn seit 0.17.0 aus (68 % der Länge
+   auf einer Bauachse). Bei image-4 bleiben Schraffur und kurze Striche – nur H/V-Messung unverändert.
 5. **Schraffur**: Handschraffur (image-4) und viele Kleinstgruppen (image-27/-37) bleiben
    Einzellinien; viele Handschraffur-Striche erkennt schon `detect_hatch` nicht. HATCH auch in
    GUI und SVG zeigen.
 6. **Offene Enden** (image-11: 1625 gegen 1330) – Lücken 1–3 mm sind am häufigsten; Enden von
    Schraffurlinien auf die Wandkante ziehen; gestrichelte Bögen zusammenfassen.
 7. **Bemaßungen** (Maßketten) als DIMENSION-Objekte erkennen; dabei Maßstab plausibilisieren.
-8. Workflow „Integration (echt)“: ODA-Download-Link wird nicht mehr gefunden (Seite geändert) –
-   reparieren (feste Version) oder Workflow entfernen, wenn er nicht mehr gebraucht wird.
+8. Workflow „Integration (echt)“: ODA-Suchmuster angepasst (Dateiname hat keine Versionsnummer
+   mehr: `ODAFileConverter_QT6_vc16_amd64dll.msi`), aber noch **nicht live getestet**.

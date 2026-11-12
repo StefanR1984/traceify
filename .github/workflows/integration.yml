@@ -76,7 +76,7 @@ jobs:
         timeout-minutes: 10
         run: |
           $page = Invoke-WebRequest -Uri "https://www.opendesign.com/guestfiles/oda_file_converter" -UseBasicParsing
-          $m = [regex]::Matches($page.Content, "ODAFileConverter_QT6_vc1[0-9]_amd64dll_[0-9.]+\.msi") | Select-Object -ExpandProperty Value -Unique
+          $m = [regex]::Matches($page.Content, "ODAFileConverter_QT6_vc1[0-9]_amd64dll(_[0-9.]+)?\.msi") | Select-Object -ExpandProperty Value -Unique
           if (-not $m) { throw "Kein Download-Link fuer den ODA File Converter gefunden" }
           $name = ($m | Sort-Object)[-1]
           Write-Host "Lade $name"
