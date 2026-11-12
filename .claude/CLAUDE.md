@@ -117,8 +117,10 @@ image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert)
    Attrappen getestet. Mit echtem Ollama-Modell bzw. vLLM-Server des Nutzers an image-4 prüfen,
    Prompt nachschärfen. Den Workflow „Integration (echt)“ **nicht ungefragt starten**.
 4. **Ortho-Anteil** (48 % / 43 % gegen 51 % / 49 %): Der Rest ist bei image-11 überwiegend ein
-   echt schräger Flügel (≈39°); `straighten.second_axes` richtet ihn seit 0.17.0 aus (68 % der Länge
-   auf einer Bauachse). Bei image-4 bleiben Schraffur und kurze Striche – nur H/V-Messung unverändert.
+   echt schräger Flügel (≈39°); `straighten.second_axes` richtet ihn seit 0.17.0 aus – nur wo sich
+   eine Linie ≤ ~0,3 mm verschiebt (`second_shift`), denn der Flügel ist im Scan um ±1,2° verzogen
+   (ohne Grenze: Abdeckung 98,0 → 97,1 %). 59 % statt 54 % der Länge auf einer Bauachse.
+   Bei image-4 bleiben Schraffur und kurze Striche – die H/V-Messung ändert sich nicht.
 5. **Schraffur**: Handschraffur (image-4) und viele Kleinstgruppen (image-27/-37) bleiben
    Einzellinien; viele Handschraffur-Striche erkennt schon `detect_hatch` nicht. HATCH auch in
    GUI und SVG zeigen.
