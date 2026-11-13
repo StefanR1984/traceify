@@ -1,53 +1,47 @@
-# Übergabe Traceify – Stand 12.11.2026
+# Übergabe Traceify – Stand 13.11.2026
 
-**Zuerst lesen:** `.claude/CLAUDE.md` (Regeln, Aufbau, Stolpersteine, offene Ideen mit Messwerten). Danach `git pull`, `git log --oneline -5`.
+**Zuerst lesen:** `.claude/CLAUDE.md` (Regeln, Aufbau, Stolpersteine, Befunde des Wahrheits-Prüfstands mit Messwerten). Danach `git pull`, `git log --oneline -8`.
 
 ## Stand
-- Aktuelle Version: **0.17.0**, Branch `main`, gleichauf mit GitHub.
-- Tests: 188 grün (5 übersprungen), pyflakes sauber. Windows-Probe-Build samt EXE-Selbsttest grün.
-- Tag `v0.16.0` hat der Nutzer selbst angelegt. **0.17.0 ist noch nicht getaggt.** Tag und Release legt nur der Nutzer an.
+- Aktuelle Version: **0.20.0**, Branch `main`, gleichauf mit GitHub (letzter Commit: Prüfstand-Fix nach 0.20.0).
+- Tests: 195 grün, 7 übersprungen (mit Tesseract), pyflakes sauber. Windows-Probe-Build samt EXE-Selbsttest grün.
+- **0.17.0 bis 0.20.0 sind noch nicht getaggt.** Tag und Release legt nur der Nutzer an (Vorschlag: nur `v0.20.0` setzen).
 - CAD-Programm des Nutzers: **Allplan**.
 
-## Was zuletzt gebaut wurde
-- **0.16.0:** Schraffur-Flächen vollständiger, Wörterbuch für Planbegriffe (`lexicon.py`), Fransen entfernen (`cad.remove_spurs`), Tooltips an allen Schaltern (`gui/tips.py`).
-- **0.17.0:**
-  - **Zweite Bauachse:** `straighten.second_axes` richtet einen schrägen Gebäudeflügel aus. Ausgerichtet wird nur, wo sich eine Linie höchstens um etwa 0,3 mm verschiebt (`second_shift`). Ohne diese Grenze sank die Abdeckung bei image-11 von 98,0 % auf 97,1 %, weil der Flügel im Scan um ±1,2° verzogen ist.
-  - **Graustufen-Lesung:** `textlines.read_candidates(..., gray=)` liest schräge Texte zusätzlich aus dem Graustufenbild.
-  - **Lücken schließen:** `cad.close_gaps(..., far=, ink_ok=)` schließt Lücken bis zum 2,5-Fachen der Reichweite (2 mm), wenn `cad.ink_checker` im Scan durchgehend Tinte sieht.
-  - **Integrations-Workflow:** In `integration.yml` ist das ODA-Suchmuster angepasst. Er ist noch **nicht live getestet** und darf nicht ungefragt gestartet werden.
+## Umgebung auf diesem Rechner
+- Python 3.12 fehlt: `.venv` mit Python 3.13 im Projektordner (gitignored), Aufruf `.venv/Scripts/python`.
+- **Tesseract** liegt unter `D:\Programme\Tesseract` und steht **nicht im PATH**. Für Tests und Messungen vorher anhängen, z. B. in Bash: `export PATH="/d/Programme/Tesseract:$PATH"`. Die installierte Traceify-EXE bringt ihr eigenes Tesseract mit (gleiche Version 5.5.3, gleiche Sprachdateien).
+- Qt-Tests ohne Fenster: `QT_QPA_PLATFORM=offscreen`.
+- Testdaten (nie ins Repo): `Testdaten Traceify/` – 9 Scans (`image-*.pdf`), Vergleichs-DXFs nur zu image-4 und image-11, Allplan-Originale unter `Testdaten Traceify/dxf/dxf/PLAN1–3_*.dxf` (17 Pläne, Einheit m, enthalten einen Personennamen in `$LASTSAVEDBY`).
 
-## Messstand (Traceify / Vergleichsprogramm)
-| | image-11 | image-4 |
+## Was seit 0.17.0 gebaut wurde
+- **Wahrheits-Prüfstand** (`core/truth.py`, `tools/wahrheit.py`): Allplan-DXF → simulierter Scan (1:100, 150 dpi, 0,25 mm Strich) → Traceify → Messung gegen das Original (Trefferquote, Genauigkeit, Lagefehler, Objekte, Bögen, Ortho, Wörter). Aufruf: `python tools/wahrheit.py "Testdaten Traceify/dxf/dxf" --bericht wahr.md --json wahr.json`. Mit OCR ca. 25 min für alle Pläne.
+- **0.18.0 – Doppellinien getrennt:** `merge_through_junctions` verbiegt Linienenden an Abzweigen nicht mehr (kurze seitliche Stege).
+- **0.19.0 – weniger falsche Bögen:** `Fitter.fit` sucht in kurzen, nicht geraden Stücken mit kleinerem Fenster nach Ecken; winziger Schenkel → eine Linie. `merge_through_junctions` legt zusammengefügte Linien per Ausgleichsgerade durch alle Stützpunkte, Ecken werden mitgeführt.
+- **0.20.0 – Ausrichten mit Tintenprüfung:** `align_axes(..., ink=cad.ink_share(...))` richtet eine Linie nur aus, wenn sie danach zu ≥ 90 % auf Tinte liegt oder nicht schlechter als vorher. Bewusst leicht schräge Linien (Dachgeschoss) bleiben schräg.
+
+## Messstand (Wahrheit, 17 Allplan-Pläne, mit Tesseract)
+| | 0.17.0 | 0.20.0 |
 |---|---|---|
-| Abdeckung | 98,1 % / 86,1 % | 97,1 % / 88,4 % |
-| Objekte | 2924 / 2697 | 5768 / 10408 |
-| Bögen | 375 / 51 | 661 / 253 |
-| offene Enden | 1554 / 1330 | 2218 / 4173 |
-| Wörter wie Vergleichsprogramm | 51 von 129 | 5 von 22 |
+| Trefferquote | 60,7–99,6 %, meist 81–89 % | 65,5–99,6 %, meist 87–96 % |
+| Genauigkeit | 81–97 % | 94–99,9 % |
+| Wörter richtig | 451 von 887 (51 %) | 451 von 887 (51 %) – unverändert |
+| Wörter falsch | 226 | 226 |
 
-Auf allen 9 Scans gab es keine Verschlechterung gegenüber 0.16. Die Wort-Übereinstimmung ist kein Wahrheitsmaßstab.
+Schwächste Pläne bei Wörtern: PLAN1_UG 25 von 120, PLAN1_EG 24 von 94, PLAN2_EG 13 von 55, PLAN2_OG3 8 von 31. Gut: PLAN3_UG1 92 von 127, PLAN3_EG 72 von 112.
 
-## Erkenntnisse aus der Untersuchung
-- **Kleine fette Schrift** (image-11, z. B. „Pos 13 Labor“, ca. 11 px hoch) klebt meist **nicht** an Linien, sondern steht frei, und die Buchstaben verschmelzen. Von 147 Mini-Bögen stammen 51 aus solcher ungelesener Schrift, nur 11 aus Schrift an Linien.
-- **Verworfen:** Linien abziehen und den Rest lesen. Das brachte nur Unsinn („AN“, „ME“).
-- **Ortho-Anteil:** Der Rest bei image-11 ist ein echt schräger Flügel (≈39°). Bei image-4 bleiben Schraffur und kurze Striche übrig.
-- **Offene Enden:** Übrig sind vor allem kurze, echte Striche. Pauschal 2 mm zu verbinden würde Strichlinien und Maßhilfslinien zerstören.
+Echte Scans 0.17.0 → 0.20.0: gleich viele Texte, Bögen −30 bis −60 %, offene Enden weniger, Abdeckung gleich oder besser.
 
 ## Als Nächstes
-Der Nutzer liefert **weitere DXF-Dateien** (Vergleichs-DXFs, evtl. Original-CAD-Dateien) und dazu die Scans. Vorher zu klären:
-1. Gibt es zu einem Scan die **Original-CAD-Datei**? Das wäre die einzige echte Wahrheit.
-2. Welche Pläne kommen, und gibt es welche mit **Maßketten** und bekanntem Maßstab (für Bemaßungen als DIMENSION)?
-3. Was stört in der Praxis am meisten, und was hakt beim **Allplan-Import** (Schraffur als Einzellinien, falsche Stifte, Textlage)?
+1. **Texterkennung am Original auswerten:** Welche Wörter fehlen oder sind falsch (Maßzahlen, gedrehte Bemaßung, m², Höhenkoten, kleine Schrift, Raumnamen)? Die Originaltexte stehen als `Text` in `render_scan(...).truth`; die Wortsets liefert `benchmark.words`. Größte Fehlergruppe zuerst beheben, vorher/nachher an 17 Plänen und 9 Scans messen.
+2. **Realistischere Simulation:** Wahrheit auch mit 300 dpi messen (`--dpi 300`) – zeigt, ob eng liegende Doppellinien dort trennbar sind.
+3. Restliche Fehlbögen (PLAN2_EG 189 gegen 90 im Original), Kiesmuster auf Dachplänen.
 
-Vorschlag für die Reihenfolge danach:
-- **Allplan-Export prüfen:** Strichstärken auf Stifte, HATCH-Muster als Fläche, Layernamen, Textstil.
-- **Schraffur fertigmachen:** Enden auf die Wandkante ziehen, HATCH auch in der GUI-Ansicht und im SVG zeigen.
-- **Kleine Schrift** besser gruppieren (Wörter wie „Vorräte“ fehlen oft), ggf. unlesbare Stellen gezielt an die KI geben.
-- **OCR-Feinschliff:** zerrissene Wörter und Zahlen, nur mit sehr vorsichtigen Regeln.
-- **Bemaßungen als DIMENSION:** erst, wenn passende Pläne da sind.
+Der Nutzer liefert evtl. Textlisten oder weitere Vergleichs-DXFs zu image-27, image-136, image-37 (gleicher Dateiname, `.dxf` bzw. `.txt`). Für `.txt` müsste der Prüfstand erst erweitert werden.
 
 ## Arbeitsweise
-- **Immer vor und nach einer Änderung an allen 9 Scans messen** (Abdeckung, Genauigkeit, Objekte, Bögen, offene Enden, Wörter). Eine Änderung, die irgendwo spürbar verschlechtert, wird nachgebessert oder verworfen. Die erste Fassung der zweiten Bauachse kostete Abdeckung und fiel erst im Vergleich auf.
+- **Immer vor und nach einer Änderung messen:** 9 Scans (`tools/pruefstand.py`) und 17 Allplan-Pläne (`tools/wahrheit.py`). Eine Änderung, die irgendwo spürbar verschlechtert, wird nachgebessert oder verworfen.
+- Für den Vorher-Stand einen Worktree des letzten Commits anlegen (`git worktree add --detach <ordner> HEAD`) und danach wieder entfernen.
 - **Echte Scans nie ins Repo** (Datenschutz). Das Vergleichsprogramm wird in Repo-Dateien und UI-Texten nicht beim Namen genannt.
 - Modellwahl: Opus für Auswertung und heikle Eingriffe, Sonnet für Routine und Doku, Fable nur gezielt bei einem Problem, an dem Opus hängen bleibt.
 
@@ -56,5 +50,6 @@ Vorschlag für die Reihenfolge danach:
 - **Keine ZIPs.** Nach einer Änderung kurz zusammenfassen: was, Commit, Build-Ergebnis.
 - **Keine Tags, Releases oder Veröffentlichungen ohne ausdrückliches Okay.**
 - Die E-Mail-Adresse des Nutzers nirgends verwenden. Git-Autor: `StefanR1984 <StefanR1984@users.noreply.github.com>`. Commit-Nachrichten enden mit den Attribution-Zeilen der Sitzung.
+- Workflow „Integration (echt)“ nicht ungefragt starten.
 - Nicht gewünscht: signierte EXE, winget, englische Übersetzung.
 - Ablauf pro Feature: Kernlogik und Tests, GUI anbinden (README, `show_help`, Changelog, Tooltip in `gui/tips.py`), Version erhöhen, pyflakes und Tests grün, committen, pushen, Windows-Probe-Build (`gh workflow run release.yml --ref main`, `gh run watch <id> --exit-status`), danach alte Actions-Läufe löschen (nur die zum aktuellen Commit behalten).
