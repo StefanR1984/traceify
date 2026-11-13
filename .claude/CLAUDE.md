@@ -125,7 +125,15 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   Stege < 0,5 mm in die Nachbarlinie einrechnen, um die Objekte wieder zu senken.
 - **Dach:** Kies-/Punktmuster aus Kreisen r < 0,5 mm fehlen zu 95 %.
 - **Bögen zu viele** auch außerhalb von Text (PLAN2_EG 261 gegen 90 im Original, bei 300 dpi
-  407) – Herkunft klären (Türbögen zerlegt? Ecken verrundet?).
+  407). **0.19.0:** Hauptursache behoben – `find_corners` braucht ≥ 15 Punkte, kurze Stücke
+  (Schraffur an Kante, kleine Wandecken) gingen ohne Eckprüfung in die Kreisanpassung. Jetzt in
+  `Fitter.fit` kleineres Fenster für kurze, nicht gerade Stücke; Schenkel < `min_length` → eine
+  Linie bis zum Anschluss. Dazu `merge_through_junctions`: zusammengefügte Linie per
+  Ausgleichsgerade durch alle Stützpunkte, Enden über Schnittpunkt/Projektion mitgeführt
+  (vorher bestimmten vom Fangen verschobene Enden die Lage, z. B. Kante 1,5 px neben der Tinte).
+  Bögen −20–64 % (Scans), PLAN2_EG 261 → 189; Trefferquote/Genauigkeit fast überall besser,
+  Splitter und offene Enden weniger. Rest: flache Ausbeulungen an Abzweigen, Kehren an
+  Doppellinienenden, Fehlbögen in fleckigen Füllflächen.
 - **Ortho** 52–73 % gegen 71–91 % im Original (Schraffur des Originals ist dort als Einzellinien).
 - Wörter: auf diesem Rechner kein Tesseract → noch nicht gemessen.
 

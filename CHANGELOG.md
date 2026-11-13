@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.0 – 13.11.2026
+### Weniger falsche Bögen
+- **Kleine Ecken werden keine Viertelkreise mehr:** Kurze Linienstücke – etwa wo eine Schraffurlinie auf eine Kante trifft oder an kleinen Wandecken – wurden bisher ohne Eckprüfung als Bogen ausgegeben. Jetzt werden auch sie auf Ecken geprüft; biegt das Stück nur kurz vor dem Anschluss ab, wird es eine gerade Linie bis zum Anschlusspunkt. Auf den neun Testplänen gibt es 20–64 % weniger Bögen, z. B. 584 statt 948 oder 385 statt 687; echte Türbögen bleiben erhalten.
+
+### Kanten liegen genauer auf der Tinte
+- Eine Kante, die über mehrere Abzweigungen hinweg zu einer Linie zusammengefügt wird, wird jetzt durch alle ihre Stützpunkte gelegt statt nur durch die beiden Enden. Ein vom Fangen verschobenes Ende stellt die Kante so nicht mehr schräg oder neben die Tinte; Ecken und Anschlüsse werden mitgeführt.
+- **Gemessen an Original-CAD-Plänen** (als Scan simuliert, 1:100, 150 dpi): Trefferquote meist +0,5 bis +2,8 Punkte, Genauigkeit +0,3 bis +1,8 Punkte, z. B. 90,1 → 92,9 % und 95,2 → 96,2 % beim zweiten Obergeschoss.
+- **Echte Scans:** 2–10 % weniger Objekte, weniger Splitter (z. B. 603 statt 690, 461 statt 607) und auf acht von neun Plänen weniger offene Enden (z. B. 114 statt 185, 1690 statt 1847). Abdeckung gleich oder besser.
+
 ## 0.18.0 – 13.11.2026
 ### Eng liegende Doppellinien bleiben getrennt
 - **Ursache behoben:** Beim Zusammenfügen von Linienstücken über Abzweigungen wurden kurze, seitlich wegführende Stege (z. B. zur zweiten Linie einer Wandschicht oder Trockenbauwand) in die lange Linie übernommen. Das bog deren Ende zur Seite, die ganze Linie stand danach leicht schräg und verschmolz mit ihrer Nachbarlinie. Jetzt bleibt das Linienende auf der Achse; führt der Steg zu weiterer Geometrie, bleibt er als eigene kurze Verbindung stehen.

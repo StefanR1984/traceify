@@ -298,6 +298,16 @@ class Fitter:
             closed = True
             pts = pts[:-1]
         corners = find_corners(pts, closed, s.corner_angle)
+        if not corners and not closed and 7 <= len(pts) < 15 and _line_dev(pts)[0] > s.tolerance:
+            # Kurzes, nicht gerades Stück: mit kleinerem Fenster nach Ecken suchen – sonst wird
+            # eine Ecke (Schraffur an Kante, kleine Wandecke) zum Viertelkreis. Nur hier, damit
+            # Pixelrauschen in fast geraden Stücken keine Ecken erzeugt.
+            corners = find_corners(pts, closed, s.corner_angle, w=(len(pts) - 3) // 2)
+            legs = [math.dist(pts[a], pts[b]) for a, b in zip([0] + corners, corners + [-1])]
+            if corners and min(legs) < s.min_length:
+                # winziger Schenkel (Skelett biegt am Anschluss ab): eine Linie bis zum
+                # Anschlusspunkt statt Ecke mit Splitter
+                return [Line(_pt(pts[0]), _pt(pts[-1]))]
         if corners:
             if closed:
                 # Ring an der ersten Ecke aufschneiden
@@ -509,6 +519,7 @@ def merge_through_junctions(ents: list, angle_tol: float = 3.0, tol: float = 1.5
     alive = [True] * len(lines)
     pts = [[(l.p1, False), (l.p2, False)] for l in lines]  # Stützpunkte (Punkt, Abzweig?)
     cos_tol = math.cos(math.radians(angle_tol))
+    refit = {}                                       # Linie -> (Schwerpunkt, Richtung)
 
     def unit(a, b):
         d = math.dist(a, b)
@@ -566,7 +577,9 @@ def merge_through_junctions(ents: list, angle_tol: float = 3.0, tol: float = 1.5
                 if side:
                     t = ((other[0] - far[0]) * (here[0] - far[0]) +
                          (other[1] - far[1]) * (here[1] - far[1])) / (la * la)
+                    cloud = [(p, jj) for p, jj in cloud if key(p) != key(other)]
                     other = (far[0] + t * (here[0] - far[0]), far[1] + t * (here[1] - far[1]))
+                    cloud.append((other, True))
                 alive[j] = False
                 for q in (lines[j].p1, lines[j].p2):
                     nodes.get(key(q), set()).discard(j)
@@ -579,6 +592,43 @@ def merge_through_junctions(ents: list, angle_tol: float = 3.0, tol: float = 1.5
                 pts[i] = cloud
                 if side:
                     break
+        if len(pts[i]) > 2:
+            # Lage aus allen Stützpunkten statt nur aus den Enden: ein vom Fangen verschobenes
+            # Ende würde die ganze Linie sonst schräg stellen bzw. neben die Tinte legen
+            P = np.array([p for p, _ in pts[i]], float)
+            c = P.mean(axis=0)
+            d = np.linalg.svd(P - c)[2][0]
+            if abs(d @ np.array(unit(li.p1, li.p2))) >= cos_tol:
+                refit[i] = (c, d)
+    # Enden neu setzen, ohne Ecken und Anschlüsse aufzureißen: stoßen zwei neu gelegte Linien
+    # aneinander, gilt ihr Schnittpunkt, sonst die Projektion auf die neu gelegte Linie
+    at = {}
+    for i, l in enumerate(lines):
+        if alive[i]:
+            at.setdefault(key(l.p1), []).append((i, 0))
+            at.setdefault(key(l.p2), []).append((i, 1))
+    for k, members in at.items():
+        R = [i for i, _ in members if i in refit]
+        if not R:
+            continue
+        p = np.array(k, float)
+        proj = {i: c + d * (d @ (p - c)) for i in R for c, d in [refit[i]]}
+        q = None
+        if len(R) >= 2:
+            (c1, d1), (c2, d2) = refit[R[0]], refit[R[1]]
+            den = d1[0] * d2[1] - d1[1] * d2[0]
+            if abs(den) > 0.1:                  # nicht (fast) parallel
+                t = ((c2[0] - c1[0]) * d2[1] - (c2[1] - c1[1]) * d2[0]) / den
+                q = c1 + t * d1
+                if np.hypot(*(q - p)) > junction_tol:
+                    q = None
+        for i, e in members:
+            new = q if q is not None else proj.get(i, proj[R[0]])
+            new = (float(new[0]), float(new[1]))
+            if e == 0:
+                lines[i].p1 = new
+            else:
+                lines[i].p2 = new
     dead = {id(l) for l, a in zip(lines, alive) if not a}
     return [e for e in ents if id(e) not in dead]
 
