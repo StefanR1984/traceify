@@ -481,6 +481,12 @@ def snap_endpoints(ents: list, dist: float) -> None:
                 ents[idx].p2 = c
 
 
+def _offset(a, b, p) -> float:
+    """Abstand des Punkts p von der Geraden durch a und b."""
+    d = math.dist(a, b)
+    return abs((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / d if d else 0.0
+
+
 def merge_through_junctions(ents: list, angle_tol: float = 3.0, tol: float = 1.5,
                             junction_tol: float = 0.0) -> list:
     """Verbindet kollineare Linien, die sich einen Endpunkt teilen – auch an Abzweigungen.
@@ -546,6 +552,21 @@ def merge_through_junctions(ents: list, angle_tol: float = 3.0, tol: float = 1.5
                 cloud = [(p, j_ or key(p) == key(here)) for p, j_ in pts[i] + pts[j]]
                 if not fits(far, other, cloud):
                     break
+                # Führt ein kurzes Anschlussstück seitlich weg (Steg zur zweiten Linie einer
+                # Doppellinie, Fransen am Abzweig), würde es das Linienende verbiegen und die
+                # ganze lange Linie schräg stellen – die Doppellinie verschmilzt. Dann wird das
+                # Stück zwar übernommen, das Ende bleibt aber auf der Achse der langen Linie;
+                # führt es zu weiterer Geometrie, bleibt es als Verbindung stehen.
+                # Erlaubt ist, was ein vom Fangen verschobener Abzweigpunkt erklärt.
+                la = math.dist(far, here)
+                side = la >= 8 * tol and _offset(far, here, other) > \
+                    max(1.5, 1.5 * tol) + junction_tol * math.dist(here, other) / la
+                if side and any(k != j and alive[k] for k in nodes.get(key(other), ())):
+                    break      # Steg verbindet mit weiterer Geometrie: als eigene Linie lassen
+                if side:
+                    t = ((other[0] - far[0]) * (here[0] - far[0]) +
+                         (other[1] - far[1]) * (here[1] - far[1])) / (la * la)
+                    other = (far[0] + t * (here[0] - far[0]), far[1] + t * (here[1] - far[1]))
                 alive[j] = False
                 for q in (lines[j].p1, lines[j].p2):
                     nodes.get(key(q), set()).discard(j)
@@ -556,6 +577,8 @@ def merge_through_junctions(ents: list, angle_tol: float = 3.0, tol: float = 1.5
                     li.p2 = other
                 nodes.setdefault(key(other), set()).add(i)
                 pts[i] = cloud
+                if side:
+                    break
     dead = {id(l) for l, a in zip(lines, alive) if not a}
     return [e for e in ents if id(e) not in dead]
 

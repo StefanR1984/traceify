@@ -116,6 +116,13 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
 99,3 %, Genauigkeit ≥ 99,3 %. Befunde:
 - Fehlende Geometrie sind fast nur **eng liegende Doppellinien** (Wandschichten, Trockenbau,
   Treppenkanten, 2–4 px Abstand bei 150 dpi): Traceify zieht eine Mittellinie statt zwei.
+  **0.18.0:** Hauptursache behoben – `merge_through_junctions` hat kurze, seitlich wegführende
+  Stege geschluckt und dabei das Linienende bis 4 px verbogen (ganze Wand schräg → verschmolzen).
+  Jetzt bleibt das Ende auf der Achse; führt der Steg zu weiterer Geometrie, bleibt er stehen.
+  Trefferquote/Genauigkeit +2–5 Punkte (PLAN2_EG 86,4/92,7 → 90,8/95,7; PLAN1_OG1 91,1/94,4 →
+  95,5/98,5; Dach 60,7/93,8 → 64,9/99,4; nur PLAN3_DG −0,4/−0,9). Echte Scans: offene Enden
+  überall weniger (bis −28 %), Objekte +5–7 % auf 4 Plänen (kurze Verbindungsstege). Offen:
+  Stege < 0,5 mm in die Nachbarlinie einrechnen, um die Objekte wieder zu senken.
 - **Dach:** Kies-/Punktmuster aus Kreisen r < 0,5 mm fehlen zu 95 %.
 - **Bögen zu viele** auch außerhalb von Text (PLAN2_EG 261 gegen 90 im Original, bei 300 dpi
   407) – Herkunft klären (Türbögen zerlegt? Ecken verrundet?).

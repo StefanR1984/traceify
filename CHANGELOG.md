@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.18.0 – 13.11.2026
+### Eng liegende Doppellinien bleiben getrennt
+- **Ursache behoben:** Beim Zusammenfügen von Linienstücken über Abzweigungen wurden kurze, seitlich wegführende Stege (z. B. zur zweiten Linie einer Wandschicht oder Trockenbauwand) in die lange Linie übernommen. Das bog deren Ende zur Seite, die ganze Linie stand danach leicht schräg und verschmolz mit ihrer Nachbarlinie. Jetzt bleibt das Linienende auf der Achse; führt der Steg zu weiterer Geometrie, bleibt er als eigene kurze Verbindung stehen.
+- **Gemessen an Original-CAD-Plänen** (als Scan simuliert, 1:100, 150 dpi): Trefferquote und Genauigkeit steigen um 2–5 Punkte, z. B. 86,4 → 90,8 % und 92,7 → 95,7 % beim Erdgeschoss, 91,1 → 95,5 % und 94,4 → 98,5 % beim Obergeschoss.
+- **Echte Scans:** Auf allen neun Testplänen weniger offene Enden (bis 28 %), Abdeckung gleich oder besser. Auf vier Plänen entstehen durch die kurzen Verbindungsstege 5–7 % mehr Objekte.
+
+### Neu für Entwickler: Wahrheits-Prüfstand
+- `tools/wahrheit.py` simuliert aus Original-DXF-Plänen einen Scan und misst das Traceify-Ergebnis direkt gegen die Originalgeometrie (Trefferquote, Genauigkeit, Lagefehler in Papier-mm, Objekte, Bögen, Ortho-Anteil, Wörter). Der DXF-Import übernimmt dafür jetzt auch Bemaßungen (Maßlinien, Pfeile, Maßtext).
+
 ## 0.17.0 – 12.11.2026
 ### Schräge Gebäudeflügel exakt ausgerichtet
 - **Zweite Bauachse:** Hat ein Plan einen schräg stehenden Gebäudeteil (z. B. 39° zum Rest), erkennt Traceify diese Richtung und richtet dessen Wände und Querwände parallel und rechtwinklig zueinander aus – so wie das bei den Hauptachsen schon der Fall war. Ecken bleiben verbunden, Schraffur zählt nicht als Bauachse. Ausgerichtet wird nur, wo sich eine Linie dabei höchstens um etwa 0,3 mm verschiebt: Flügel sind in Scans oft leicht verzogen, sonst würden Wandenden neben die Tinte wandern. Beim A1-Testplan liegen so 59 % der Linienlänge exakt auf einer Bauachse (vorher 54 %), die Abdeckung bleibt gleich. Pläne ohne schrägen Flügel bleiben unverändert.

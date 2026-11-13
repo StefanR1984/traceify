@@ -177,3 +177,21 @@ def test_benchmark_wortvergleich():
     b = benchmark.Metrics("b", words=sorted(benchmark.words(["Keller", "Koks", "26"])))
     w = benchmark.word_overlap(a, b)
     assert w["gemeinsam"] == 2 and w["nur_vergleich"] == 1
+
+
+def test_merge_through_junctions_verbiegt_keine_linienenden():
+    # lange Wandlinie, am Abzweig ein kurzer Steg schräg zur 4 px entfernten Nachbarlinie:
+    # der Steg wird übernommen, das Linienende bleibt aber auf der Achse (sonst kippt die
+    # ganze Linie und die Doppellinie verschmilzt)
+    a = Line((0.0, 0.0), (80.0, 0.0))
+    steg = Line((80.0, 0.0), (85.0, 4.0))
+    c = Line((80.0, 0.0), (80.0, 40.0))              # Abzweigung
+    out = merge_through_junctions([a, steg, c], tol=1.0, junction_tol=4.0)
+    assert len(out) == 2
+    lang = max(out, key=lambda l: math.dist(l.p1, l.p2))
+    assert abs(lang.p1[1]) < 1e-9 and abs(lang.p2[1]) < 1e-9
+    # vom Fangen 1,5 px weggezogener Abzweigpunkt, beide Stücke lang: eine Linie bis zum Ende
+    a2, b2 = Line((0.0, 0.0), (60.0, 1.5)), Line((60.0, 1.5), (120.0, 0.0))
+    out = merge_through_junctions([a2, b2, Line((60.0, 1.5), (60.0, 40.0))],
+                                  tol=1.0, junction_tol=4.0)
+    assert len(out) == 2 and any(math.dist(l.p1, l.p2) > 119 for l in out)
