@@ -64,7 +64,9 @@ def _font(px: int):
     from PIL import ImageFont
     for name in ("arial.ttf", "Arial.ttf", "DejaVuSans.ttf", "LiberationSans-Regular.ttf"):
         try:
-            return ImageFont.truetype(name, px)
+            # einfaches Layout: kein libraqm – fremde DLLs im PATH (z. B. von Tesseract) bringen
+            # sonst eine unpassende Version mit und PIL bricht ab
+            return ImageFont.truetype(name, px, layout_engine=ImageFont.Layout.BASIC)
         except OSError:
             continue
     return ImageFont.load_default()
