@@ -53,6 +53,13 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - `core/benchmark.py` + `tools/pruefstand.py` – Prüfstand (Objekte, Splitter, Abdeckung,
   Texte), `core/dxf_import.py` liest fremde DXF (z. B. eines kommerziellen Vektorisierungsprogramms) und richtet sie aufs Bild aus.
   Echte Scans liegen **nicht** im Repo (Datenschutz) – der Nutzer liefert sie bei Bedarf.
+- `core/truth.py` + `tools/wahrheit.py` – **Wahrheits-Prüfstand**: Original-CAD-DXF (Allplan,
+  `Testdaten Traceify/dxf/dxf/PLAN1–3_*.dxf`, Einheit m) → simulierter Scan (1:100, 150 dpi,
+  Strich 0,25 mm, Rauschen) → Traceify → Messung gegen die Originalgeometrie (Trefferquote,
+  Genauigkeit, Lagefehler in Papier-mm, Objekte, Bögen, Ortho, Wörter). Abbildung ist exakt
+  bekannt, keine Lage-Schätzung. Noch ohne Füllflächen (SOLID) und ohne Schräglage.
+  Geometrie in Textbereichen des Originals zählt nicht (Schrift → Wörter-Spalte).
+  Aufruf: `python tools/wahrheit.py "Testdaten Traceify/dxf/dxf" --bilder <tmp>` (~4 min, 18 Pläne).
 - `export/` – dxf, dwg (ODA File Converter), svg, gcode (`plan()` = gemeinsame Basis für
   G-Code, Vorschau, Zeit; Radiuskorrektur, Haltestege).
 - `ai/` – Ollama-Client und `openai_client.py` (vLLM/OpenAI-kompatibel, gleiche Schnittstelle;
@@ -102,6 +109,18 @@ Stand 0.17.0 (Traceify / Vergleichsprogramm):
 Achtung: Auch das Vergleichsprogramm liest viel Unsinn („sightwal“, „poe“) – die
 Wort-Übereinstimmung ist kein Wahrheitsmaßstab. Schraffur als HATCH: Einzellinien übrig
 image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert).
+
+**Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
+Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler
+95 % ≤ 0,4 mm Papier (DG 0,6). Mit 300 dpi (PLAN2_EG / Dach / OG4): Trefferquote 92,7 / 71,5 /
+99,3 %, Genauigkeit ≥ 99,3 %. Befunde:
+- Fehlende Geometrie sind fast nur **eng liegende Doppellinien** (Wandschichten, Trockenbau,
+  Treppenkanten, 2–4 px Abstand bei 150 dpi): Traceify zieht eine Mittellinie statt zwei.
+- **Dach:** Kies-/Punktmuster aus Kreisen r < 0,5 mm fehlen zu 95 %.
+- **Bögen zu viele** auch außerhalb von Text (PLAN2_EG 261 gegen 90 im Original, bei 300 dpi
+  407) – Herkunft klären (Türbögen zerlegt? Ecken verrundet?).
+- **Ortho** 52–73 % gegen 71–91 % im Original (Schraffur des Originals ist dort als Einzellinien).
+- Wörter: auf diesem Rechner kein Tesseract → noch nicht gemessen.
 
 1. **Kleine, fette Schrift** (image-11: „Pos 13 Labor“, „Pos 11 Vorräte“, ca. 11 px hoch, schräg):
    Untersucht in 0.17 – sie klebt meist **nicht** an Linien, sondern steht frei; die Buchstaben

@@ -52,7 +52,7 @@ def _convert(e, out: list, depth: int = 0) -> None:
             p = e.dxf.insert
             h = e.dxf.height if t == "TEXT" else e.dxf.char_height
             out.append(Text(txt, (p.x, p.y), float(h), float(e.dxf.get("rotation", 0.0)) % 360))
-    elif t == "INSERT" and depth < 8:
+    elif t in ("INSERT", "DIMENSION") and depth < 8:   # Bemaßung: Linien, Pfeile, Maßtext
         try:
             for v in e.virtual_entities():
                 _convert(v, out, depth + 1)
