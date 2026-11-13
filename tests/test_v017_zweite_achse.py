@@ -58,3 +58,24 @@ def test_verzogener_fluegel_wird_nicht_verbogen():
     p2 = w.p2
     straighten(ents, 1500, 1500)
     assert math.dist(w.p2, p2) < 0.01
+
+
+def test_echt_schraege_linie_bleibt_mit_tintenpruefung():
+    # Dachplan: Linie 2° schräg gezeichnet. Ohne Tintenprüfung wird sie waagrecht gezwungen und
+    # liegt am Ende 10 px neben der Tinte; mit Prüfung bleibt sie schräg, die Wände nicht.
+    import cv2
+    import numpy as np
+    from traceify.core.cad import ink_share
+    img = np.full((700, 1000), 255, np.uint8)
+    ents = _haupt()
+    a = math.radians(2.0)
+    schraeg = Line((150.0, 600.0), (150.0 + 580 * math.cos(a), 600.0 + 580 * math.sin(a)))
+    for e in ents + [schraeg]:
+        cv2.line(img, tuple(map(round, e.p1)), tuple(map(round, e.p2)), 0, 2)
+    ents.append(Line(schraeg.p1, schraeg.p2))
+    straighten(ents, 1000, 700, ink=ink_share(img))
+    assert abs(ents[-1].p2[1] - schraeg.p2[1]) < 0.5            # schräg geblieben
+    assert all(abs(e.p1[1] - e.p2[1]) < 1e-9 or abs(e.p1[0] - e.p2[0]) < 1e-9 for e in ents[:-1])
+    ohne = _haupt() + [Line(schraeg.p1, schraeg.p2)]
+    straighten(ohne, 1000, 700)
+    assert abs(ohne[-1].p1[1] - ohne[-1].p2[1]) < 1e-9          # ohne Prüfung: waagrecht gezwungen

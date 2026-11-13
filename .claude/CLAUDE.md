@@ -124,6 +124,16 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   überall weniger (bis −28 %), Objekte +5–7 % auf 4 Plänen (kurze Verbindungsstege). Offen:
   Stege < 0,5 mm in die Nachbarlinie einrechnen, um die Objekte wieder zu senken.
 - **Dach:** Kies-/Punktmuster aus Kreisen r < 0,5 mm fehlen zu 95 %.
+- **Stand 0.20.0, was fehlt noch** (PLAN2_EG/3_EG/1_EG, je ~13 % der Länge): praktisch nichts
+  > 1 mm entfernt – fehlend heißt „Traceify-Linie 0,3–1 mm daneben“. ~8 Punkte sind Doppellinien
+  < 0,6 mm Abstand (bei 150 dpi/0,25 mm Strich im Scan verschmolzen, kaum lösbar), ~2–3 Punkte
+  Schraffurlinien in Wänden (Abstand 0,6–1 mm; im DXF ohnehin HATCH), ~2 Punkte Einzellinien
+  (nur 9 % der Linienenden > 0,3 mm zu kurz, kein Systemfehler).
+- **PLAN3_DG (0.20.0 behoben):** 39 % der Linienlänge echt 0,05–3° schräg; `straighten` zwang sie
+  auf die Achse (Genauigkeit 81 %). Jetzt Tintenprüfung `cad.ink_share` in `align_axes`: nur
+  ausrichten, wenn danach ≥ 90 % auf Tinte oder nicht schlechter als vorher → 93,4/96,8 %.
+  Feste Querverschiebungsgrenze (`max_shift`) für die Hauptachsen kostete in Grundrissen bis
+  12 Punkte Ortho – verworfen.
 - **Bögen zu viele** auch außerhalb von Text (PLAN2_EG 261 gegen 90 im Original, bei 300 dpi
   407). **0.19.0:** Hauptursache behoben – `find_corners` braucht ≥ 15 Punkte, kurze Stücke
   (Schraffur an Kante, kleine Wandecken) gingen ohne Eckprüfung in die Kreisanpassung. Jetzt in

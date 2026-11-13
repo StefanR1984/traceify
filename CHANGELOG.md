@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.0 – 13.11.2026
+### Leicht schräge Linien bleiben schräg
+- **Gerade ausrichten mit Blick in den Scan:** Bisher wurde jede Linie, die weniger als 3° von waagrecht/senkrecht abweicht, exakt auf die Achse gelegt. Bei Plänen mit bewusst leicht schräg gezeichneten Linien (z. B. Dachgeschoss, Dachaufsichten) lagen diese danach neben der Tinte. Jetzt wird eine Linie nur ausgerichtet, wenn sie danach weiter auf der Tinte liegt (oder nicht schlechter als vorher). Wände, die im Scan nur leicht wackeln, werden wie bisher exakt waagrecht und senkrecht.
+- **Gemessen an Original-CAD-Plänen** (als Scan simuliert): beim Dachgeschoss-Plan Trefferquote 93,4 % statt 82,0 % und Genauigkeit 96,8 % statt 81,3 %; bei den übrigen Plänen gleich oder bis 0,8 Punkte besser. Die echten Scans bleiben unverändert.
+
 ## 0.19.0 – 13.11.2026
 ### Weniger falsche Bögen
 - **Kleine Ecken werden keine Viertelkreise mehr:** Kurze Linienstücke – etwa wo eine Schraffurlinie auf eine Kante trifft oder an kleinen Wandecken – wurden bisher ohne Eckprüfung als Bogen ausgegeben. Jetzt werden auch sie auf Ecken geprüft; biegt das Stück nur kurz vor dem Anschluss ab, wird es eine gerade Linie bis zum Anschlusspunkt. Auf den neun Testplänen gibt es 20–64 % weniger Bögen, z. B. 584 statt 948 oder 385 statt 687; echte Türbögen bleiben erhalten.

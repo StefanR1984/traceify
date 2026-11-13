@@ -239,21 +239,24 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         ents += [translate(e, sx.start, sy.start) for e in part]
 
     skew = None
+    ink_gray = None
+    if not settings.preprocess.deskew:           # nur, wenn Graubild und Vektoren deckungsgleich
+        ink_gray = 255 - gray if settings.preprocess.invert else gray
     if settings.style.straighten and settings.vectorize.mode == MODE_CENTERLINE:
+        from .cad import ink_share
         from .straighten import straighten
         step(90, "Linien ausrichten …")
         skew = straighten(ents, gray.shape[1], gray.shape[0], settings.style.straighten_tol,
                           join_tol=max(2.0, settings.vectorize.snap_distance),
-                          second_shift=max(1.5, 0.3 / dpi_scale))
+                          second_shift=max(1.5, 0.3 / dpi_scale),
+                          ink=None if ink_gray is None else ink_share(ink_gray))
     if settings.style.spurs_mm > 0 and settings.vectorize.mode == MODE_CENTERLINE:
         from .cad import remove_spurs
         remove_spurs(ents, settings.style.spurs_mm / dpi_scale,
                      tol=max(1.0, 0.15 / dpi_scale), skip_layers=(LAYER_DASHED,))
     if settings.style.close_gaps_mm > 0 and settings.vectorize.mode == MODE_CENTERLINE:
         from .cad import close_gaps, ink_checker
-        ink_ok = None
-        if not settings.preprocess.deskew:       # nur, wenn Graubild und Vektoren deckungsgleich
-            ink_ok = ink_checker(255 - gray if settings.preprocess.invert else gray)
+        ink_ok = None if ink_gray is None else ink_checker(ink_gray)
         # bis 0,8 mm immer; bis zum 2,5-Fachen nur, wo der Scan durchgehend Tinte zeigt
         close_gaps(ents, settings.style.close_gaps_mm / dpi_scale,
                    far=2.5 * settings.style.close_gaps_mm / dpi_scale, ink_ok=ink_ok)

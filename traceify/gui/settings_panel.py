@@ -134,7 +134,8 @@ class SettingsPanel(QScrollArea):
         self.straighten = QCheckBox("Linien gerade ausrichten (Schräglage ausgleichen)")
         self.straighten.setToolTip("Erkennt, wie schief der Scan liegt, richtet fast waagrechte/"
                                    "senkrechte Linien exakt aus und dreht die Schräglage beim "
-                                   "Export heraus")
+                                   "Export heraus. Linien, die im Plan bewusst leicht schräg "
+                                   "gezeichnet sind (z. B. Dachpläne), bleiben schräg.")
         self.straighten.setChecked(True)
         f.addRow(self.straighten)
         self.close_gaps = _spin(0.0, 5.0, 0.8, 0.1, 1, " mm")

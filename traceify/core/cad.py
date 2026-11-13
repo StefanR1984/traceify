@@ -579,6 +579,23 @@ def ink_checker(gray, min_dark: float = 60.0, win: int = 15):
     return ok
 
 
+def ink_share(gray, min_dark: float = 60.0, near: int = 1):
+    """Anteil der Strecke p→q, der im Scan (Graustufen, schwarz auf weiß) auf Tinte liegt –
+    Tinte darf bis zu ``near`` Pixel daneben liegen. Papierhelligkeit: 90-%-Wert des Bildes."""
+    import cv2
+    import numpy as np
+    H, W = gray.shape[:2]
+    g = cv2.erode(gray, np.ones((2 * near + 1, 2 * near + 1), np.uint8)) if near > 0 else gray
+    dark = (float(np.percentile(gray[::4, ::4], 90)) - g.astype(np.float32)) >= min_dark
+
+    def share(p, q) -> float:
+        n = max(3, int(math.dist(p, q) * 2) + 1)
+        xs = np.clip(np.round(np.linspace(p[0], q[0], n)).astype(int), 0, W - 1)
+        ys = np.clip(np.round(np.linspace(p[1], q[1], n)).astype(int), 0, H - 1)
+        return float(dark[ys, xs].mean())
+    return share
+
+
 def _length(e) -> float:
     if isinstance(e, Line):
         return math.dist(e.p1, e.p2)

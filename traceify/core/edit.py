@@ -94,7 +94,8 @@ def _set_end(e, idx, p):
 
 
 def orthogonalize(ents: list, tol_deg: float = 3.0, join_tol: float = 2.0,
-                  min_px: float = 0.0, max_deg: float = 20.0, max_shift: float = 0.0) -> int:
+                  min_px: float = 0.0, max_deg: float = 20.0, max_shift: float = 0.0,
+                  keep=None) -> int:
     """Richtet fast waagrechte/senkrechte Linien exakt aus. Gibt die Anzahl geänderter Linien zurück.
 
     Vorher verbundene Endpunkte bleiben verbunden (Ecke = x der Senkrechten, y der Waagrechten).
@@ -102,6 +103,8 @@ def orthogonalize(ents: list, tol_deg: float = 3.0, join_tol: float = 2.0,
     auch ausgerichtet (ihr Winkel ist im Scan unsicher) – bis höchstens max_deg.
     max_shift: wenn > 0, nur Linien ausrichten, deren Enden sich dabei insgesamt höchstens so
     viele Pixel quer verschieben (lange, merklich schräge Linien bleiben, wie sie sind).
+    keep: optionale Prüfung ``keep(alt1, alt2, neu1, neu2)`` für Linien, die sich beim Ausrichten
+    um mehr als 1 px verschieben (z. B. liegt die neue Lage noch auf der Tinte?) – sonst bleiben sie.
     """
     lines = [e for e in ents if isinstance(e, Line)]
     pts = _endpoints(lines)
@@ -120,14 +123,17 @@ def orthogonalize(ents: list, tol_deg: float = 3.0, join_tol: float = 2.0,
         L = math.dist(l.p1, l.p2)
         if near(min(a, 180 - a), L) and min(a, 180 - a) <= abs(a - 90):
             y = (l.p1[1] + l.p2[1]) / 2
-            l.p1, l.p2 = (l.p1[0], y), (l.p2[0], y)
-            kind[id(l)] = "h"
-            n += 1
+            q1, q2, k, dev = (l.p1[0], y), (l.p2[0], y), "h", min(a, 180 - a)
         elif near(abs(a - 90), L):
             x = (l.p1[0] + l.p2[0]) / 2
-            l.p1, l.p2 = (x, l.p1[1]), (x, l.p2[1])
-            kind[id(l)] = "v"
-            n += 1
+            q1, q2, k, dev = (x, l.p1[1]), (x, l.p2[1]), "v", abs(a - 90)
+        else:
+            continue
+        if keep is not None and L * math.sin(math.radians(dev)) > 1.0 and not keep(l.p1, l.p2, q1, q2):
+            continue              # ausgerichtet läge sie neben der Tinte: echt schräge Linie
+        l.p1, l.p2 = q1, q2
+        kind[id(l)] = k
+        n += 1
     for g in groups:
         members = [pts[i] for i in g]
         xs = [(e.p1 if idx == 0 else e.p2)[0] for e, idx, _ in members if kind.get(id(e)) == "v"]
@@ -150,13 +156,16 @@ def _turn(a: Point, b: Point, c: Point) -> float:
 
 def align_axes(ents: list, skew: float = 0.0, center: Point = (0.0, 0.0),
                tol_deg: float = 3.0, join_tol: float = 2.0, min_px: float = 0.0,
-               curve_turn: float = 20.0, max_shift: float = 0.0) -> int:
+               curve_turn: float = 20.0, max_shift: float = 0.0, ink=None) -> int:
     """Richtet Linien **und Polylinien-Segmente** exakt an den Achsen aus (ändert ents).
 
     skew: Schräglage in Grad (Bild); ausgerichtet wird an den um skew gedrehten Achsen.
     Polylinien-Segmente werden nur genommen, wenn sie an beiden Enden „echte“ Ecken haben
     (Knick > curve_turn) oder offene Enden sind – Segmente in Rundungen (viele kleine
     Knicke) bleiben unberührt, damit Kurven nicht zu Treppen werden.
+    ink: optional ``ink(p, q)`` im Bildsystem = Anteil der Strecke auf Tinte (``cad.ink_share``).
+    Eine Linie wird nur ausgerichtet, wenn sie danach zu mindestens 90 % auf Tinte liegt oder
+    nicht schlechter als vorher – echt schräg gezeichnete Linien (Dachpläne) bleiben so schräg.
     Gibt die Anzahl exakt ausgerichteter Linien/Segmente zurück."""
     work: list = []           # (Proxy-Linie, Ziel) – Ziel: Line oder (Polyline, i, j)
     for e in ents:
@@ -181,8 +190,15 @@ def align_axes(ents: list, skew: float = 0.0, center: Point = (0.0, 0.0),
     if not work:
         return 0
     proxies = [rotate(w, center, -skew) if skew else w for w, _ in work]
+    def on_ink(a, b):                          # Anteil auf Tinte im Bildsystem (zurückgedreht)
+        r = rotate(Line(a, b), center, skew) if skew else Line(a, b)
+        return ink(r.p1, r.p2)
+
+    def keep(a1, a2, n1, n2) -> bool:
+        neu = on_ink(n1, n2)
+        return neu >= 0.9 or neu >= on_ink(a1, a2) - 0.05
     n = orthogonalize(proxies, tol_deg=tol_deg, join_tol=join_tol, min_px=min_px,
-                      max_shift=max_shift)
+                      max_shift=max_shift, keep=keep if ink is not None else None)
     newpts: dict = {}
     for prx, (_, tgt) in zip(proxies, work):
         r = rotate(prx, center, skew) if skew else prx
