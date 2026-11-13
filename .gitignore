@@ -13,5 +13,7 @@ packaging/windows/version_info.txt
 *.dxf
 *.nc
 !beispiele/*.png
+# Echte Scans des Nutzers – Datenschutz, nie ins Repo
+Testdaten Traceify/
 .DS_Store
 Thumbs.db
