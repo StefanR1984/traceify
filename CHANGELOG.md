@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.0 – 14.11.2026
+### Kurze Maße zwischen Sternen, Maßpaare über und unter der Linie
+- **„✳74✳74✳“:** Bei kurzen Maßen lässt Allplan die Maßlinie ganz weg, die Zahl steht zwischen zwei Maßbegrenzungen. Traceify erkennt die Sterne (Schrägstrich mit Maß- und Hilfslinie durch die Mitte; Ziffern wie „4“ oder „7“ zählen nicht) und liest die Zahl dazwischen gezielt.
+- **Zwei Zahlen direkt über und unter der Maßlinie** (z. B. Breite und Höhe einer Öffnung, „3.01“ / „3.00“) werden an der Linie getrennt und einzeln gelesen.
+- **Hochziffern** („2.38⁵“) werden sicherer gelesen; die Zahlenlänge muss zur Breite passen, sonst wird nichts übernommen (keine Teilzahlen).
+- **Gemessen** an den echten 300-dpi-Plots (je gedrucktem Text nach Lage): PLAN1_EG 111 statt 93, PLAN1_UG 71 statt 62; falsche Wörter 15 statt 16 und 21 statt 24. Simulierte Pläne 528 / 200 statt 527 / 202. Neun Testscans und Geometrie unverändert, Laufzeit etwa +3–7 %.
+
 ## 0.23.0 – 14.11.2026
 ### Maßzahlen in der Lücke der Maßlinie
 - **„—— 6.70 ——“ wird jetzt gelesen:** Steht eine Maßzahl mittig in einer Lücke der Maßlinie (Allplan-Standard), sucht Traceify diese Lücke – waagrecht und senkrecht –, schneidet die Zahl ohne die Linienstücke aus und liest sie nur mit Ziffern. Bisher scheiterte Tesseract oft an den kurzen Linienstücken links und rechts der Zahl, selbst bei großen, freistehenden Maßen. Hochgestellte Ziffern („4.17⁵“) werden erkannt.

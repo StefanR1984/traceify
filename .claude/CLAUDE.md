@@ -46,7 +46,7 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
   `lexicon.py` (Wörterbuch für Planbegriffe, OCR-Verwechslungen; Zahlen nie ändern),
   `straighten.py` (Schräglage, Meta `schraeglage`; Export dreht über `Drawing.export_view`),
   `pdf_vector.py` (Vektor-PDF direkt), `scale_detect.py` (M 1:N), `symbols.py` (Blöcke),
-  `quality.py` (Ampel), `edit.py` (Ecke, Ausrichten inkl. Polylinien `align_axes`, Lücken, Knoten),
+  `quality.py` (Ampel), `dimensions.py` (Maßzahlen gezielt lesen: Lücke der Maßlinie, zwischen Sternen, Paar über/unter der Linie; `merge` ersetzt verlesene Zahlen), `edit.py` (Ecke, Ausrichten inkl. Polylinien `align_axes`, Lücken, Knoten),
   `hatch.py` (Schraffur-Flächen für den DXF-Export: Rasternummern per Nachbarschaft,
   Ausgleichsgerade, Reste anhängen), `cad.py` (Fang, Schnittpunkte, Stutzen, Dehnen, SnapIndex,
   `close_gaps`, `remove_spurs`).

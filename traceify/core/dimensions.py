@@ -1,35 +1,92 @@
 """Maßketten: Maßzahlen gezielt aus ihrer Lage an der Maßlinie lesen.
 
-Erster Fall: die Zahl steht **in einer Lücke der Maßlinie** („—— 6.70 ——“, Allplan-Standard).
-Tesseract scheitert auf dem ganzen Blatt oft daran, weil die Linienstücke links und rechts im
-OCR-Bild bleiben (sie sind kürzer als die Schriftgrenze). Hier wird die Lücke gefunden, die
-Schrift darin ohne Linie ausgeschnitten und nur mit Ziffern gelesen.
+Die Zahl steht **in einer Lücke der Maßlinie** („—— 6.70 ——“, Allplan-Standard) oder zwischen
+zwei Maßbegrenzungen ohne Linie („✳74✳74✳“), mittig auf der Linie oder als Paar direkt darüber
+und darunter („3.01“ / „3.00“). Tesseract scheitert auf dem ganzen Blatt oft daran, weil
+Linienstücke und Sterne im OCR-Bild bleiben. Hier wird die Lücke gefunden, die Schrift darin
+ohne Linie ausgeschnitten und nur mit Ziffern gelesen; eine Hochziffer („4.17⁵“) wird in voller
+Größe angehängt.
 
 Koordinaten in Bildpixeln; bw: 1 = Tinte.
 """
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
 from .model import Text
 
-# Box (x, y, w, h) der Schrift in der Lücke, Box der vollen Ziffern (für die Hochziffer)
-Gap = Tuple[Tuple[int, int, int, int], Tuple[int, int, int, int]]
+# Box (x, y, w, h) der Zahl in der Lücke, Box der vollen Ziffern, Box der Hochziffer oder None,
+# Lage zur Maßlinie: 0 mittig darauf, -1 darüber, +1 darunter
+Box = Tuple[int, int, int, int]
+Gap = Tuple[Box, Box, Optional[Box], int]
 
-# Maß in cm („25“, „150“) oder m („6.70“, „14.45“, mit Hochziffer „4.175“)
-NUMBER = re.compile(r"^(?:\d{1,3}|\d{1,2}[.,]\d{2,3})$")
+# Maß in cm („25“, „150“) oder m („6.70“, „14.45“); die Hochziffer („4.17⁵“) wird getrennt gelesen
+NUMBER = re.compile(r"^(?:\d{2,3}|\d{1,2}\.\d{2})$")
+DIGIT_W = 0.77      # Ziffernbreite samt Abstand je Ziffernhöhe (serifenlose Planschrift)
+
+
+def _ticks(bw: np.ndarray, px_per_mm: float):
+    """Maßbegrenzungen: kurzer 45°-Strich („/“ oder „\“, je nach Leserichtung), durch dessen Mitte
+    Maßlinie und Maßhilfslinie laufen („Stern“). Gibt (Liste (cx, cy), Maske der Sterne) zurück.
+
+    Ziffern mit Schrägstrich („7“, „4“, „1“) haben kein Kreuz genau in der Strichmitte."""
+    import cv2
+    d = max(4, int(round(0.7 * px_per_mm)))
+    k = np.eye(d, dtype=np.uint8)
+    diag = cv2.morphologyEx(bw, cv2.MORPH_OPEN, k) | cv2.morphologyEx(bw, cv2.MORPH_OPEN, np.fliplr(k))
+    n, lab, st, cen = cv2.connectedComponentsWithStats(diag, connectivity=8)
+    r = max(3, int(round(0.4 * px_per_mm)))
+    H, W = bw.shape
+    out, mask = [], np.zeros_like(bw)
+    # kurze Stücke der Maßlinie zwischen Stern und Zahl („✳—1.25—✳“, kürzer als eine „Linie“)
+    stub = cv2.morphologyEx(bw, cv2.MORPH_OPEN, np.ones((1, max(5, int(px_per_mm))), np.uint8))
+    R = int(3 * px_per_mm)
+    for i in range(1, n):
+        x, y, w, h, _ = st[i]
+        if not (0.6 * px_per_mm <= max(w, h) <= 3.0 * px_per_mm) or abs(w - h) > 0.35 * max(w, h):
+            continue
+        cx, cy = int(round(cen[i][0])), int(round(cen[i][1]))
+        if cx - r < 1 or cy - r < 1 or cx + r + 2 > W or cy + r + 2 > H:
+            continue
+        # waagrechter und senkrechter Strich durch die Mitte, je beidseits
+        rows = bw[cy - 2:cy + 3, cx - r:cx + r + 1].all(axis=1)
+        if not rows.any() or not bw[cy - r:cy + r + 1, cx - 1:cx + 2].any(axis=1).all():
+            continue
+        # der Schrägstrich läuft durch die Mitte: Tinte beidseits auf der Diagonale (nicht „4“)
+        q = max(3, int(round(0.35 * px_per_mm)))
+        if not any(bw[cy - sy * q - 1:cy - sy * q + 2, cx - q - 1:cx - q + 2].any()
+                   and bw[cy + sy * q - 1:cy + sy * q + 2, cx + q - 1:cx + q + 2].any() for sy in (-1, 1)):
+            continue
+        out.append((cx, cy - 2 + float(np.nonzero(rows)[0].mean())))
+        sl = (slice(y, y + h), slice(x, x + w))
+        mask[sl] |= (lab[sl] == i).astype(np.uint8)
+        mask[cy - r - 2:cy + r + 3, cx - 1:cx + 2] = 1
+        mask[cy - 1:cy + 2, cx - r - 2:cx + r + 3] = 1
+        # nur was am Stern hängt – der Querstrich einer „4“ daneben bleibt
+        run = stub[cy - 2:cy + 3, max(0, cx - R):cx + R].any(axis=0)
+        off = np.nonzero(~run)[0] + max(0, cx - R)
+        a = int(off[off < cx].max()) + 1 if (off < cx).any() else max(0, cx - R)
+        b = int(off[off > cx].min()) if (off > cx).any() else cx + R
+        mask[cy - 2:cy + 3, a:b] |= stub[cy - 2:cy + 3, a:b]
+    return out, cv2.dilate(mask, np.ones((3, 3), np.uint8))
 
 
 def _horizontal_gaps(bw: np.ndarray, px_per_mm: float) -> List[Gap]:
-    """Schrift in Lücken waagrechter Linien (Box der Schrift, Box der vollen Ziffern)."""
+    """Schrift in Lücken waagrechter Linien (Box der Schrift, Box der vollen Ziffern).
+
+    Die Lücke liegt zwischen zwei Linienstücken oder zwei Maßbegrenzungen („✳74✳74✳“: Allplan
+    lässt die Maßlinie bei kurzen Maßen ganz weg)."""
     import cv2
     L = max(10, int(3.0 * px_per_mm))
     hor = cv2.morphologyEx(bw, cv2.MORPH_OPEN, np.ones((1, L), np.uint8))
     n, _, st, _ = cv2.connectedComponentsWithStats(hor, connectivity=8)
     thin = max(3, int(round(0.6 * px_per_mm)))
-    segs = sorted((y + h / 2.0, x, x + w) for x, y, w, h, _ in st[1:] if h <= thin)
-    rest = bw & (hor == 0)
+    ticks, stars = _ticks(bw, px_per_mm)
+    rt = 0.4 * px_per_mm
+    segs = sorted([(y + h / 2.0, x, x + w) for x, y, w, h, _ in st[1:] if h <= thin]
+                  + [(cy, cx - rt, cx + rt) for cx, cy in ticks])
+    rest = bw & (hor == 0) & (stars == 0)
     H, W = bw.shape
     h_min, h_max = 1.2 * px_per_mm, 7.0 * px_per_mm
     out = []
@@ -44,9 +101,12 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float) -> List[Gap]:
         rows.append(cur)
     for row in rows:
         row.sort(key=lambda s: s[1])
+        end = None                                  # (Zeile, rechtes Ende) des Stücks vor der Lücke
         for a, b in zip(row, row[1:]):
-            g0, g1 = int(a[2]), int(b[1])          # Lücke [g0, g1)
-            cy = (a[0] + b[0]) / 2.0
+            if end is None or a[2] > end[1]:
+                end = (a[0], a[2])
+            g0, g1 = int(end[1]), int(b[1])         # Lücke [g0, g1)
+            cy = (end[0] + b[0]) / 2.0
             if not (1.5 * px_per_mm <= g1 - g0 <= 30 * px_per_mm):
                 continue
             y0, y1 = max(0, int(cy - h_max)), min(H, int(cy + h_max) + 1)
@@ -55,26 +115,47 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float) -> List[Gap]:
             comps = [(x + g0, y + y0, w, h) for x, y, w, h, ar in cs[1:] if ar >= 2]
             # volle Ziffern: kreuzen die Linienmitte, Schrifthöhe
             full = [c for c in comps if c[1] <= cy <= c[1] + c[3] and h_min <= c[3] <= h_max]
-            if not full:
+            g = _number(full, comps, rest, g0, g1) if full else None
+            if g is not None and abs(g[1][1] + g[1][3] / 2.0 - cy) <= 0.25 * g[1][3]:
+                out.append(g + (0,))                # mittig auf der Linie
                 continue
-            fx0, fy0 = min(c[0] for c in full), min(c[1] for c in full)
-            fx1 = max(c[0] + c[2] for c in full)
-            fy1 = max(c[1] + c[3] for c in full)
-            fh = fy1 - fy0
-            # Schrift mittig auf der Linie, frei stehend in der Lücke
-            if abs((fy0 + fy1) / 2.0 - cy) > 0.25 * fh or fx0 - g0 < 0.2 * fh or g1 - fx1 < 0.2 * fh:
-                continue
-            # dazu Punkt, Komma, Hochziffer: kleine Teile im Bereich der Zahl
-            bx0, by0, bx1, by1 = fx0, fy0, fx1, fy1
-            for c in comps:
-                if c in full or c[3] > fh:
-                    continue
-                if fx0 - 0.3 * fh <= c[0] and c[0] + c[2] <= fx1 + 0.8 * fh \
-                        and fy0 - 0.4 * fh <= c[1] and c[1] + c[3] <= fy1 + 0.4 * fh:
-                    bx0, by0 = min(bx0, c[0]), min(by0, c[1])
-                    bx1, by1 = max(bx1, c[0] + c[2]), max(by1, c[1] + c[3])
-            out.append(((bx0, by0, bx1 - bx0, by1 - by0), (fx0, fy0, fx1 - fx0, fh)))
+            # zwei Zahlen direkt über und unter der Linie („3.01“ / „3.00“, Breite / Höhe einer
+            # Öffnung): an der Linie trennen, sie berühren sich oft
+            r = int(round(cy)) - y0
+            win = win.copy()
+            win[r - 1:r + 2] = 0
+            k, _, cs, _ = cv2.connectedComponentsWithStats(win, connectivity=8)
+            comps = [(x + g0, y + y0, w, h) for x, y, w, h, ar in cs[1:] if ar >= 2]
+            for side in (-1, 1):
+                full = [c for c in comps if h_min <= c[3] <= h_max
+                        and 0 <= (cy - c[1] - c[3] if side < 0 else c[1] - cy) <= 0.25 * c[3] + 2]
+                g = _number(full, comps, rest, g0, g1) if full else None
+                if g is not None:
+                    out.append(g + (side,))
     return out
+
+
+def _number(full, comps, rest, g0: int, g1: int):
+    """Aus den vollen Ziffern einer Lücke [g0, g1) die Zahl bilden: (Box, Box der Ziffern,
+    Box der Hochziffer oder None) – oder None, wenn sie nicht frei in der Lücke steht."""
+    from .ocr import _superscript_box
+    top = max(c[3] for c in full)
+    full = [c for c in full if c[3] >= 0.75 * top]             # ohne mitgefangene Hochziffer
+    fx0, fy0 = min(c[0] for c in full), min(c[1] for c in full)
+    fx1 = max(c[0] + c[2] for c in full)
+    fy1 = max(c[1] + c[3] for c in full)
+    fh = fy1 - fy0
+    if fh > 1.3 * top or fx0 - g0 < 0.2 * fh or g1 - fx1 < 0.2 * fh:
+        return None
+    # dazu Punkt und Komma: kleine Teile am Fuß zwischen den Ziffern
+    by1 = fy1
+    for c in comps:
+        if c[3] < 0.4 * fh and fx0 < c[0] and c[0] + c[2] < fx1 \
+                and fy0 + 0.6 * fh <= c[1] and c[1] + c[3] <= fy1 + 0.3 * fh:
+            by1 = max(by1, c[1] + c[3])
+    fb = (fx0, fy0, fx1 - fx0, fh)
+    sup = _superscript_box(rest, fb)
+    return (fx0, fy0, fx1 - fx0, by1 - fy0), fb, sup[0] if sup else None
 
 
 def line_gaps(bw: np.ndarray, px_per_mm: float) -> List[Tuple[Gap, int]]:
@@ -83,49 +164,76 @@ def line_gaps(bw: np.ndarray, px_per_mm: float) -> List[Tuple[Gap, int]]:
     out = [(g, 0) for g in _horizontal_gaps(bw, px_per_mm)]
     H = bw.shape[0]
     rot = np.ascontiguousarray(np.rot90(bw, -1))      # wie ocr.recognize, k=1
-    for (b, f) in _horizontal_gaps(rot, px_per_mm):
-        back = tuple((y, H - (x + w), h, w) for x, y, w, h in (b, f))
-        out.append((back, 1))
+    for g in _horizontal_gaps(rot, px_per_mm):
+        back = tuple(b and (b[1], H - (b[0] + b[2]), b[3], b[2]) for b in g[:3])
+        out.append((back + g[3:], 1))
     return out
+
+
+def _crop(bw: np.ndarray, gray: np.ndarray, box, k: int, height: int, side: int = 0) -> np.ndarray:
+    """Schrift einer Box aus dem Graubild, auf height skaliert, lesbar gedreht. Tinte, die nicht
+    in die Box reicht (Linienenden, Sterne, Nachbarzahlen im Rand), wird weiß – bei side ≠ 0 auch
+    alles jenseits der Maßlinie (die zweite Zahl)."""
+    import cv2
+    x, y, w, h = box
+    p = max(2, int(0.15 * (w if k else h)))
+    x0, y0 = max(0, x - p), max(0, y - p)
+    c = gray[y0:y + h + p, x0:x + w + p].copy()
+    n, lab = cv2.connectedComponents(bw[y0:y + h + p, x0:x + w + p], connectivity=8)
+    own = np.zeros(n, bool)
+    own[np.unique(lab[y - y0:y - y0 + h, x - x0:x - x0 + w])] = True
+    own[0] = False
+    alien = ((lab > 0) & ~own[lab]).astype(np.uint8)
+    c[(cv2.dilate(alien, np.ones((5, 5), np.uint8)) > 0) & ~own[lab]] = 255
+    if side and k == 0:
+        c[(y - y0 + h if side < 0 else 0):(None if side < 0 else y - y0)] = 255
+    elif side:
+        c[:, (x - x0 + w if side < 0 else 0):(None if side < 0 else x - x0)] = 255
+    if k == 1:
+        c = np.rot90(c, -1)
+    f = height / max(1, c.shape[0])
+    return cv2.resize(np.ascontiguousarray(c), (max(1, int(round(c.shape[1] * f))), height),
+                      interpolation=cv2.INTER_AREA if f < 1 else cv2.INTER_CUBIC)
 
 
 def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_lines=None):
     """Maßzahlen in Lücken der Maßlinie lesen. Gibt (Texte, Boxen x, y, w, h) zurück."""
-    import cv2
-
     from . import textlines
-    from .ocr import NUM_WHITELIST, SUPERSCRIPT, _superscript_box
+    from .ocr import NUM_WHITELIST, SUPERSCRIPT
     gaps = line_gaps(bw, px_per_mm)
     if not gaps:
         return [], []
+    LH = textlines.LINE_H
     crops = []
-    for (b, _), k in gaps:
-        x, y, w, h = b
-        p = max(2, int(0.15 * h))
-        c = gray[max(0, y - p):y + h + p, max(0, x - p):x + w + p]
-        if k == 1:
-            c = np.rot90(c, -1)
-        f = textlines.LINE_H / max(1, c.shape[0])
-        crops.append(cv2.resize(np.ascontiguousarray(c),
-                                (max(1, int(round(c.shape[1] * f))), textlines.LINE_H),
-                                interpolation=cv2.INTER_AREA if f < 1 else cv2.INTER_CUBIC))
+    for (b, _, sup, side), k in gaps:
+        c = _crop(bw, gray, b, k, LH, side)
+        if sup is not None:
+            # Hochziffer („4.17⁵“) in voller Größe dahinter: so liest Tesseract sie sicher
+            c = np.hstack([c[:, :-2], _crop(bw, gray, sup, k, LH, side)])
+        crops.append(c)
     res = (run_lines or textlines._tesseract_lines)(crops, s, NUM_WHITELIST)
-    rot = np.ascontiguousarray(np.rot90(bw, -1))
-    H = bw.shape[0]
     texts, boxes = [], []
-    for ((b, fb), k), (t, conf) in zip(gaps, res):
-        t = (t or "").replace(" ", "")
-        if conf < 60 or not NUMBER.match(t):
+    for ((b, fb, sup, _), k), (t, conf) in zip(gaps, res):
+        t = (t or "").replace(" ", "").replace(",", ".")
+        high = ""
+        if sup is not None and NUMBER.match(t[:-1]):      # letzte Ziffer ist die Hochziffer
+            t, high = t[:-1], t[-1].translate(SUPERSCRIPT)
+        elif sup is not None:                             # war keine (Pfeilspitze, Linienrest)
+            sup = None
+        if conf < 75 or not NUMBER.match(t):
             continue
-        # Hochziffer („4.17⁵“): als normale Ziffer mitgelesen → hochstellen
-        if k == 0:
-            sup = _superscript_box(bw, fb)
-        else:
-            fx, fy, fw, fh = fb                           # Box ins gedrehte Bild
-            sup = _superscript_box(rot, (H - (fy + fh), fx, fh, fw))
-        if sup is not None and sum(ch.isdigit() for ch in t) == sup[1] + 1 and "." in t[:-1]:
-            t = t[:-1] + t[-1].translate(SUPERSCRIPT)
+        # passt die Länge der Zahl zur Box? (sonst: Teil einer Zahl oder zwei aufeinander)
+        w, h = (fb[2], fb[3]) if k == 0 else (fb[3], fb[2])
+        want = h * DIGIT_W * (len(t) - 0.5 * t.count(".") - 0.15)
+        if not 0.75 <= w / want <= 1.25:
+            continue
+        t += high
         x, y, w, h = b
+        if sup is not None:                               # Box mit Hochziffer
+            x1, y1 = max(x + w, sup[0] + sup[2]), max(y + h, sup[1] + sup[3])
+            x, y = min(x, sup[0]), min(y, sup[1])
+            b = (x, y, x1 - x, y1 - y)
+            w, h = b[2], b[3]
         height = float(fb[3] if k == 0 else fb[2])
         if k == 0:
             texts.append(Text(t, (float(x), float(fb[1] + fb[3])), height, 0.0))
