@@ -160,6 +160,11 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   stehen lassen (Tinte beidseits) → 0 richtig mehr, falsch +2/+3. Die betroffenen Zahlen liegen zwischen
   vielen Linienresten; ohne Lage-Wissen (Maßkette) nicht trennbar. Offen: KI/Maßketten-Erkennung.
   Simulationsartefakt: PLAN1_EG/UG zeichnen ungedruckte, übereinanderliegende Maßtexte (69 Zahlen).
+  **Kleine Schrift (untersucht 14.11.):** Hauptgruppe 1,25 mm (PLAN2-Raumstempel), bei 150 dpi ~7 px, 21 von
+  231 gelesen; Binarisieren verliert Punkte/Formen. Verworfen: OCR-Zoom 2 (Nummern zerfallen, „05 Bure“),
+  Graustufen für Tesseract (gesamt +18 richtig/+31 falsch, echte Scans verlieren Texte), Graustufen nur für
+  Schrift < 2 mm (+5/+7). **Mit 300 dpi ohne Änderung: PLAN2_EG 13 → 45 von 55, PLAN2_OG1 18 → 33 von 46**
+  – kleine Schrift ist eine Frage der Scanauflösung.
 
 1. **Kleine, fette Schrift** (image-11: „Pos 13 Labor“, „Pos 11 Vorräte“, ca. 11 px hoch, schräg):
    Untersucht in 0.17 – sie klebt meist **nicht** an Linien, sondern steht frei; die Buchstaben

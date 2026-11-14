@@ -35,7 +35,7 @@ Echte Scans 0.17.0 → 0.20.0: gleich viele Texte, Bögen −30 bis −60 %, off
 
 ## Als Nächstes
 1. **Reine Zahlen** (nur ~50 % gelesen; Ursache: Zahl klebt an Maß-/Hilfslinie, siehe CLAUDE.md – zwei Ansätze gemessen und verworfen): Ursache je Fall ansehen – Hauptziffern unlesbar, Zahl an Maßlinie geklebt, zerrissen? Werkzeug: Analyse-Skript nach Muster `wortanalyse.py` (pro Originaltext Lage, Höhe, Winkel, gefundene Wörter; `render_scan(...).truth`, `benchmark.words`).
-2. **Schrift 2,5–3,5 mm** nur 16 % (bei 150 dpi ≈ 15–20 px hoch) – prüfen, ob Zoom für die OCR hilft.
+2. **Kleine Schrift** untersucht: liegt an der Scanauflösung (300 dpi: PLAN2_EG 13 → 45 von 55), Zoom/Graustufen verworfen. Idee: Hinweis in der Ampel, wenn sehr kleine Schrift bei < 200 dpi erkannt wird.
 3. Wahrheit mit 300 dpi (`--dpi 300`), restliche Fehlbögen (PLAN2_EG 189 gegen 90), Kiesmuster Dach.
 
 Messstand 0.21.0: simuliert 523 von 887 Wörtern richtig (199 falsch); echte PLAN1-Plots 100 von 208 (48 falsch), Trefferquote 93,8–97,6 %, Genauigkeit 98,5–98,9 %.
