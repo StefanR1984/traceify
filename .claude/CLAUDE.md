@@ -153,6 +153,12 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   (Stand vor 0.21): Maße mit Hochziffer 8 % (0.21: Nachlesen `ocr.fix_superscripts`), reine Zahlen 50 %,
   Wörter 73 %, Raumnr.+Name 78 %; Schrift 2,5–3,5 mm nur 16 %. Nächste große Gruppe: reine Zahlen
   (oft Hauptziffern unlesbar, senkrechte Maße 55 %). Echte PLAN1-Plots: 100 von 208.
+  **Ursache Zahlen (untersucht 14.11.):** frei stehend 84 % gelesen, mit Linie im Textfeld (Maß-/Hilfslinie)
+  nur 30 % – `text_layer` verwirft die Zahl samt Linie. Verworfen: (a) lange H/V-Linien (10-mm-Öffnung) vor
+  der OCR abziehen → falsch 20→46 (PLAN1_UG); (b) zweiter Durchgang nur Ziffern auf dem befreiten Bild →
+  +4 richtig, +18 falsch, Trefferquote leicht schlechter. Die befreiten Ziffern sind zu zerstückelt; offen:
+  Linie nur dort abziehen, wo sie Ziffern schneidet, und die Lücke im Strich schließen, oder KI für Maßketten.
+  Simulationsartefakt: PLAN1_EG/UG zeichnen ungedruckte, übereinanderliegende Maßtexte (69 Zahlen).
 
 1. **Kleine, fette Schrift** (image-11: „Pos 13 Labor“, „Pos 11 Vorräte“, ca. 11 px hoch, schräg):
    Untersucht in 0.17 – sie klebt meist **nicht** an Linien, sondern steht frei; die Buchstaben
