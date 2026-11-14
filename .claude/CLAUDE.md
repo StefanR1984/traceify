@@ -160,6 +160,17 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   stehen lassen (Tinte beidseits) → 0 richtig mehr, falsch +2/+3. Die betroffenen Zahlen liegen zwischen
   vielen Linienresten; ohne Lage-Wissen (Maßkette) nicht trennbar. Offen: KI/Maßketten-Erkennung.
   Simulationsartefakt: PLAN1_EG/UG zeichnen ungedruckte, übereinanderliegende Maßtexte (69 Zahlen).
+  **Linienstücke im OCR-Bild (untersucht 14.11., 0.22.0):** In echten Plots fehlen auch *freistehende* Maße
+  („6.70“ mitten in der Maßlinie). `text_layer` behält jedes Teil < `max_char_mm` (15 mm) – also auch die
+  Maßlinienstücke zwischen Tick und Zahl; an „——6.70——“ scheitert Tesseract. Gemessen (je gedrucktem Text
+  nach Lage, echte PLAN1-Plots EG/UG; simuliert Wörter richtig/falsch): vorher 87/54, 523/199.
+  (d) lange dünne Teile (> 3 mm, Strich < 5 % der Länge) entfernen → 83/60, 527/194 – instabil: ohne
+  Maßlinie kippt Tesseracts Seitenaufteilung, „3.26“/„3.76“ werden gar nicht mehr gefunden.
+  (e) zwei Durchgänge (mit/ohne Linienstücke, bessere Lesung gewinnt) → 91/64, 532/195, aber echte
+  Plots +8 falsche Wörter und +25–39 % Zeit. (f) zweiter Durchgang nur Schrift ≤ 2 mm neben Linienstücken
+  → 89/56, nicht schneller (Tesseract braucht den Kontext). Alle verworfen zugunsten der Maßketten-
+  Erkennung (Idee 7): Lage aus Linie + Ticks, Segment gezielt lesen, Summe gegen Gesamtmaß prüfen.
+  Je-Text-Messung ist aussagekräftiger als `woerter` (Menge – wiederholte Maße zählen nur einmal).
   **Kleine Schrift (untersucht 14.11.):** Hauptgruppe 1,25 mm (PLAN2-Raumstempel), bei 150 dpi ~7 px, 21 von
   231 gelesen; Binarisieren verliert Punkte/Formen. Verworfen: OCR-Zoom 2 (Nummern zerfallen, „05 Bure“),
   Graustufen für Tesseract (gesamt +18 richtig/+31 falsch, echte Scans verlieren Texte), Graustufen nur für
