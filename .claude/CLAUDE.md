@@ -156,8 +156,9 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   **Ursache Zahlen (untersucht 14.11.):** frei stehend 84 % gelesen, mit Linie im Textfeld (Maß-/Hilfslinie)
   nur 30 % – `text_layer` verwirft die Zahl samt Linie. Verworfen: (a) lange H/V-Linien (10-mm-Öffnung) vor
   der OCR abziehen → falsch 20→46 (PLAN1_UG); (b) zweiter Durchgang nur Ziffern auf dem befreiten Bild →
-  +4 richtig, +18 falsch, Trefferquote leicht schlechter. Die befreiten Ziffern sind zu zerstückelt; offen:
-  Linie nur dort abziehen, wo sie Ziffern schneidet, und die Lücke im Strich schließen, oder KI für Maßketten.
+  +4 richtig, +18 falsch, Trefferquote leicht schlechter; (c) wie (b), Linie aber an Ziffernkreuzungen
+  stehen lassen (Tinte beidseits) → 0 richtig mehr, falsch +2/+3. Die betroffenen Zahlen liegen zwischen
+  vielen Linienresten; ohne Lage-Wissen (Maßkette) nicht trennbar. Offen: KI/Maßketten-Erkennung.
   Simulationsartefakt: PLAN1_EG/UG zeichnen ungedruckte, übereinanderliegende Maßtexte (69 Zahlen).
 
 1. **Kleine, fette Schrift** (image-11: „Pos 13 Labor“, „Pos 11 Vorräte“, ca. 11 px hoch, schräg):
