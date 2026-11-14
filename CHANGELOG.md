@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.23.0 – 14.11.2026
+### Maßzahlen in der Lücke der Maßlinie
+- **„—— 6.70 ——“ wird jetzt gelesen:** Steht eine Maßzahl mittig in einer Lücke der Maßlinie (Allplan-Standard), sucht Traceify diese Lücke – waagrecht und senkrecht –, schneidet die Zahl ohne die Linienstücke aus und liest sie nur mit Ziffern. Bisher scheiterte Tesseract oft an den kurzen Linienstücken links und rechts der Zahl, selbst bei großen, freistehenden Maßen. Hochgestellte Ziffern („4.17⁵“) werden erkannt.
+- Liegt an der Stelle schon eine verlesene Zahl („144“ statt „14.45“, „6 03“, „515“), wird sie ersetzt. Wörter bleiben unangetastet. Läuft über den Schalter „Maßzahlen nachlesen“.
+- **Gemessen** an den echten 300-dpi-Plots der Original-CAD-Pläne (je gedrucktem Text nach Lage): PLAN1_EG 93 statt 87, PLAN1_UG 62 statt 54 Texte richtig; falsche Wörter 16 statt 18 und 24 statt 28. Simulierte Pläne (150 dpi): 527 statt 523 Wörter richtig, 202 statt 199 falsch. Neun Testscans und Geometrie unverändert, Laufzeit etwa +4 %.
+
+### Für Entwickler
+- `tools/zahlen_echt.py`: misst je gedrucktem Originaltext, ob er an derselben Stelle gelesen wird (genauer als die Wörter-Spalte des Wahrheits-Prüfstands, die wiederholte Maße nur einmal zählt).
+
 ## 0.22.0 – 14.11.2026
 ### Hinweis: kleine Schrift besser mit 300 dpi scannen
 - Enthält ein Scan unter 200 dpi viel sehr kleine Schrift (unter 2 mm, z. B. Raumstempel), zeigt die Qualitätsampel „300 dpi empfohlen“, die Statusleiste nennt den Grund. Hintergrund: Solche Schrift ist bei 150 dpi nur etwa 7 Pixel hoch; beim Original-CAD-Plan mit 1,25-mm-Raumstempeln liest Traceify bei 300 dpi 45 statt 13 von 55 Wörtern. Vergrößern oder Graustufen-Lesen im Programm wurden gemessen und brachten ebenso viele Fehllesungen wie Treffer.

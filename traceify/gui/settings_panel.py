@@ -201,7 +201,8 @@ class SettingsPanel(QScrollArea):
         self.ocr_numbers = QCheckBox("Maßzahlen nachlesen (Kommas ergänzen)")
         self.ocr_numbers.setToolTip("Zahlen wie „24 85“ oder „251“ werden gezielt noch einmal "
                                     "gelesen; fehlende Kommas/Punkte werden ergänzt, die Ziffern "
-                                    "bleiben unverändert")
+                                    "bleiben unverändert. Zahlen in der Lücke einer Maßlinie "
+                                    "(„—— 6.70 ——“) werden ohne die Linie gezielt gelesen")
         self.ocr_numbers.setChecked(True)
         f.addRow(self.ocr_numbers)
         self.ocr_dict = QCheckBox("Wörterbuch für Planbegriffe")

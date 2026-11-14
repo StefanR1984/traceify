@@ -581,6 +581,15 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
             t.height /= zoom
             texts.append(t)
             boxes.append(b)
+    if s.fix_numbers and px_per_mm > 0:
+        # Maßzahlen in Lücken der Maßlinie gezielt lesen
+        from . import dimensions
+        tt, bb = dimensions.read_gap_numbers((gray < 128).astype(np.uint8),
+                                             gray if detail is None else detail, px_per_mm, s)
+        for t in tt:
+            t.position = (t.position[0] / zoom, t.position[1] / zoom)
+            t.height /= zoom
+        dimensions.merge(texts, boxes, tt, bb)
     if zoom != 1:
         boxes = [(x // zoom, y // zoom, -(-w // zoom), -(-h // zoom)) for x, y, w, h in boxes]
     return texts, boxes
