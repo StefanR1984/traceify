@@ -23,6 +23,46 @@ def _plain(s: str) -> str:
     return _UNI.sub(lambda m: chr(int(m.group(1), 16)), s or "").strip()
 
 
+_SUP = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+# Stapel ohne unteren Teil: „2.38\S5^ ;“ = 2,38 mit hochgestellter 5 (Allplan-Maße)
+_STACK_UP = re.compile(r"\\S([^;^/#]*)\^\s*;")
+_LINE_SPACING = 5 / 3     # MTEXT-Zeilenabstand je Schrifthöhe (AutoCAD-Vorgabe)
+_ARIAL = None
+
+
+def _text_width(s: str, h: float) -> float:
+    """Breite einer Textzeile mit Schrifthöhe h (Großbuchstabenhöhe), Arial-Maße."""
+    global _ARIAL
+    try:
+        from PIL import ImageFont
+        if _ARIAL is None:
+            _ARIAL = ImageFont.truetype("arial.ttf", 100, layout_engine=ImageFont.Layout.BASIC)
+        return _ARIAL.getlength(s) / 100 * h / 0.716
+    except (OSError, ImportError):
+        return 0.75 * h * len(s)    # shortcut: grobe Schätzung ohne Arial
+
+
+def _mtext(e, out: list) -> None:
+    """MTEXT zeilenweise als Text (Grundlinie links), mit Drehung und Ausrichtung."""
+    from ezdxf.tools.text import plain_mtext
+    raw = _STACK_UP.sub(lambda m: m.group(1).translate(_SUP), e.text or "")
+    lines = [_plain(x) for x in plain_mtext(raw, split=True)]
+    h = float(e.dxf.char_height)
+    ls = h * _LINE_SPACING * float(e.dxf.get("line_spacing_factor", 1.0) or 1.0)
+    ap = int(e.dxf.get("attachment_point", 1) or 1)
+    row, col = (ap - 1) // 3, (ap - 1) % 3      # oben/Mitte/unten, links/Mitte/rechts
+    n = len(lines)
+    first = (-h, (h + (n - 1) * ls) / 2 - h, (n - 1) * ls)[row]   # erste Grundlinie
+    rot = float(e.get_rotation()) % 360          # Allplan: Richtung als Vektor, nicht „rotation“
+    c, s_ = math.cos(math.radians(rot)), math.sin(math.radians(rot))
+    p = e.dxf.insert
+    for i, txt in enumerate(lines):
+        if not txt:
+            continue
+        dx, dy = -_text_width(txt, h) * col / 2, first - i * ls
+        out.append(Text(txt, (p.x + dx * c - dy * s_, p.y + dx * s_ + dy * c), h, rot))
+
+
 def _convert(e, out: list, depth: int = 0) -> None:
     t = e.dxftype()
     if t == "LINE":
@@ -46,12 +86,14 @@ def _convert(e, out: list, depth: int = 0) -> None:
             return
         if len(pts) > 1:
             out.append(Polyline(pts, bool(e.closed)))
-    elif t in ("TEXT", "MTEXT"):
-        txt = _plain(e.dxf.text if t == "TEXT" else e.plain_text())
+    elif t == "MTEXT":
+        _mtext(e, out)
+    elif t == "TEXT":
+        txt = _plain(e.dxf.text)
         if txt:
             p = e.dxf.insert
-            h = e.dxf.height if t == "TEXT" else e.dxf.char_height
-            out.append(Text(txt, (p.x, p.y), float(h), float(e.dxf.get("rotation", 0.0)) % 360))
+            out.append(Text(txt, (p.x, p.y), float(e.dxf.height),
+                            float(e.dxf.get("rotation", 0.0)) % 360))
     elif t in ("INSERT", "DIMENSION") and depth < 8:   # Bemaßung: Linien, Pfeile, Maßtext
         try:
             for v in e.virtual_entities():

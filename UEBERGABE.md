@@ -1,17 +1,18 @@
-# Übergabe Traceify – Stand 13.11.2026
+# Übergabe Traceify – Stand 14.11.2026
 
 **Zuerst lesen:** `.claude/CLAUDE.md` (Regeln, Aufbau, Stolpersteine, Befunde des Wahrheits-Prüfstands mit Messwerten). Danach `git pull`, `git log --oneline -8`.
 
 ## Stand
-- Aktuelle Version: **0.20.0**, Branch `main`, gleichauf mit GitHub (letzter Commit: Prüfstand-Fix nach 0.20.0).
-- Tests: 195 grün, 7 übersprungen (mit Tesseract), pyflakes sauber. Windows-Probe-Build samt EXE-Selbsttest grün.
-- **0.17.0 bis 0.20.0 sind noch nicht getaggt.** Tag und Release legt nur der Nutzer an (Vorschlag: nur `v0.20.0` setzen).
+- Aktuelle Version: **0.21.0**, Branch `main` (Dateien aufs Programmsymbol, Hochziffern, Wörterbuch-Fix, DXF-Import für Allplan-MTEXT, echte Plots im Wahrheits-Prüfstand).
+- Tests: 201 grün, 7 übersprungen, pyflakes sauber.
+- `v0.20.0` ist getaggt (vom Nutzer). 0.21.0 noch nicht – Tag/Release nur der Nutzer.
 - CAD-Programm des Nutzers: **Allplan**.
 
 ## Umgebung auf diesem Rechner
 - Python 3.12 fehlt: `.venv` mit Python 3.13 im Projektordner (gitignored), Aufruf `.venv/Scripts/python`.
 - **Tesseract** liegt unter `D:\Programme\Tesseract` und steht **nicht im PATH**. Für Tests und Messungen vorher anhängen, z. B. in Bash: `export PATH="/d/Programme/Tesseract:$PATH"`. Die installierte Traceify-EXE bringt ihr eigenes Tesseract mit (gleiche Version 5.5.3, gleiche Sprachdateien).
 - Qt-Tests ohne Fenster: `QT_QPA_PLATFORM=offscreen`.
+- Neu (14.11.): `Testdaten Traceify/PDF/PLAN1_EG|OG1|UG.pdf` = Allplan-Rasterplots (300 dpi, 1:200) zu den gleichnamigen DXF → `tools/wahrheit.py "Testdaten Traceify/dxf/dxf" --scans "Testdaten Traceify/PDF" --massstab 200`. `Autocad/TB_*.dxf` enthalten nur ein IMAGE (kein Vergleich), `Konvertiert mit Traceify/` = Ergebnisse des Nutzers.
 - Testdaten (nie ins Repo): `Testdaten Traceify/` – 9 Scans (`image-*.pdf`), Vergleichs-DXFs nur zu image-4 und image-11, Allplan-Originale unter `Testdaten Traceify/dxf/dxf/PLAN1–3_*.dxf` (17 Pläne, Einheit m, enthalten einen Personennamen in `$LASTSAVEDBY`).
 
 ## Was seit 0.17.0 gebaut wurde
@@ -33,11 +34,11 @@ Schwächste Pläne bei Wörtern: PLAN1_UG 25 von 120, PLAN1_EG 24 von 94, PLAN2_
 Echte Scans 0.17.0 → 0.20.0: gleich viele Texte, Bögen −30 bis −60 %, offene Enden weniger, Abdeckung gleich oder besser.
 
 ## Als Nächstes
-1. **Texterkennung am Original auswerten:** Welche Wörter fehlen oder sind falsch (Maßzahlen, gedrehte Bemaßung, m², Höhenkoten, kleine Schrift, Raumnamen)? Die Originaltexte stehen als `Text` in `render_scan(...).truth`; die Wortsets liefert `benchmark.words`. Größte Fehlergruppe zuerst beheben, vorher/nachher an 17 Plänen und 9 Scans messen.
-2. **Realistischere Simulation:** Wahrheit auch mit 300 dpi messen (`--dpi 300`) – zeigt, ob eng liegende Doppellinien dort trennbar sind.
-3. Restliche Fehlbögen (PLAN2_EG 189 gegen 90 im Original), Kiesmuster auf Dachplänen.
+1. **Reine Zahlen** (nur ~50 % gelesen, senkrechte Maße 55 %): Ursache je Fall ansehen – Hauptziffern unlesbar, Zahl an Maßlinie geklebt, zerrissen? Werkzeug: Analyse-Skript nach Muster `wortanalyse.py` (pro Originaltext Lage, Höhe, Winkel, gefundene Wörter; `render_scan(...).truth`, `benchmark.words`).
+2. **Schrift 2,5–3,5 mm** nur 16 % (bei 150 dpi ≈ 15–20 px hoch) – prüfen, ob Zoom für die OCR hilft.
+3. Wahrheit mit 300 dpi (`--dpi 300`), restliche Fehlbögen (PLAN2_EG 189 gegen 90), Kiesmuster Dach.
 
-Der Nutzer liefert evtl. Textlisten oder weitere Vergleichs-DXFs zu image-27, image-136, image-37 (gleicher Dateiname, `.dxf` bzw. `.txt`). Für `.txt` müsste der Prüfstand erst erweitert werden.
+Messstand 0.21.0: simuliert 523 von 887 Wörtern richtig (199 falsch); echte PLAN1-Plots 100 von 208 (48 falsch), Trefferquote 93,8–97,6 %, Genauigkeit 98,5–98,9 %.
 
 ## Arbeitsweise
 - **Immer vor und nach einer Änderung messen:** 9 Scans (`tools/pruefstand.py`) und 17 Allplan-Pläne (`tools/wahrheit.py`). Eine Änderung, die irgendwo spürbar verschlechtert, wird nachgebessert oder verworfen.

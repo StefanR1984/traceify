@@ -28,6 +28,8 @@ def selftest() -> int:
     import shapely  # Radiuskorrektur vorhanden?
     from .core import quality, symbols   # Module im Paket?
     assert pymupdf.__name__ and shapely.__name__ and quality.assess and symbols.find_matches
+    from .gui import single                       # QtNetwork (Dateien aufs Programmsymbol)
+    assert single.server_name()
     from .core.hatch import find_regions          # Schraffur-Flächen (shapely.ops)
     from .core.model import LAYER_HATCH, Line
     hl = [Line((10.0 + 8 * k, 10.0), (50.0 + 8 * k, 50.0), LAYER_HATCH) for k in range(8)]
@@ -59,8 +61,9 @@ def run():
     args = sys.argv[1:]
     if args == ["--selbsttest"]:
         sys.exit(selftest())
-    # Keine Argumente oder genau eine Datei (Doppelklick / "Öffnen mit") -> Oberfläche
-    if not args or (len(args) == 1 and os.path.isfile(args[0])):
+    # Keine Argumente oder nur Dateien (Doppelklick, "Öffnen mit", aufs Programmsymbol
+    # gezogen – auch mehrere) -> Oberfläche; die Kommandozeile nimmt nur eine Eingabe
+    if all(os.path.isfile(a) for a in args):
         from .gui.app import main as gui_main
         sys.exit(gui_main())
     from .cli import main

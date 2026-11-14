@@ -184,6 +184,7 @@ def _run(gray: np.ndarray, s: OcrSettings, run_lines=None, detail=None):
         key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
         raw.append((key, x, y, w, h, txt, conf))
     if s.fix_numbers:
+        raw = fix_superscripts(gray, raw, s, run_lines)
         raw = fix_numbers(gray if detail is None else detail, raw, s, run_lines)
     units = _unit_words(raw)
     words = []
@@ -315,6 +316,101 @@ def fix_numbers(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
     if not drop:
         return raw
     return [r for i, r in enumerate(raw) if i not in drop] + add
+
+
+SUPERSCRIPT = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+# Zahl, dahinter evtl. ein Zeichen, als das Tesseract eine Hochziffer liest („36°“, „10.61"“)
+_NUM_TAIL = re.compile(r"^(\d+(?:[.,]\d+)?)([°\"'’”*^?]?)$")
+
+
+def _superscript_box(bw: np.ndarray, box):
+    """Sucht hinter einer Zahl (Box x, y, w, h) eine kleine, hochgestellte Ziffer.
+
+    Gibt (Box der Hochziffer, Zahl voller Ziffern links davon) oder None zurück.
+    bw: 1 = Tinte."""
+    import cv2
+    x, y, w, h = box
+    H, W = bw.shape
+    x0, y0 = max(0, x - 2), max(0, int(y - 0.3 * h))
+    x1, y1 = min(W, int(x + w + 0.8 * h)), min(H, int(y + 1.1 * h))
+    if x1 <= x0 or y1 <= y0:
+        return None
+    n, _, st, _ = cv2.connectedComponentsWithStats(bw[y0:y1, x0:x1], connectivity=8)
+    comps = [(cx + x0, cy + y0, cw, ch) for cx, cy, cw, ch, a in st[1:] if a >= 3]
+    full = [c for c in comps if c[3] >= 0.75 * h and c[3] <= 1.3 * h and c[0] < x + w]
+    if not full:
+        return None
+    last = max(full, key=lambda c: c[0])
+    sups = [c for c in comps
+            if 0.3 * h <= c[3] <= 0.75 * h and c[2] <= 0.7 * h        # klein
+            and c[1] + c[3] <= y + 0.72 * h and c[1] <= y + 0.25 * h  # oben, nicht am Fuß
+            and c[0] >= last[0] + 0.5 * last[2]]                       # hinter der letzten Ziffer
+    if not sups:
+        return None
+    sup = min(sups, key=lambda c: c[0])
+    # danach darf direkt keine weitere volle Ziffer folgen (sonst ist es etwas anderes)
+    if any(c[0] > sup[0] and c[0] - (sup[0] + sup[2]) < 0.4 * h and c[3] >= 0.75 * h
+           for c in comps):
+        return None
+    return sup, sum(1 for c in full if c[0] < sup[0])
+
+
+def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
+    """Maße mit hochgestellter Ziffer (Allplan: „2.38⁵“ = 2,385 m) richtig lesen.
+
+    Tesseract liest die kleine Ziffer als „°“ oder „"“, als normale Ziffer oder gar nicht.
+    Hinter jeder gelesenen Zahl wird nach einer kleinen, oben stehenden Komponente gesucht
+    und diese einzeln als Ziffer gelesen. Die Hauptziffern bleiben unverändert."""
+    import cv2
+    from . import textlines
+    bw = (gray < 128).astype(np.uint8)
+    cands = []
+    for i, (key, x, y, w, h, txt, conf) in enumerate(raw):
+        m = _NUM_TAIL.match(txt)
+        if conf < 30 or not m or h < 8:
+            continue
+        # geht die Zahl direkt weiter („6“ + „819“ bei „6,19“), ist das keine Hochziffer
+        if any(j != i and x + w - 0.2 * h <= r[1] <= x + w + 1.0 * h
+               and r[2] < y + h and r[2] + r[4] > y for j, r in enumerate(raw)):
+            continue
+        found = _superscript_box(bw, (x, y, w, h))
+        if found is None:
+            continue
+        sup, n_full = found
+        main, tail = m.group(1), m.group(2)
+        digits = sum(ch.isdigit() for ch in main)
+        if not tail and digits == n_full + 1:
+            main = main[:-1]                  # Hochziffer als normale Ziffer mitgelesen
+        elif digits != n_full or not main[-1:].isdigit():
+            continue                          # Ziffern verschmolzen o. Ä. – nichts riskieren
+        if not main or not main[-1].isdigit():
+            continue
+        cands.append((i, main, sup))
+    if not cands:
+        return raw
+    crops = []
+    for _, _, (sx, sy, sw, sh) in cands:
+        p = max(2, int(0.35 * sh))
+        c = gray[max(0, sy - p):sy + sh + p, max(0, sx - p):sx + sw + p]
+        f = textlines.LINE_H / max(1, c.shape[0])
+        crops.append(cv2.resize(c, (max(1, int(round(c.shape[1] * f))), textlines.LINE_H),
+                                interpolation=cv2.INTER_CUBIC))
+    res = (run_lines or textlines._tesseract_lines)(crops, s, NUM_WHITELIST)
+    out, drop = list(raw), set()
+    for (i, main, (sx, sy, sw, sh)), (t, c) in zip(cands, res):
+        t = (t or "").strip()
+        if len(t) != 1 or not t.isdigit() or c < 50:
+            continue
+        key, x, y, w, h, _, conf = raw[i]
+        x1, y1 = max(x + w, sx + sw), max(y + h, sy + sh)
+        # Zahl + kleine hochgestellte Ziffer ist ein starkes Muster: unsichere Lesung reicht
+        out[i] = (key, x, y, x1 - x, y1 - y, main + t.translate(SUPERSCRIPT),
+                  max(conf, float(s.min_confidence)) if conf >= 40 else conf)
+        for j, r in enumerate(raw):           # die Hochziffer als eigenes Wort entfernen
+            if j != i and _overlap((r[1], r[2], r[3], r[4]), (sx, sy, sw, sh)) > 0.5 \
+                    and len(r[5]) <= 2:
+                drop.add(j)
+    return [r for j, r in enumerate(out) if j not in drop]
 
 
 def _group_lines(words):

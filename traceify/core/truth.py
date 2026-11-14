@@ -189,6 +189,107 @@ def run(path: str, out_png: str, settings=None, scale_n: float = 100.0, dpi: flo
     return r
 
 
+def align_scan(cad: list, ink: np.ndarray, px_per_unit: float) -> list:
+    """Legt die Original-CAD-Objekte auf einen echten Scan mit bekanntem Maßstab.
+
+    Versatz grob über die Ausdehnung, dann per Kreuzkorrelation (Viertelauflösung), zuletzt
+    pixelgenau. Das Original enthält oft mehr als gedruckt (ausgeblendete Layer), die
+    Ausdehnung allein trifft dann nicht."""
+    from .dxf_import import fit_to_image
+    geo = [e for e in cad if not isinstance(e, Text)]
+    _, (s, dx, dy) = fit_to_image(geo, ink, px_per_unit)
+    H, W = ink.shape
+    P, Q = W // 2, H // 2
+    T = render_entities([transform(e, s, dx + P, dy + Q) for e in geo], (H + 2 * Q, W + 2 * P),
+                        width_px=3, texts=False).astype(np.float32)
+    f = 0.25
+    I = cv2.dilate(ink, np.ones((3, 3), np.uint8)).astype(np.float32)
+    r = cv2.matchTemplate(cv2.resize(T, None, fx=f, fy=f, interpolation=cv2.INTER_AREA),
+                          cv2.resize(I, None, fx=f, fy=f, interpolation=cv2.INTER_AREA),
+                          cv2.TM_CCORR_NORMED)
+    lx, ly = cv2.minMaxLoc(r)[3]
+    dx, dy = dx - (lx / f - P), dy - (ly / f - Q)
+    dist = cv2.distanceTransform((ink == 0).astype(np.uint8), cv2.DIST_L2, 3)
+    pts = [_points(transform(e, s, dx, dy), 2.0) for e in geo]
+    P0 = np.vstack(pts) if pts else np.zeros((0, 2))
+    best = (-1.0, 0, 0)
+    for ox in range(-6, 7, 2):
+        for oy in range(-6, 7, 2):
+            P = (P0 + (ox, oy)).astype(int)
+            P = P[(P[:, 0] >= 0) & (P[:, 1] >= 0) & (P[:, 0] < W) & (P[:, 1] < H)]
+            v = float((dist[P[:, 1], P[:, 0]] <= 1.5).mean()) if len(P) else 0.0
+            if v > best[0]:
+                best = (v, ox, oy)
+    return [transform(e, s, dx + best[1], dy + best[2]) for e in cad]
+
+
+def _points(e, step: float = 1.0) -> np.ndarray:
+    """Punkte im Abstand step entlang eines Objekts (Bildpixel)."""
+    if isinstance(e, Line):
+        segs = [(e.p1, e.p2)]
+    elif isinstance(e, Polyline):
+        P = list(e.points) + ([e.points[0]] if e.closed else [])
+        segs = list(zip(P, P[1:]))
+    elif isinstance(e, (Arc, Circle)):
+        a0, a1 = (e.start_angle, e.start_angle + (e.end_angle - e.start_angle) % 360) \
+            if isinstance(e, Arc) else (0.0, 360.0)
+        n = max(2, int(math.radians(a1 - a0) * e.radius / step))
+        a = np.radians(np.linspace(a0, a1, n))
+        return np.c_[e.center[0] + e.radius * np.cos(a), e.center[1] + e.radius * np.sin(a)]
+    else:
+        return np.zeros((0, 2))
+    out = [np.linspace(a, b, max(2, int(math.dist(a, b) / step) + 1)) for a, b in segs]
+    return np.vstack(out) if out else np.zeros((0, 2))
+
+
+def _on_ink(ents, dist: np.ndarray, tol: float = 1.5) -> float:
+    pts = [_points(e) for e in ents]
+    P = np.vstack(pts) if pts else np.zeros((0, 2))
+    H, W = dist.shape
+    P = P[(P[:, 0] >= 0) & (P[:, 1] >= 0) & (P[:, 0] < W) & (P[:, 1] < H)].astype(int)
+    return float((dist[P[:, 1], P[:, 0]] <= tol).mean()) if len(P) else 0.0
+
+
+def printed(truth: list, ink: np.ndarray, share: float = 0.6) -> list:
+    """Nur Originalobjekte, die auf dem Scan zu sehen sind (≥ share auf Tinte).
+
+    Ausgeblendete Layer, nicht gedruckte Maßketten usw. sollen nicht als „fehlt“ zählen."""
+    dist = cv2.distanceTransform((ink == 0).astype(np.uint8), cv2.DIST_L2, 3)
+    out = []
+    for e in truth:
+        if isinstance(e, Text):
+            R = int(e.height * (len(e.text) + 2)) + 4      # Text in eigener Kachel zeichnen
+            tile = np.zeros((2 * R, 2 * R), np.uint8)
+            _draw_text(tile, Text(e.text, (R, R), e.height, e.angle))
+            ys, xs = np.nonzero(tile)
+            xs, ys = xs + int(round(e.position[0])) - R, ys + int(round(e.position[1])) - R
+            ok = (xs >= 0) & (ys >= 0) & (xs < ink.shape[1]) & (ys < ink.shape[0])
+            v = float((dist[ys[ok], xs[ok]] <= 2.0).mean()) if ok.any() else 0.0
+        else:
+            v = _on_ink([e], dist, 2.0)
+        if v >= share:
+            out.append(e)
+    return out
+
+
+def run_real(dxf: str, scan: str, scale_n: float, settings=None, progress=None) -> dict:
+    """Echter Scan/Plot eines Original-CAD-Plans → Traceify → Messung gegen das Original."""
+    import time
+
+    from ..api import open_file
+    from . import loader
+    cad, unit = load_cad(dxf)
+    gray, mm_per_px = loader.load(scan)
+    ink = ((gray < 160) * 255).astype(np.uint8)
+    truth = printed(align_scan(cad, ink, unit / mm_per_px / scale_n), ink)
+    t0 = time.time()
+    res = open_file(scan, 0, settings, progress=progress)
+    r = compare(truth, res.drawing.expanded(), gray.shape, mm_per_px)
+    r.update({"datei": dxf, "scan": scan, "bild": [int(gray.shape[1]), int(gray.shape[0])],
+              "sekunden": round(time.time() - t0, 1)})
+    return r
+
+
 def _self_check() -> None:
     """Rundweg-Probe: Original gegen sich selbst ergibt 100 % und Lagefehler 0."""
     cad = [Line((0, 0), (5000, 0)), Line((0, 0), (0, 3000)), Arc((2500, 1500), 500, 0, 90),

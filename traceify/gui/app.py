@@ -24,11 +24,15 @@ def main() -> int:
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Traceify.Desktop")
         except Exception:
             pass
+    from .single import forward, listen
+    args = [os.path.abspath(a) for a in sys.argv[1:] if os.path.isfile(a)]
+    if args and forward(args):
+        return 0                   # läuft schon: Datei dort öffnen, kein zweites Fenster
     w = MainWindow()
+    w._single = listen(w.open_dropped, parent=w)
     w.show()
-    args = [a for a in sys.argv[1:] if os.path.isfile(a)]
     if args:
-        w.open_file(args[0])
+        w.open_dropped(args)
     return app.exec()
 
 

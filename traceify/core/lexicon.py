@@ -40,6 +40,7 @@ Abdichtung Entwässerung Bodenablauf Rinne Lüftung Entlüftung Belüftung Abluf
 Gasabzug Rohr Leitung Anschluss Steckdose Heizkörper Radiator Kessel Speicher Boiler
 Achse Bestand Neubau Abbruch Umbau Anbau Planung Entwurf Genehmigung Bauherr Architekt
 Personal Personalraum Aufenthalt Aufenthaltsraum Sozialraum Umkleide Pausenraum
+Klasse Klassenzimmer Fachraum Werkraum Lehrer Lehrerzimmer Werkstatt
 Labor Rezeptur Notdienst Beratung Verkauf Verkaufsraum Handverkauf Offizin Sichtwahl
 Freiwahl Arbeitsplatz Kasse Theke Tresen Schübe Regal Regale Schrank Schränke
 Helferinnen Mitarbeiter Empfang Anmeldung Wartezimmer Warteraum Behandlung
@@ -108,7 +109,10 @@ def distance(a: str, b: str, loose: bool = True) -> Tuple[float, int]:
                 continue
             best = INF
             if i > 0:
-                best = min(best, add(D[i - 1][j], _indel(a[i - 1])))
+                # sicher gelesen: ein überzähliger Buchstabe ist echt („Klasse“ ≠ „Kasse“),
+                # nur dünne Satzzeichen (!, |, .) dürfen wegfallen
+                extra = (1.0, 1) if not loose and a[i - 1].isalpha() else _indel(a[i - 1])
+                best = min(best, add(D[i - 1][j], extra))
             if j > 0:
                 best = min(best, add(D[i][j - 1], _indel(b[j - 1])))
             if i > 0 and j > 0:

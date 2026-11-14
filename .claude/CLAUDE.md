@@ -59,7 +59,11 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
   Genauigkeit, Lagefehler in Papier-mm, Objekte, Bögen, Ortho, Wörter). Abbildung ist exakt
   bekannt, keine Lage-Schätzung. Noch ohne Füllflächen (SOLID) und ohne Schräglage.
   Geometrie in Textbereichen des Originals zählt nicht (Schrift → Wörter-Spalte).
-  Aufruf: `python tools/wahrheit.py "Testdaten Traceify/dxf/dxf" --bilder <tmp>` (~4 min, 18 Pläne).
+  Aufruf: `python tools/wahrheit.py "Testdaten Traceify/dxf/dxf" --jobs 4 --bilder <tmp>` (~4 min, 17 Pläne).
+  **Echte Plots:** `Testdaten Traceify/PDF/PLAN1_EG|OG1|UG.pdf` = Allplan-Rasterplots (300 dpi, 1:200) derselben
+  Pläne → `--scans "Testdaten Traceify/PDF" --massstab 200` (`truth.run_real`: Lage per Kreuzkorrelation,
+  nur gedruckte Objekte zählen – das DXF enthält ausgeblendete Layer). DXF-Import liest Allplan-MTEXT mit
+  Drehung (Richtungsvektor), Ausrichtung und Hochziffern (`2.38\S5^ ;` → „2.38⁵“, `words` zählt 2.385).
 - `export/` – dxf, dwg (ODA File Converter), svg, gcode (`plan()` = gemeinsame Basis für
   G-Code, Vorschau, Zeit; Radiuskorrektur, Haltestege).
 - `ai/` – Ollama-Client und `openai_client.py` (vLLM/OpenAI-kompatibel, gleiche Schnittstelle;
@@ -145,7 +149,10 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   Splitter und offene Enden weniger. Rest: flache Ausbeulungen an Abzweigen, Kehren an
   Doppellinienenden, Fehlbögen in fleckigen Füllflächen.
 - **Ortho** 52–73 % gegen 71–91 % im Original (Schraffur des Originals ist dort als Einzellinien).
-- Wörter: auf diesem Rechner kein Tesseract → noch nicht gemessen.
+- **Wörter (0.21.0, korrigierte Simulation, mit Tesseract):** 523 von 887 richtig, 199 falsch. Je Gruppe
+  (Stand vor 0.21): Maße mit Hochziffer 8 % (0.21: Nachlesen `ocr.fix_superscripts`), reine Zahlen 50 %,
+  Wörter 73 %, Raumnr.+Name 78 %; Schrift 2,5–3,5 mm nur 16 %. Nächste große Gruppe: reine Zahlen
+  (oft Hauptziffern unlesbar, senkrechte Maße 55 %). Echte PLAN1-Plots: 100 von 208.
 
 1. **Kleine, fette Schrift** (image-11: „Pos 13 Labor“, „Pos 11 Vorräte“, ca. 11 px hoch, schräg):
    Untersucht in 0.17 – sie klebt meist **nicht** an Linien, sondern steht frei; die Buchstaben

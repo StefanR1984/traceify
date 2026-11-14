@@ -545,10 +545,20 @@ class MainWindow(QMainWindow):
             ev.acceptProposedAction()
 
     def dropEvent(self, ev):
-        urls = [u.toLocalFile() for u in ev.mimeData().urls()]
-        files = [u for u in urls if loader.is_supported(u)]
+        self.open_dropped([u.toLocalFile() for u in ev.mimeData().urls()])
+
+    def open_dropped(self, paths):
+        """Erste unterstützte Datei öffnen (Ablegen aufs Fenster oder aufs Programmsymbol)."""
+        files = [p for p in paths if loader.is_supported(p)]
+        if self.isMinimized():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
         if files:
             self.open_file(files[0])
+        elif paths:
+            self.statusBar().showMessage("Dateityp wird nicht unterstützt: "
+                                         + os.path.basename(paths[0]), 6000)
 
     def open_dialog(self):
         start = self.qs.value("last_dir", os.path.expanduser("~"))
@@ -2031,7 +2041,8 @@ class MainWindow(QMainWindow):
 
     def show_help(self):
         QMessageBox.information(self, "Kurzanleitung", (
-            "<b>1. Öffnen</b> – Bild oder PDF öffnen bzw. ins Fenster ziehen.<br>"
+            "<b>1. Öffnen</b> – Bild oder PDF öffnen bzw. ins Fenster oder aufs Programmsymbol "
+            "ziehen.<br>"
             "<b>2. Vorbereiten</b> – ggf. drehen, zuschneiden, begradigen (Menü Raster). "
             "Mit »Binärbild anzeigen« prüfen, ob alle Linien schwarz erfasst werden.<br>"
             "<b>3. Modus/Vorlage</b> – CAD-Mittellinien für Zeichnungen und Pläne, "

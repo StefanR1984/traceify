@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.21.0 – 14.11.2026
+### Dateien aufs Programmsymbol ziehen
+- Eine Datei auf das Traceify-Symbol (Desktop, Startmenü, EXE) ziehen öffnet sie in Traceify. **Läuft Traceify schon, öffnet die Datei im offenen Fenster** – es startet kein zweites. Mehrere Dateien auf einmal: die erste unterstützte wird geöffnet (bisher passierte dann gar nichts).
+
+### Maße mit hochgestellter Ziffer
+- **Allplan-Schreibweise „2.38⁵“** (= 2,385 m): Tesseract liest die kleine Ziffer als „°“ oder „"“ oder verschluckt sie. Traceify sucht jetzt hinter jeder gelesenen Zahl nach einer kleinen, hochgestellten Ziffer, liest sie einzeln nach und übernimmt sie als Hochziffer. Die Hauptziffern bleiben unverändert; geht die Zahl direkt weiter („6“ + „19“), wird nichts angehängt.
+- **Gemessen** an den Original-CAD-Plänen (Allplan): auf den echten 300-dpi-Plots von PLAN1 49 statt 43 und 49 statt 45 Wörter richtig, 18 statt 23 und 28 statt 31 falsch. Über alle 17 simulierten Pläne mit Wörterbuch-Fix 523 statt 511 Wörter richtig und 199 statt 209 falsch. Linien und Bögen bleiben gleich, die neun Testscans sind unverändert.
+
+### Wörterbuch
+- Sicher gelesene Wörter verlieren keinen echten Buchstaben mehr: „Klasse“ wurde bisher zu „Kasse“. Neu im Wörterbuch: Klasse, Klassenzimmer, Fachraum, Werkraum, Lehrer, Lehrerzimmer.
+
+### Für Entwickler: Wahrheits-Prüfstand
+- **DXF-Import korrigiert:** Allplan-Texte (MTEXT) kamen ohne Drehung an – alle senkrechten Maßzahlen lagen waagrecht – und hochgestellte Ziffern als „2.385^“. Jetzt mit Drehung (Richtungsvektor), Ausrichtung (z. B. Mitte), mehrzeilig und Hochziffern. Der simulierte Scan zeigt die Maße damit so wie der echte Plot; die bisherigen Wortzahlen des Prüfstands waren dadurch verfälscht.
+- **Echte Scans gegen das Original:** `tools/wahrheit.py DXF_ORDNER --scans SCAN_ORDNER --massstab 200` misst Scans/Plots derselben Pläne (gleicher Dateiname). Die Original-Geometrie wird über Maßstab und Kreuzkorrelation auf den Scan gelegt; gezählt wird nur, was auf dem Scan auch zu sehen ist (ausgeblendete Layer zählen nicht als „fehlt“).
+- `--jobs N` misst mehrere Pläne parallel.
+
 ## 0.20.0 – 13.11.2026
 ### Leicht schräge Linien bleiben schräg
 - **Gerade ausrichten mit Blick in den Scan:** Bisher wurde jede Linie, die weniger als 3° von waagrecht/senkrecht abweicht, exakt auf die Achse gelegt. Bei Plänen mit bewusst leicht schräg gezeichneten Linien (z. B. Dachgeschoss, Dachaufsichten) lagen diese danach neben der Tinte. Jetzt wird eine Linie nur ausgerichtet, wenn sie danach weiter auf der Tinte liegt (oder nicht schlechter als vorher). Wände, die im Scan nur leicht wackeln, werden wie bisher exakt waagrecht und senkrecht.

@@ -24,13 +24,16 @@ from .model import Arc, Circle, Insert, Line, Polyline, Text
 from .quality import assess
 
 _TOK = re.compile(r"[A-Za-zÄÖÜäöüß]{3,}|\d+(?:[.,]\d+)?")
+_UNSUP = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
 
 
 def words(texts) -> set:
-    """Vergleichbare Wörter: Buchstabenfolgen ab 3 Zeichen und Zahlen, klein geschrieben."""
+    """Vergleichbare Wörter: Buchstabenfolgen ab 3 Zeichen und Zahlen, klein geschrieben.
+
+    Hochgestellte Ziffern zählen als normale (Maß 2,38⁵ = 2.385)."""
     out = set()
     for t in texts:
-        s = t.text if isinstance(t, Text) else str(t)
+        s = (t.text if isinstance(t, Text) else str(t)).translate(_UNSUP)
         out |= {w.lower().replace(",", ".") for w in _TOK.findall(s)}
     return out
 
