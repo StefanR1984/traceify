@@ -34,11 +34,14 @@ Schwächste Pläne bei Wörtern: PLAN1_UG 25 von 120, PLAN1_EG 24 von 94, PLAN2_
 Echte Scans 0.17.0 → 0.20.0: gleich viele Texte, Bögen −30 bis −60 %, offene Enden weniger, Abdeckung gleich oder besser.
 
 ## Als Nächstes
-1. **Reine Zahlen** (nur ~50 % gelesen; Ursache: Zahl klebt an Maß-/Hilfslinie, siehe CLAUDE.md – zwei Ansätze gemessen und verworfen): Ursache je Fall ansehen – Hauptziffern unlesbar, Zahl an Maßlinie geklebt, zerrissen? Werkzeug: Analyse-Skript nach Muster `wortanalyse.py` (pro Originaltext Lage, Höhe, Winkel, gefundene Wörter; `render_scan(...).truth`, `benchmark.words`).
-2. **Kleine Schrift** untersucht: liegt an der Scanauflösung (300 dpi: PLAN2_EG 13 → 45 von 55), Zoom/Graustufen verworfen. Hinweis in der Ampel ist seit 0.22.0 da.
-3. Wahrheit mit 300 dpi (`--dpi 300`), restliche Fehlbögen (PLAN2_EG 189 gegen 90), Kiesmuster Dach.
+1. **Maßketten erkennen** (Offene Idee 7 in CLAUDE.md): Maßlinie + Maßhilfslinien + Zahl als Einheit finden. Damit ist bekannt, wo die Zahl steht und wie sie liegt – sie lässt sich dann gezielt aus dem Ausschnitt lesen (die Linie ist bekannt und kann sauber herausgerechnet werden). Das ist der Weg für die **reinen Zahlen** (nur ~50 % gelesen; Zahl klebt an Maß-/Hilfslinie). Drei pauschale Ansätze sind gemessen und verworfen (siehe CLAUDE.md). Nebenbei: Maßstab plausibilisieren, DIMENSION im DXF.
+2. **Wahrheit standardmäßig auch mit 300 dpi messen** (`tools/wahrheit.py … --dpi 300`): echte Pläne werden meist so gescannt; bei 150 dpi ist kleine Schrift nicht lesbar und verzerrt die Wortzahlen.
+3. Restliche Fehlbögen (PLAN2_EG 189 gegen 90 im Original), Kiesmuster auf Dachplänen.
 
-Messstand 0.21.0: simuliert 523 von 887 Wörtern richtig (199 falsch); echte PLAN1-Plots 100 von 208 (48 falsch), Trefferquote 93,8–97,6 %, Genauigkeit 98,5–98,9 %.
+Werkzeug für Wortfehler: `python tools/wortanalyse.py . "Testdaten Traceify/dxf/dxf" out.json --jobs 6` (je Originaltext: gelesen ja/nein, Höhe, Winkel, Lesungen in der Nähe).
+Kleine Schrift ist erledigt: Sie scheitert an der Scanauflösung (300 dpi: PLAN2_EG 13 → 45 von 55); Zoom und Graustufen sind verworfen, die Ampel weist seit 0.22.0 darauf hin.
+
+Messstand 0.22.0 (= 0.21.0 bei den Ergebnissen): simuliert 523 von 887 Wörtern richtig (199 falsch); echte PLAN1-Plots 100 von 208 (48 falsch), Trefferquote 93,8–97,6 %, Genauigkeit 98,5–98,9 %.
 
 ## Arbeitsweise
 - **Immer vor und nach einer Änderung messen:** 9 Scans (`tools/pruefstand.py`) und 17 Allplan-Pläne (`tools/wahrheit.py`). Eine Änderung, die irgendwo spürbar verschlechtert, wird nachgebessert oder verworfen.
