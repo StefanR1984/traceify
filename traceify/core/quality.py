@@ -35,12 +35,33 @@ class QualityReport:
     coverage: float    # Anteil der Tinte, die abgedeckt ist
     precision: float   # Anteil der Vektoren, die auf Tinte liegen
     problems: List[Problem] = field(default_factory=list)
+    hints: List[str] = field(default_factory=list)
 
     def summary(self) -> str:
         n_miss = sum(1 for p in self.problems if p.kind == "fehlt")
         n_extra = len(self.problems) - n_miss
         return (f"Abdeckung {self.coverage * 100:.1f} %, Genauigkeit {self.precision * 100:.1f} %"
-                f" – {n_miss} fehlende, {n_extra} überflüssige Stellen")
+                f" – {n_miss} fehlende, {n_extra} überflüssige Stellen"
+                + "".join(" · " + h for h in self.hints))
+
+
+def small_text_hint(ink: np.ndarray, mm_per_px: float, min_count: int = 100):
+    """Hinweis, wenn ein grober Scan (< 200 dpi) viel sehr kleine Schrift (< 2 mm) enthält.
+
+    Solche Schrift ist bei 150 dpi nur ~7 px hoch – mit 300 dpi gescannt liest die
+    Texterkennung sie ein Vielfaches besser (gemessen: 13 → 45 von 55 Wörtern)."""
+    if mm_per_px <= 0 or 25.4 / mm_per_px >= 200:
+        return None
+    n, _, st, _ = cv2.connectedComponentsWithStats((ink > 0).astype(np.uint8), connectivity=8)
+    w, h, a = st[1:, 2], st[1:, 3], st[1:, 4]
+    fill = a / np.maximum(1, w * h)
+    hmm = h * mm_per_px
+    chars = (hmm >= 0.8) & (hmm < 2.0) & (w * mm_per_px <= 2.0) & (h >= 4) \
+        & (fill > 0.15) & (fill < 0.9)
+    if int(chars.sum()) < min_count:
+        return None
+    return (f"viel sehr kleine Schrift bei {25.4 / mm_per_px:.0f} dpi – für die Texterkennung "
+            "besser mit 300 dpi scannen")
 
 
 def render_entities(ents, shape, width_px: int = 3, texts: bool = True,
@@ -142,4 +163,6 @@ def assess(ink: np.ndarray, ents: list, tolerance_px: int = 3, min_area: int = 2
         rating = YELLOW
     else:
         rating = RED
-    return QualityReport(rating, float(coverage), float(precision), probs)
+    hint = small_text_hint(ink, mm_per_px)
+    return QualityReport(rating, float(coverage), float(precision), probs,
+                         [hint] if hint else [])

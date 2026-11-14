@@ -690,7 +690,8 @@ class MainWindow(QMainWindow):
         st = self.drawing.stats()
         self.statusBar().showMessage(
             "Fertig: " + ", ".join(f"{v} {k}" for k, v in st.items() if v) +
-            ". Objekte anklicken und mit Entf löschen; Export über Strg+E / Strg+G.")
+            ". Objekte anklicken und mit Entf löschen; Export über Strg+E / Strg+G."
+            + "".join(" Hinweis: " + h + "." for h in (self.quality.hints if self.quality else [])))
         self.update_actions()
 
     def preview_binary(self):
@@ -946,7 +947,8 @@ class MainWindow(QMainWindow):
         txt = {"gruen": "gut", "gelb": "prüfen", "rot": "Probleme"}[q.rating]
         n = len(q.problems)
         self.quality_btn.setText(f"● Qualität: {txt}" + (f" ({n})" if n else "")
-                                 + (" – veraltet" if self.quality_stale else ""))
+                                 + (" – veraltet" if self.quality_stale else "")
+                                 + (" · 300 dpi empfohlen" if q.hints else ""))
         self.quality_btn.setStyleSheet(f"color: {col}; font-weight: bold;")
         self.quality_btn.setToolTip(q.summary() + "\nKlick: Problemstellen ein/aus · F8: nächste"
                                     + ("\nNach Änderungen: Werkzeuge → Qualität prüfen"

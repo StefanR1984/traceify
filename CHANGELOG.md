@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.0 – 14.11.2026
+### Hinweis: kleine Schrift besser mit 300 dpi scannen
+- Enthält ein Scan unter 200 dpi viel sehr kleine Schrift (unter 2 mm, z. B. Raumstempel), zeigt die Qualitätsampel „300 dpi empfohlen“, die Statusleiste nennt den Grund. Hintergrund: Solche Schrift ist bei 150 dpi nur etwa 7 Pixel hoch; beim Original-CAD-Plan mit 1,25-mm-Raumstempeln liest Traceify bei 300 dpi 45 statt 13 von 55 Wörtern. Vergrößern oder Graustufen-Lesen im Programm wurden gemessen und brachten ebenso viele Fehllesungen wie Treffer.
+
 ## 0.21.0 – 14.11.2026
 ### Dateien aufs Programmsymbol ziehen
 - Eine Datei auf das Traceify-Symbol (Desktop, Startmenü, EXE) ziehen öffnet sie in Traceify. **Läuft Traceify schon, öffnet die Datei im offenen Fenster** – es startet kein zweites. Mehrere Dateien auf einmal: die erste unterstützte wird geöffnet (bisher passierte dann gar nichts).
