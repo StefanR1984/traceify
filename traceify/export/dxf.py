@@ -73,11 +73,27 @@ def _add(layout, e, P, s: float, version: str, layer_override=None) -> None:
             layout.add_polyline2d(pts, close=e.closed, dxfattribs=attrs)
         else:
             layout.add_lwpolyline(pts, close=e.closed, dxfattribs=attrs)
+    elif isinstance(e, Text) and e.dim and version != "R12":
+        attrs.pop("linetype", None)
+        _add_dim(layout, e, P, s, attrs)
     elif isinstance(e, Text):
         attrs.pop("linetype", None)
         t = layout.add_text(e.text, height=max(e.height * s, 0.01), rotation=e.angle,
                             dxfattribs=attrs)
         t.set_placement(P(e.position))
+
+
+def _add_dim(layout, e: Text, P, s: float, attrs: dict) -> None:
+    """Maßzahl einer erkannten Maßkette als DIMENSION (gedrehtes Linearmaß, Schrägstriche als
+    Maßbegrenzung, Zahl mittig in der Linie wie bei Allplan, Text wie gelesen)."""
+    a, b = (P(p) for p in e.dim_points())
+    h = max(e.height * s, 0.01)
+    ang = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0]))
+    dim = layout.add_linear_dim(base=a, p1=a, p2=b, angle=ang, text=e.text, dxfattribs=attrs,
+                                override={"dimtxt": h, "dimtsz": 0.5 * h, "dimgap": 0.3 * h,
+                                          "dimtad": 0, "dimtih": 0, "dimtoh": 0,
+                                          "dimse1": 1, "dimse2": 1, "dimexo": 0, "dimexe": 0})
+    dim.render()
 
 
 def _add_hatch(layout, reg: HatchRegion, d: Drawing) -> None:

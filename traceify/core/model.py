@@ -10,6 +10,7 @@ Jedes Objekt kann zusätzlich eine eigene Farbe (RGB), einen Linientyp
 from __future__ import annotations
 
 import hashlib
+import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -110,6 +111,20 @@ class Text:
     color: Optional[RGB] = None
     linetype: str = "CONTINUOUS"
     lineweight: float = 0.0
+    # Maßzahl einer erkannten Maßkette: Maßlinie (a, b, c) in Texthöhen relativ zur Einfügung –
+    # von a bis b in Leserichtung, im Abstand c nach oben. So bleibt sie beim Verschieben,
+    # Drehen und Skalieren des Texts von selbst richtig. Export als DIMENSION (DXF).
+    dim: Optional[Tuple[float, float, float]] = None
+
+    def dim_points(self) -> Optional[Tuple[Point, Point]]:
+        """Anfang und Ende der Maßlinie in Bildkoordinaten (oder None)."""
+        if not self.dim:
+            return None
+        a, b, c = self.dim
+        r = math.radians(self.angle)
+        u, n = (math.cos(r), -math.sin(r)), (-math.sin(r), -math.cos(r))   # Bild: y nach unten
+        h, (x, y) = self.height, self.position
+        return tuple((x + h * (t * u[0] + c * n[0]), y + h * (t * u[1] + c * n[1])) for t in (a, b))
 
 
 @dataclass

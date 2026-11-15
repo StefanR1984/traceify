@@ -170,3 +170,39 @@ def test_meter_und_lesarten():
     assert dimensions._variants("875") == ["875", "87⁵", "8.75"]
     assert dimensions._variants("2885") == ["28.85", "2.88⁵"]
 
+
+def test_masslinie_am_text_und_als_dimension(tmp_path):
+    import ezdxf
+    from traceify.core.model import Drawing
+    from traceify.export.dxf import export_dxf
+    img = np.zeros((300, 700), np.uint8)                 # „✳74✳“ waagrecht und senkrecht
+    for x in (100, 250):
+        _star(img, x, 150)
+    cv2.putText(img, "74", (155, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    for vertical in (False, True):
+        bw = np.ascontiguousarray(np.rot90(img, 1)) if vertical else img
+        gray = (255 - bw * 255).astype(np.uint8)
+        tt, _ = dimensions.read_gap_numbers(bw, gray, 10.0, OcrSettings(),
+                                            run_lines=lambda c, s, x: [("74", 90.0)] * len(c))
+        assert len(tt) == 1 and tt[0].dim is not None
+        p0, p1 = tt[0].dim_points()
+        if vertical:                                     # rot90: (x, y) → (y, 700 - x)
+            assert p0 == pytest.approx((150, 600), abs=2) and p1 == pytest.approx((150, 450), abs=2)
+        else:
+            assert p0 == pytest.approx((100, 150), abs=2) and p1 == pytest.approx((250, 150), abs=2)
+        d = Drawing(bw.shape[1], bw.shape[0], 0.1, tt)
+        export_dxf(d, str(tmp_path / "m.dxf"))
+        dims = list(ezdxf.readfile(str(tmp_path / "m.dxf")).modelspace().query("DIMENSION"))
+        assert len(dims) == 1 and dims[0].dxf.text == "74"
+        assert dims[0].get_measurement() == pytest.approx(15.0, abs=0.3)   # 150 px × 0,1 mm
+        export_dxf(d, str(tmp_path / "r12.dxf"), "R12")  # R12 kennt keine Bemaßung → TEXT
+        assert [e.dxftype() for e in ezdxf.readfile(str(tmp_path / "r12.dxf")).modelspace()] == ["TEXT"]
+
+
+def test_masslinie_folgt_dem_text():
+    from traceify.core.edit import rotate
+    t = Text("6.70", (100, 210), 20, 0.0, dim=(-5.0, 15.0, 0.5))
+    flat = lambda t: [v for p in t.dim_points() for v in p]
+    assert flat(t) == pytest.approx([0, 200, 400, 200])
+    r = rotate(t, (0, 0), -90)                           # Bild: gegen den Uhrzeigersinn
+    assert r.angle == 90 and flat(r) == pytest.approx([200, 0, 200, -400])

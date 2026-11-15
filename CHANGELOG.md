@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.26.0 – 15.11.2026
+### Maßzahlen als Bemaßung (DIMENSION) im DXF
+- **Erkannte Maßketten werden echte CAD-Bemaßungen:** Eine Maßzahl, die zwischen zwei erkannten Maßbegrenzungen mittig steht, wird im DXF/DWG als gedrehtes Linearmaß (DIMENSION) ausgegeben – Maßlinie von Stern zu Stern, Schrägstriche als Begrenzung, die Zahl wie gelesen mittig in der Linie (Allplan-Stil), waagrecht und senkrecht. Im CAD lässt sich das Maß so als Ganzes auswählen und abfragen. Die gezeichnete Maßlinie aus dem Scan bleibt zusätzlich als Linie erhalten.
+- Die Maßlinie hängt am Text: Verschieben, Drehen oder Ausrichten (Schräglage) nimmt sie mit. DXF R12 kennt keine Bemaßungsobjekte, dort bleibt es ein Text.
+- Liegt an der Stelle schon dieselbe Zahl aus der normalen Texterkennung, wird sie durch die Lesung mit Maßlinie ersetzt.
+
 ## 0.25.0 – 15.11.2026
 ### Maßzahlen gegen die Länge ihres Maßsegments prüfen
 - **Maßstab aus den Maßen selbst:** Aus den sicher gelesenen Maßzahlen und dem Abstand ihrer Maßbegrenzungen (Sterne) ermittelt Traceify, wie viele Pixel ein Meter im Plan hat – richtige Maße stimmen darin auf ±1 % überein (echter Plot 1:200 bei 300 dpi: 59 px/m). Damit lässt sich jede Maßzahl gegen ihr Segment prüfen; die Teilmaße einer Kette ergeben so von selbst das Gesamtmaß.

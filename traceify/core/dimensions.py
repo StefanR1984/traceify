@@ -237,7 +237,7 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
         cand.append([t + high if ok else None, raw, conf])
     check_lengths(cand, [g for g, _ in gaps], [k for _, k in gaps])
     texts, boxes = [], []
-    for ((b, fb, sup, _, sg), k), (t, _, _) in zip(gaps, cand):
+    for ((b, fb, sup, side, sg), k), (t, _, _) in zip(gaps, cand):
         if t is None:
             continue
         if sup is not None and t[-1] not in SUP:          # war keine (Pfeilspitze, Linienrest)
@@ -250,11 +250,32 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
             w, h = b[2], b[3]
         height = float(fb[3] if k == 0 else fb[2])
         if k == 0:
-            texts.append(Text(t, (float(x), float(fb[1] + fb[3])), height, 0.0))
+            txt = Text(t, (float(x), float(fb[1] + fb[3])), height, 0.0)
         else:
-            texts.append(Text(t, (float(fb[0] + fb[2]), float(y + h)), height, 90.0))
+            txt = Text(t, (float(fb[0] + fb[2]), float(y + h)), height, 90.0)
+        if sg is not None and side == 0 and _mid(sg):
+            txt.dim = _dim(txt, sg, k, bw.shape[0])
+        texts.append(txt)
         boxes.append(b)
     return texts, boxes
+
+
+def _mid(sg: Seg) -> bool:
+    """Steht die Zahl in der Mitte ihres Maßsegments? (Sonst fehlt ein Stern dazwischen.)"""
+    return abs(sg[3] - (sg[1] + sg[2]) / 2.0) <= 0.12 * (sg[2] - sg[1])
+
+
+def _dim(t: Text, sg: Seg, k: int, H: int) -> Tuple[float, float, float]:
+    """Maßlinie des Segments als Text.dim (in Texthöhen relativ zur Einfügung)."""
+    cy, a, b = sg[:3]
+    p0, p1 = ((a, cy), (b, cy)) if k == 0 else ((cy, H - a), (cy, H - b))   # k=1: zurückdrehen
+    r = np.radians(t.angle)
+    u, n = (np.cos(r), -np.sin(r)), (-np.sin(r), -np.cos(r))
+    x, y, h = t.position[0], t.position[1], t.height
+
+    def along(p, v):
+        return float(((p[0] - x) * v[0] + (p[1] - y) * v[1]) / h)
+    return along(p0, u), along(p1, u), along(p0, n)
 
 
 def metres(t: str) -> Optional[float]:
@@ -286,20 +307,20 @@ def check_lengths(cand: list, gaps: list, ks: list) -> Optional[float]:
     """Maßzahlen gegen die Länge ihres Maßsegments prüfen (cand wird geändert).
 
     Der Maßstab (Pixel je Meter) ergibt sich aus den sicheren Lesungen selbst: richtige Maße
-    stimmen auf ±1 % überein. Damit gilt je Segment, in dessen Mitte die Zahl steht (sonst hat
-    die Erkennung einen Stern verpasst und das Segment ist zu lang):
-    - sichere Lesung, aber Segment > 1,5 × so lang wie die Zahl sagt → Ziffer verloren
-      („285“ statt „2.885“, „10“ statt „7.10“) → verwerfen; < 0,67 × → verwerfen;
-    - unsichere Lesung (Konfidenz, Breite, Muster): genau eine Lesart passt aufs Segment → nehmen.
-    Teilmaße einer Kette ergeben so von selbst das Gesamtmaß. Zahlen über/unter der Linie (Breite
-    und Höhe einer Öffnung) bleiben ungeprüft. Gibt den Maßstab zurück (oder None)."""
+    stimmen auf ±1 % überein. Damit gilt je Segment, in dessen Mitte die Zahl steht:
+    - unsichere Lesung (Konfidenz, Breite, Muster), Segment ≥ 1 m: genau eine Lesart passt auf
+      ±1 % aufs Segment → nehmen („14.40“ mit Konfidenz 69, „1875“ → „1.87⁵“);
+    - sichere Lesung, aber Segment kürzer als 0,67 × die Zahl → kann nicht stimmen → verwerfen.
+    Ein zu langes Segment beweist nichts: Hat die Erkennung Sterne verpasst, umfasst es mehrere
+    Teilmaße, und die Zahl kann zufällig mittig stehen („43⁵“ in 1,25 m). Teilmaße einer Kette
+    ergeben so von selbst das Gesamtmaß. Zahlen über/unter der Linie (Breite und Höhe einer
+    Öffnung) bleiben ungeprüft. Gibt den Maßstab zurück (oder None)."""
     rows = []                                   # (Index, Länge px, Lage in der Mitte)
     for i, (g, k) in enumerate(zip(gaps, ks)):
         sg = g[4]
         if sg is None or g[3] != 0:
             continue
-        L = sg[2] - sg[1]
-        rows.append((i, L, abs(sg[3] - (sg[1] + sg[2]) / 2.0) <= 0.12 * L))
+        rows.append((i, sg[2] - sg[1], _mid(sg)))
     q = sorted(L / metres(cand[i][0]) for i, L, mid in rows if mid and cand[i][0] and metres(cand[i][0]))
     if len(q) < 5:
         return None
@@ -330,12 +351,15 @@ def merge(texts: list, boxes: list, new_texts: list, new_boxes: list) -> None:
     """Lückenzahlen in die OCR-Ergebnisse übernehmen (texts/boxes parallel, werden geändert).
 
     Liegt dort noch nichts: dazu. Liegt dort eine andere Zahlenlesung („144“, „6 03“): die
-    Lückenzahl ersetzt sie – sie ist aus dem sauberen Ausschnitt gelesen. Wörter bleiben."""
+    Lückenzahl ersetzt sie – sie ist aus dem sauberen Ausschnitt gelesen und trägt ggf. ihre
+    Maßlinie (DIMENSION). Wörter bleiben."""
     from .ocr import _overlap
     for t, b in zip(new_texts, new_boxes):
         hit = [i for i, o in enumerate(boxes) if _overlap(b, o) > 0.3]
-        if any(not _NUMLIKE.match(texts[i].text) or texts[i].text == t.text for i in hit):
+        if any(not _NUMLIKE.match(texts[i].text) for i in hit):
             continue
+        if t.dim is None and any(texts[i].text == t.text for i in hit):
+            continue                                # gleiche Lesung schon da
         for i in sorted(hit, reverse=True):
             del texts[i], boxes[i]
         texts.append(t)
