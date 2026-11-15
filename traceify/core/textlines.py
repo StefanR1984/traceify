@@ -258,6 +258,9 @@ def _tesseract_lines(crops: List[np.ndarray], s, extra: str = "") -> List[Tuple[
     """Alle Ausschnitte untereinander auf ein Blatt, ein Tesseract-Aufruf, Zuordnung per y.
 
     extra: zusätzliche Tesseract-Optionen (z. B. eine Zeichen-Whitelist)."""
+    n = 30000 // (LINE_H + GAP)                 # Tesseract nimmt höchstens 32767 px Höhe
+    if len(crops) > n:
+        return [r for i in range(0, len(crops), n) for r in _tesseract_lines(crops[i:i + n], s, extra)]
     from .ocr import _setup, _tess_config, _usable_lang
     pt = _setup()
     width = max(c.shape[1] for c in crops) + 2 * GAP

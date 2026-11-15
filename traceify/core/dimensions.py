@@ -18,9 +18,10 @@ from .model import Text
 
 # Box (x, y, w, h) der Zahl in der Lücke, Box der vollen Ziffern, Box der Hochziffer oder None,
 # Lage zur Maßlinie: 0 mittig darauf, -1 darüber, +1 darunter; Maßsegment (Zeile, x der Maßbegrenzung
-# links, rechts, Mitte der Zahl) oder None, wenn keine Sterne auf der Zeile die Zahl einschließen
+# links, rechts, Mitte der Zahl[, True bei kleinem Maß über engem Sternpaar]) oder None, wenn keine
+# Sterne auf der Zeile die Zahl einschließen
 Box = Tuple[int, int, int, int]
-Seg = Tuple[float, float, float, float]
+Seg = tuple
 Gap = Tuple[Box, Box, Optional[Box], int, Optional[Seg]]
 
 # Maß in cm („25“, „150“) oder m („6.70“, „14.45“); die Hochziffer („4.17⁵“) wird getrennt gelesen
@@ -142,6 +143,55 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float) -> List[Gap]:
                 g = _number(full, comps, rest, g0, g1) if full else None
                 if g is not None:
                     out.append(g + (side, seg(cy, g[1][0] + g[1][2] / 2.0)))
+    return out + _close_pairs(rest, ticks, out)
+
+
+def _close_pairs(rest: np.ndarray, ticks, found: List[Gap]) -> List[Gap]:
+    """Kleine Maße über zwei eng liegenden Sternen („24“ über „✳✳“): Die Zahl passt nicht
+    dazwischen und steht darüber, oft breiter als das Paar und in Nachbarschrift. Gesucht werden
+    Ziffern in Schrifthöhe der übrigen Maßzahlen, eine Zeile, die der Paarmitte am nächsten liegt.
+    Zählt nur, wenn die Zahl zum Sternabstand passt (check_lengths)."""
+    import cv2
+    hs = sorted(g[1][3] for g in found if g[3] == 0)
+    if len(hs) < 3:
+        return []
+    h = hs[len(hs) // 2]                        # Ziffernhöhe der Maßzahlen in diesem Plan
+    H, W = rest.shape
+    rows = {}
+    for x, y in sorted(ticks, key=lambda t: t[1]):
+        key = next((k for k in rows if abs(k - y) <= 2.5), y)
+        rows.setdefault(key, []).append(x)
+    out = []
+    for cy, xs in rows.items():
+        xs.sort()
+        for a, b in zip(xs, xs[1:]):
+            if not 0.3 * h <= b - a <= 1.3 * h:     # zwei Ziffern hätten dazwischen keinen Platz
+                continue
+            c = (a + b) / 2.0
+            x0, x1 = max(0, int(c - 1.5 * h)), min(W, int(c + 1.5 * h))
+            y0, y1 = max(0, int(cy - 2.4 * h)), int(cy) - 1
+            n, _, st, _ = cv2.connectedComponentsWithStats(rest[y0:y1, x0:x1], connectivity=8)
+            comps = [(x + x0, y + y0, w, hh) for x, y, w, hh, ar in st[1:] if ar >= 2]
+            full = [q for q in comps if 0.75 * h <= q[3] <= 1.3 * h]
+            if not full:
+                continue
+            # die Ziffer über der Paarmitte, dazu Nachbarn derselben Zeile mit kleinem Abstand
+            first = min(full, key=lambda q: abs(q[0] + q[2] / 2.0 - c) + abs(cy - q[1] - q[3]))
+            line = sorted((q for q in full if abs(q[1] + q[3] - first[1] - first[3]) <= 0.2 * h),
+                          key=lambda q: q[0])
+            i = line.index(first)
+            j0, j1 = i, i
+            while j0 > 0 and line[j0][0] - (line[j0 - 1][0] + line[j0 - 1][2]) < 0.4 * h:
+                j0 -= 1
+            while j1 + 1 < len(line) and line[j1 + 1][0] - (line[j1][0] + line[j1][2]) < 0.4 * h:
+                j1 += 1
+            word = line[j0:j1 + 1]
+            gx0 = word[0][0] - int(0.3 * h)
+            gx1 = word[-1][0] + word[-1][2] + int(0.3 * h)
+            g = _number(word, comps, rest, gx0, gx1)
+            if g is None or abs(g[1][0] + g[1][2] / 2.0 - c) > 0.6 * h:
+                continue
+            out.append(g + (-1, (cy, a, b, g[1][0] + g[1][2] / 2.0, True)))
     return out
 
 
@@ -318,15 +368,26 @@ def check_lengths(cand: list, gaps: list, ks: list) -> Optional[float]:
     rows = []                                   # (Index, Länge px, Lage in der Mitte)
     for i, (g, k) in enumerate(zip(gaps, ks)):
         sg = g[4]
-        if sg is None or g[3] != 0:
+        if sg is None or (g[3] != 0 and len(sg) < 5):
             continue
-        rows.append((i, sg[2] - sg[1], _mid(sg)))
+        rows.append((i, sg[2] - sg[1], _mid(sg) and len(sg) < 5))
     q = sorted(L / metres(cand[i][0]) for i, L, mid in rows if mid and cand[i][0] and metres(cand[i][0]))
-    if len(q) < 5:
+    r = q[len(q) // 2] if len(q) >= 5 else None
+    if r is not None and sum(abs(v / r - 1) <= 0.03 for v in q) < max(5, 0.5 * len(q)):
+        r = None                                # kein einheitlicher Maßstab (Skizze, Fehlerkennung)
+    # kleines Maß über zwei engen Sternen: nur, wenn es zum Abstand passt (1 px ≈ 2 cm Spiel)
+    for i, (g, k) in enumerate(zip(gaps, ks)):
+        sg, c = g[4], cand[i]
+        if sg is None or len(sg) < 5:
+            continue
+        L = sg[2] - sg[1]
+        fits = [t for t in ([c[0]] if c[0] else _variants(c[1]) if c[2] >= 50 else [])
+                if r is not None and abs(L - metres(t) * r) <= max(2.5, 0.1 * L)]
+        c[0] = fits[0] if len(fits) == 1 else None
+        if c[0] and c[0][-1] in SUP and c[0][-1] != "⁵":
+            c[0] = c[0][:-1]                    # halbe Zentimeter: fast immer ⁵, sonst Nachbarschrift
+    if r is None:
         return None
-    r = q[len(q) // 2]
-    if sum(abs(v / r - 1) <= 0.03 for v in q) < max(5, 0.5 * len(q)):
-        return None                             # kein einheitlicher Maßstab (Skizze, Fehlerkennung)
     for i, L, mid in rows:
         if not mid:
             continue

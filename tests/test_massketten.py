@@ -206,3 +206,33 @@ def test_masslinie_folgt_dem_text():
     assert flat(t) == pytest.approx([0, 200, 400, 200])
     r = rotate(t, (0, 0), -90)                           # Bild: gegen den Uhrzeigersinn
     assert r.angle == 90 and flat(r) == pytest.approx([200, 0, 200, -400])
+
+
+def test_kleines_mass_ueber_engem_sternpaar():
+    img = np.zeros((300, 900), np.uint8)
+    for x in (60, 210, 360):                             # „✳74✳74✳“ für die Schrifthöhe
+        _star(img, x, 150)
+    for x in (115, 265):
+        cv2.putText(img, "74", (x, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    _star(img, 500, 150)                                 # dazu „74“ für die dritte Zahl
+    cv2.putText(img, "74", (405, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    for x in (640, 662):                                 # enges Paar, „24“ darüber
+        _star(img, x, 150)
+    cv2.putText(img, "24", (632, 136), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    g = [gap for gap, k in dimensions.line_gaps(img, 10.0) if gap[4] and len(gap[4]) > 4]
+    assert len(g) == 1 and g[0][3] == -1
+    x, y, w, h = g[0][0]
+    assert x < 651 < x + w and y + h < 150
+
+
+def test_laengenpruefung_kleines_mass_ueber_sternpaar():
+    r = 60.0
+    rows = [_seg(t, metres * r) for t, metres in
+            (("6.70", 6.70), ("2.35", 2.35), ("3.01", 3.01), ("2.12⁵", 2.125), ("1.88⁵", 1.885))]
+    pair = lambda t, L, **kw: ([t, t, 90.0], (None, None, None, -1, (100.0, 0.0, float(L), L / 2, True)))
+    rows += [pair("24", 0.24 * r),                       # passt
+             pair("74", 0.24 * r),                       # passt nicht zum Abstand → weg
+             pair("24³", 0.24 * r)]                      # fremde Hochziffer → abgestreift
+    cand, gaps = [c for c, _ in rows], [g for _, g in rows]
+    dimensions.check_lengths(cand, gaps, [0] * len(gaps))
+    assert [c[0] for c in cand[5:]] == ["24", None, "24"]

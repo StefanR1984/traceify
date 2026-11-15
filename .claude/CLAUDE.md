@@ -216,5 +216,8 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    ausgerichteter Ausschnitte: EG „88⁵“ sauber, aber senkrecht überlappen „88⁵“/„2.12⁵“ schon im Plot,
    UG-Gruppen mischen verschiedene Stellen → nicht weiter verfolgt. Material außerhalb des Repos:
    `Testdaten Traceify/fable_tueren/`.
+   **0.27.0** kleine Maße über engen Sternpaaren (`_close_pairs`, „24“ über „✳✳“, Länge gegen Sternabstand,
+   Hochziffer ≠ ⁵ verworfen): EG 112→116, UG 71→80, Simulation 530/197. UG-Knäuel aus übereinander
+   gedruckten Maßen („15“/„25“/„10“) unlösbar.
 8. Workflow „Integration (echt)“: ODA-Suchmuster angepasst (Dateiname hat keine Versionsnummer
    mehr: `ODAFileConverter_QT6_vc16_amd64dll.msi`), aber noch **nicht live getestet**.

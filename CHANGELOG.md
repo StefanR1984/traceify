@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.27.0 – 15.11.2026
+### Kleine Maße über zwei engen Maßbegrenzungen
+- **„24“ über „✳✳“:** Ist ein Maß so kurz, dass die Zahl nicht zwischen die beiden Sterne passt (Wandputz, Anschläge: 24, 25, 30 cm), setzt Allplan sie darüber – oft breiter als das Sternpaar und dicht an Nachbarschrift. Traceify sucht über jedem engen Sternpaar Ziffern in der Schrifthöhe der übrigen Maßzahlen, liest sie gezielt und übernimmt sie nur, wenn die Zahl zum Abstand der Sterne passt (Maßstab aus den Maßen selbst, seit 0.25.0). Eine andere Hochziffer als ⁵ wird dabei verworfen – sie stammt bei so kleinen Maßen fast immer aus Nachbarschrift (im Original 117 × ⁵, 1 × ³).
+- **Gemessen** (echte 300-dpi-Plots, je gedrucktem Text nach Lage): PLAN1_EG 116 statt 112, PLAN1_UG 80 statt 71; Wörter EG 60 statt 58 bei 13 statt 15 falschen, UG 20 statt 21 falsche. Simulierte Pläne 530 / 197 statt 528 / 200, neun Testscans unverändert, Laufzeit einzeln gemessen unverändert.
+- Sehr viele Leseausschnitte werden jetzt in Blöcken an Tesseract gegeben (ein Blatt darf höchstens 32 767 Pixel hoch sein).
+- Nicht gelöst: Maße, die im Plot übereinander gedruckt sind (UG „15“/„25“/„10“ als Knäuel), und Türmaße als berührendes Paar („88⁵“ / „2.12⁵“).
+
 ## 0.26.0 – 15.11.2026
 ### Maßzahlen als Bemaßung (DIMENSION) im DXF
 - **Erkannte Maßketten werden echte CAD-Bemaßungen:** Eine Maßzahl, die zwischen zwei erkannten Maßbegrenzungen mittig steht, wird im DXF/DWG als gedrehtes Linearmaß (DIMENSION) ausgegeben – Maßlinie von Stern zu Stern, Schrägstriche als Begrenzung, die Zahl wie gelesen mittig in der Linie (Allplan-Stil), waagrecht und senkrecht. Im CAD lässt sich das Maß so als Ganzes auswählen und abfragen. Die gezeichnete Maßlinie aus dem Scan bleibt zusätzlich als Linie erhalten.
