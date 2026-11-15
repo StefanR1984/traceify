@@ -127,7 +127,18 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   95,5/98,5; Dach 60,7/93,8 → 64,9/99,4; nur PLAN3_DG −0,4/−0,9). Echte Scans: offene Enden
   überall weniger (bis −28 %), Objekte +5–7 % auf 4 Plänen (kurze Verbindungsstege). Offen:
   Stege < 0,5 mm in die Nachbarlinie einrechnen, um die Objekte wieder zu senken.
-- **Dach:** Kies-/Punktmuster aus Kreisen r < 0,5 mm fehlen zu 95 %.
+- **Dach:** Kies-/Punktmuster aus Kreisen r < 0,5 mm fehlen zu 95 %. **Analyse 15.11. (PLAN2_Dach):**
+  6406 Kreise, alle r = 0,15 mm Papier (Ø 0,3 mm ≈ Strichbreite 0,25 mm) – im Scan gefüllte Punkte, nie
+  Ringe. 150 dpi: Punkt = 5 px² (Ø ~1,8 px); `despeckle` (12 px²) löscht 87 %, ohne Entflecken sind alle
+  6406 im Binärbild, aber das Skelett eines Kleckses ist ein Punkt → `min_length` 6 px verwirft ihn
+  (roh: 6388 ohne Objekt). 300 dpi: Punkte 41 px², überleben das Entflecken, ebenfalls ohne Loch →
+  ebenso verworfen. Lösungsidee: eigener Schritt „Punkt → kleiner Kreis“ auf dem Binärbild (vor dem
+  Entflecken): kompakte, runde Kleckse (Fläche ~4–60 px², Seitenverhältnis ≈ 1, nicht in Textboxen) als
+  Circle (Radius aus Fläche minus halbe Strichbreite, Untergrenze Strich/2); Rauschen ausschließen über
+  Dichte/Regelmäßigkeit (Kies = viele Punkte in einer Fläche, Rauschen verstreut; Mindestzahl Nachbarn
+  in z. B. 3 mm). Alternativ/ergänzend als Schraffur-Fläche (Kiesmuster) statt tausender Kreise – fürs
+  CAD meist sinnvoller; dann müsste `truth.compare` solche Flächen werten. Echte Scans (image-*) prüfen,
+  ob Punktfelder vorkommen und ob Rauschpunkte fälschlich Kreise würden.
 - **Stand 0.20.0, was fehlt noch** (PLAN2_EG/3_EG/1_EG, je ~13 % der Länge): praktisch nichts
   > 1 mm entfernt – fehlend heißt „Traceify-Linie 0,3–1 mm daneben“. ~8 Punkte sind Doppellinien
   < 0,6 mm Abstand (bei 150 dpi/0,25 mm Strich im Scan verschmolzen, kaum lösbar), ~2–3 Punkte
