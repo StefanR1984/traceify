@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.25.0 – 15.11.2026
+### Maßzahlen gegen die Länge ihres Maßsegments prüfen
+- **Maßstab aus den Maßen selbst:** Aus den sicher gelesenen Maßzahlen und dem Abstand ihrer Maßbegrenzungen (Sterne) ermittelt Traceify, wie viele Pixel ein Meter im Plan hat – richtige Maße stimmen darin auf ±1 % überein (echter Plot 1:200 bei 300 dpi: 59 px/m). Damit lässt sich jede Maßzahl gegen ihr Segment prüfen; die Teilmaße einer Kette ergeben so von selbst das Gesamtmaß.
+- **Unsicher gelesene Maße werden gerettet**, wenn genau eine Lesart auf ±1 % zum Segment passt, z. B. „14.40“ mit zu niedriger Konfidenz oder eine voll gelesene Hochziffer („1875“ → „1.87⁵“). Erst ab 1 m Segmentlänge – darunter trennt ein Pixel schon 2 cm („85“ / „88⁵“).
+- Eine Zahl, die nicht in ihr Segment passen kann (Segment kürzer als zwei Drittel der Zahl), wird verworfen. Ein zu langes Segment beweist dagegen nichts: Verpasst die Erkennung Sterne, umfasst es mehrere Teilmaße.
+- **Gemessen** (echte 300-dpi-Plots, je gedrucktem Text nach Lage): PLAN1_EG 112 statt 111, PLAN1_UG 71 wie bisher; Wörter 117 statt 116 von 208 bei gleich vielen falschen (38). Simulierte Pläne (528 / 200) und die neun Testscans unverändert.
+- Untersucht und verworfen: Zahlen in einem zu langen Segment als Teilzahl verwerfen („10“ statt „7.10“) – trifft genauso richtige Maße in Ketten mit verpassten Sternen („43⁵“); 2 % Toleranz – übernimmt „2.29“ statt „2.25“.
+
 ## 0.24.0 – 14.11.2026
 ### Kurze Maße zwischen Sternen, Maßpaare über und unter der Linie
 - **„✳74✳74✳“:** Bei kurzen Maßen lässt Allplan die Maßlinie ganz weg, die Zahl steht zwischen zwei Maßbegrenzungen. Traceify erkennt die Sterne (Schrägstrich mit Maß- und Hilfslinie durch die Mitte; Ziffern wie „4“ oder „7“ zählen nicht) und liest die Zahl dazwischen gezielt.

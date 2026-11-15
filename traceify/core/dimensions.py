@@ -17,12 +17,15 @@ import numpy as np
 from .model import Text
 
 # Box (x, y, w, h) der Zahl in der Lücke, Box der vollen Ziffern, Box der Hochziffer oder None,
-# Lage zur Maßlinie: 0 mittig darauf, -1 darüber, +1 darunter
+# Lage zur Maßlinie: 0 mittig darauf, -1 darüber, +1 darunter; Maßsegment (Zeile, x der Maßbegrenzung
+# links, rechts, Mitte der Zahl) oder None, wenn keine Sterne auf der Zeile die Zahl einschließen
 Box = Tuple[int, int, int, int]
-Gap = Tuple[Box, Box, Optional[Box], int]
+Seg = Tuple[float, float, float, float]
+Gap = Tuple[Box, Box, Optional[Box], int, Optional[Seg]]
 
 # Maß in cm („25“, „150“) oder m („6.70“, „14.45“); die Hochziffer („4.17⁵“) wird getrennt gelesen
 NUMBER = re.compile(r"^(?:\d{2,3}|\d{1,2}\.\d{2})$")
+SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 DIGIT_W = 0.77      # Ziffernbreite samt Abstand je Ziffernhöhe (serifenlose Planschrift)
 
 
@@ -90,6 +93,13 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float) -> List[Gap]:
     H, W = bw.shape
     h_min, h_max = 1.2 * px_per_mm, 7.0 * px_per_mm
     out = []
+
+    def seg(cy, x):
+        """Maßsegment um x: nächste Sterne links und rechts auf der Zeile cy."""
+        row = [tx for tx, ty in ticks if abs(ty - cy) <= 2.5]
+        a = [tx for tx in row if tx < x]
+        b = [tx for tx in row if tx > x]
+        return (cy, max(a), min(b), x) if a and b else None
     # Linienstücke derselben Zeile (Mitte ± 1,5 px), nach x sortiert
     rows, cur = [], []
     for s in segs:
@@ -117,7 +127,7 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float) -> List[Gap]:
             full = [c for c in comps if c[1] <= cy <= c[1] + c[3] and h_min <= c[3] <= h_max]
             g = _number(full, comps, rest, g0, g1) if full else None
             if g is not None and abs(g[1][1] + g[1][3] / 2.0 - cy) <= 0.25 * g[1][3]:
-                out.append(g + (0,))                # mittig auf der Linie
+                out.append(g + (0, seg(cy, g[1][0] + g[1][2] / 2.0)))   # mittig auf der Linie
                 continue
             # zwei Zahlen direkt über und unter der Linie („3.01“ / „3.00“, Breite / Höhe einer
             # Öffnung): an der Linie trennen, sie berühren sich oft
@@ -131,7 +141,7 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float) -> List[Gap]:
                         and 0 <= (cy - c[1] - c[3] if side < 0 else c[1] - cy) <= 0.25 * c[3] + 2]
                 g = _number(full, comps, rest, g0, g1) if full else None
                 if g is not None:
-                    out.append(g + (side,))
+                    out.append(g + (side, seg(cy, g[1][0] + g[1][2] / 2.0)))
     return out
 
 
@@ -205,29 +215,33 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
         return [], []
     LH = textlines.LINE_H
     crops = []
-    for (b, _, sup, side), k in gaps:
+    for (b, _, sup, side, _s), k in gaps:
         c = _crop(bw, gray, b, k, LH, side)
         if sup is not None:
             # Hochziffer („4.17⁵“) in voller Größe dahinter: so liest Tesseract sie sicher
             c = np.hstack([c[:, :-2], _crop(bw, gray, sup, k, LH, side)])
         crops.append(c)
     res = (run_lines or textlines._tesseract_lines)(crops, s, NUM_WHITELIST)
-    texts, boxes = [], []
-    for ((b, fb, sup, _), k), (t, conf) in zip(gaps, res):
-        t = (t or "").replace(" ", "").replace(",", ".")
+    cand = []                       # (Text oder None, Rohlesung, Konfidenz) je Lücke
+    for ((b, fb, sup, _, sg), k), (t, conf) in zip(gaps, res):
+        raw = t = (t or "").replace(" ", "").replace(",", ".")
         high = ""
         if sup is not None and NUMBER.match(t[:-1]):      # letzte Ziffer ist die Hochziffer
             t, high = t[:-1], t[-1].translate(SUPERSCRIPT)
-        elif sup is not None:                             # war keine (Pfeilspitze, Linienrest)
+        ok = conf >= 75 and bool(NUMBER.match(t))
+        if ok:
+            # passt die Länge der Zahl zur Box? (sonst: Teil einer Zahl oder zwei aufeinander)
+            w, h = (fb[2], fb[3]) if k == 0 else (fb[3], fb[2])
+            want = h * DIGIT_W * (len(t) - 0.5 * t.count(".") - 0.15)
+            ok = 0.75 <= w / want <= 1.25
+        cand.append([t + high if ok else None, raw, conf])
+    check_lengths(cand, [g for g, _ in gaps], [k for _, k in gaps])
+    texts, boxes = [], []
+    for ((b, fb, sup, _, sg), k), (t, _, _) in zip(gaps, cand):
+        if t is None:
+            continue
+        if sup is not None and t[-1] not in SUP:          # war keine (Pfeilspitze, Linienrest)
             sup = None
-        if conf < 75 or not NUMBER.match(t):
-            continue
-        # passt die Länge der Zahl zur Box? (sonst: Teil einer Zahl oder zwei aufeinander)
-        w, h = (fb[2], fb[3]) if k == 0 else (fb[3], fb[2])
-        want = h * DIGIT_W * (len(t) - 0.5 * t.count(".") - 0.15)
-        if not 0.75 <= w / want <= 1.25:
-            continue
-        t += high
         x, y, w, h = b
         if sup is not None:                               # Box mit Hochziffer
             x1, y1 = max(x + w, sup[0] + sup[2]), max(y + h, sup[1] + sup[3])
@@ -241,6 +255,72 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
             texts.append(Text(t, (float(fb[0] + fb[2]), float(y + h)), height, 90.0))
         boxes.append(b)
     return texts, boxes
+
+
+def metres(t: str) -> Optional[float]:
+    """Maßzahl in Meter: „6.70“ → 6.70, „74“ (cm) → 0.74, „88⁵“ → 0.885, „2.12⁵“ → 2.125."""
+    plain = t.rstrip(SUP)
+    high = t[len(plain):]
+    if not NUMBER.match(plain) or len(high) > 1:
+        return None
+    v = float(plain) if "." in plain else float(plain) / 100
+    if high:
+        v += SUP.index(high) / 1000
+    return v
+
+
+def _variants(raw: str) -> List[str]:
+    """Lesarten einer unsicheren Ziffernfolge: wie gelesen, Hochziffer als volle Ziffer gelesen
+    („875“ → „87⁵“), Punkt verloren („245“ → „2.45“)."""
+    sup = SUP
+    out = [raw]
+    d = raw.replace(".", "")
+    if d.isdigit() and 3 <= len(d) <= 5:
+        out += [raw[:-1] + sup[int(raw[-1])]] if len(raw) == 3 or "." in raw[:-1] else []
+        out += [d[:-2] + "." + d[-2:]]
+        out += [d[:-3] + "." + d[-3:-1] + sup[int(d[-1])]] if len(d) >= 4 else []
+    return [v for v in dict.fromkeys(out) if metres(v) is not None]
+
+
+def check_lengths(cand: list, gaps: list, ks: list) -> Optional[float]:
+    """Maßzahlen gegen die Länge ihres Maßsegments prüfen (cand wird geändert).
+
+    Der Maßstab (Pixel je Meter) ergibt sich aus den sicheren Lesungen selbst: richtige Maße
+    stimmen auf ±1 % überein. Damit gilt je Segment, in dessen Mitte die Zahl steht (sonst hat
+    die Erkennung einen Stern verpasst und das Segment ist zu lang):
+    - sichere Lesung, aber Segment > 1,5 × so lang wie die Zahl sagt → Ziffer verloren
+      („285“ statt „2.885“, „10“ statt „7.10“) → verwerfen; < 0,67 × → verwerfen;
+    - unsichere Lesung (Konfidenz, Breite, Muster): genau eine Lesart passt aufs Segment → nehmen.
+    Teilmaße einer Kette ergeben so von selbst das Gesamtmaß. Zahlen über/unter der Linie (Breite
+    und Höhe einer Öffnung) bleiben ungeprüft. Gibt den Maßstab zurück (oder None)."""
+    rows = []                                   # (Index, Länge px, Lage in der Mitte)
+    for i, (g, k) in enumerate(zip(gaps, ks)):
+        sg = g[4]
+        if sg is None or g[3] != 0:
+            continue
+        L = sg[2] - sg[1]
+        rows.append((i, L, abs(sg[3] - (sg[1] + sg[2]) / 2.0) <= 0.12 * L))
+    q = sorted(L / metres(cand[i][0]) for i, L, mid in rows if mid and cand[i][0] and metres(cand[i][0]))
+    if len(q) < 5:
+        return None
+    r = q[len(q) // 2]
+    if sum(abs(v / r - 1) <= 0.03 for v in q) < max(5, 0.5 * len(q)):
+        return None                             # kein einheitlicher Maßstab (Skizze, Fehlerkennung)
+    for i, L, mid in rows:
+        if not mid:
+            continue
+        c = cand[i]
+        if c[0] is not None:
+            v = metres(c[0])
+            if L < 0.67 * v * r:
+                c[0] = None
+            continue
+        if c[2] < 50 or L < r:              # unter 1 m trennt 1 px schon 2 cm („85“ / „88⁵“)
+            continue
+        fit = [t for t in _variants(c[1]) if abs(L - metres(t) * r) <= max(1.5, 0.01 * L)]
+        if len(fit) == 1:
+            c[0] = fit[0]
+    return r
 
 
 _NUMLIKE = re.compile(r"^[0-9.,:;°\"'’”⁰¹²³⁴⁵⁶⁷⁸⁹ ]+$")

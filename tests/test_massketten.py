@@ -116,9 +116,11 @@ def test_hochziffer_wird_angehaengt():
     assert len(g) == 1 and g[0][0][2] is not None
     gray = (255 - img * 255).astype(np.uint8)
     for read, want in (("4.175", "4.17⁵"), ("4.17", "4.17")):   # zweiter Fall: war keine Hochziffer
-        tt, _ = dimensions.read_gap_numbers(img, gray, 10.0, OcrSettings(),
-                                            run_lines=lambda c, s, x, r=read: [(r, 90.0)] * len(c))
+        tt, bb = dimensions.read_gap_numbers(img, gray, 10.0, OcrSettings(),
+                                             run_lines=lambda c, s, x, r=read: [(r, 90.0)] * len(c))
         assert [t.text for t in tt] == [want]
+        sup = g[0][0][2]                                 # Box umfasst die Hochziffer nur, wenn gelesen
+        assert (bb[0][0] + bb[0][2] >= sup[0] + sup[2]) == want.endswith("⁵")
 
 
 @pytest.mark.skipif(not tesseract_available(), reason="Tesseract fehlt")
@@ -127,3 +129,44 @@ def test_mazahl_mit_maslinie_wird_gelesen():
     gray = (255 - img * 255).astype(np.uint8)
     texts, _ = recognize(gray, OcrSettings(), px_per_mm=10.0)
     assert "6.70" in [t.text for t in texts]
+
+
+def _seg(t, L, conf=90.0, mid=True, side=0, sure=True):
+    """Kandidat und Lücke für check_lengths: Maßsegment der Länge L ab x = 0."""
+    x = L / 2.0 if mid else L / 5.0
+    return [t if sure else None, t, conf], (None, None, None, side, (100.0, 0.0, float(L), x))
+
+
+def test_laengenpruefung_masstab_aus_den_lesungen():
+    r = 60.0                                             # Pixel je Meter
+    rows = [_seg(t, metres * r) for t, metres in
+            (("6.70", 6.70), ("2.35", 2.35), ("74", 0.74), ("2.12⁵", 2.125), ("88⁵", 0.885))]
+    rows += [_seg("5.00", 0.5 * 5.00 * r),               # Segment zu kurz für die Zahl → weg
+             _seg("7.10", 2 * 7.10 * r, mid=False),      # Stern verpasst → bleibt
+             _seg("43⁵", 3 * 0.435 * r),                 # Segment zu lang beweist nichts → bleibt
+             _seg("1875", 1.875 * r, conf=60, sure=False),  # Hochziffer voll gelesen → „1.87⁵“
+             _seg("85", 0.885 * r, conf=60, sure=False),   # unter 1 m: geometrisch nicht trennscharf
+             _seg("75", 0.75 * r, conf=40, sure=False),  # zu unsicher → nichts
+             _seg("36", 1.8 * r, side=1)]                # unter der Linie (Höhe) → ungeprüft
+    cand, gaps = [c for c, _ in rows], [g for _, g in rows]
+    got = dimensions.check_lengths(cand, gaps, [0] * len(gaps))
+    assert got == pytest.approx(r, rel=0.01)
+    assert [c[0] for c in cand] == ["6.70", "2.35", "74", "2.12⁵", "88⁵", None, "7.10", "43⁵", "1.87⁵", None, None, "36"]
+
+
+def test_laengenpruefung_ohne_einheitlichen_masstab():
+    rows = [_seg(t, L) for t, L in (("6.70", 400), ("2.35", 300), ("74", 90), ("10", 400), ("5.00", 120))]
+    cand, gaps = [c for c, _ in rows], [g for _, g in rows]
+    assert dimensions.check_lengths(cand, gaps, [0] * 5) is None
+    assert [c[0] for c in cand] == ["6.70", "2.35", "74", "10", "5.00"]
+
+
+def test_meter_und_lesarten():
+    assert dimensions.metres("6.70") == pytest.approx(6.70)
+    assert dimensions.metres("74") == pytest.approx(0.74)
+    assert dimensions.metres("88⁵") == pytest.approx(0.885)
+    assert dimensions.metres("2.12⁵") == pytest.approx(2.125)
+    assert dimensions.metres("9295") is None
+    assert dimensions._variants("875") == ["875", "87⁵", "8.75"]
+    assert dimensions._variants("2885") == ["28.85", "2.88⁵"]
+
