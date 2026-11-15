@@ -202,6 +202,19 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    wenn `cad.ink_checker` Tinte auf der ganzen Lücke sieht. Übrig sind vor allem kurze, echte Striche
    (Möbeldetails, Fliesenmarken, Schriftreste) – pauschal 2 mm verbinden wäre falsch (Strichlinien,
    Maßhilfslinien, Buchstaben). Enden von Schraffurlinien auf die Wandkante ziehen ist noch offen.
-7. **Bemaßungen** (Maßketten) als DIMENSION-Objekte erkennen; dabei Maßstab plausibilisieren.
+7. **Bemaßungen** (Maßketten): **0.25.0** Längenprüfung `dimensions.check_lengths` (Maßstab px/m aus
+   sicheren Lesungen, richtige Maße ±1 %; Rettung unsicherer Lesungen ab 1 m Segment, ±1 %), **0.26.0**
+   DIMENSION im DXF (`Text.dim`, relativ in Texthöhen). Gemessen: EG 111→112, Wörter echt 116→117, sonst
+   gleich. Verworfen: „zu langes Segment = Teilzahl“ (trifft richtige Maße bei verpassten Sternen, „43⁵“),
+   2 % Toleranz („2.29“ statt „2.25“), Rettung unter 1 m („85“ statt „88⁵“, 1 px ≈ 1,7 cm).
+   **Türmaße („88⁵“/„2.12⁵“, „1.01“/„2.12⁵“) offen, zwei Versuche (15.11.) gescheitert:** Der rechte Stern
+   wird von den Ziffern überdeckt und von `_ticks` nicht gefunden. (1) Zeilenabtastung `_weak_ticks` auf
+   bekannten Maßzeilen findet ihn (EG x=980 = 928+52), aber auch Kreuzungen in Schraffuren; Bänder über/unter
+   der Linie zwischen den Sternen lesen Müll („888“, „8831“, „4.8“) – Sternstriche und überlappende Zahlen
+   zerstören die Ziffern; mit Längenprobe netto EG 112→111, UG 71→72. Schwache Sterne in der normalen
+   Lückensuche zerschneiden echte Ketten (UG verliert 4.17⁵, 7.50). (2) Median gleich langer, am Stern
+   ausgerichteter Ausschnitte: EG „88⁵“ sauber, aber senkrecht überlappen „88⁵“/„2.12⁵“ schon im Plot,
+   UG-Gruppen mischen verschiedene Stellen → nicht weiter verfolgt. Material außerhalb des Repos:
+   `Testdaten Traceify/fable_tueren/`.
 8. Workflow „Integration (echt)“: ODA-Suchmuster angepasst (Dateiname hat keine Versionsnummer
    mehr: `ODAFileConverter_QT6_vc16_amd64dll.msi`), aber noch **nicht live getestet**.
