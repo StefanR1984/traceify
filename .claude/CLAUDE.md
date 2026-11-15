@@ -225,7 +225,8 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    erkannten Stern; Ziffernhöhe ±1 px entscheidend (UG-Gruppe nur 2 Zahlen). Ideen: Höhe ±1 px absuchen,
    untere Zahl über Plan-Wortschatz, schwacher Stern nur als Ausgangspunkt für den Schablonen-Leser.
    **0.29.0:** schwacher Stern (`_weak_ticks`) als Ausgangspunkt (`template_numbers(extra=…)`), Breite/Höhe
-   desselben Paars dürfen überlappen: EG 140, UG 96, Wörter echt 129/37, simuliert 536/199. Verworfen: Höhe
+   desselben Paars dürfen überlappen (**0.30.0:** Maßstab aus `Text.dim` → `dimensions.scale_from_dims`, Vorrang in
+   `pipeline.apply_auto_scale`; echte Plots 1:200): EG 140, UG 96, Wörter echt 129/37, simuliert 536/199. Verworfen: Höhe
    ±1 px (EG +2/−1, „86⁵“, Zeit ×3); Wortschatz für die Höhe (EG hat kein sicheres „2.12⁵“).
 8. Workflow „Integration (echt)“: ODA-Suchmuster angepasst (Dateiname hat keine Versionsnummer
    mehr: `ODAFileConverter_QT6_vc16_amd64dll.msi`), aber noch **nicht live getestet**.

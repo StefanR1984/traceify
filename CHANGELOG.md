@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.30.0 – 15.11.2026
+### Zeichnungsmaßstab aus den Maßketten
+- Traceify kennt jetzt für jede erkannte Maßzahl die gezeichnete Länge ihrer Maßlinie. Stimmen mindestens fünf Maße überein, ergibt sich daraus der Zeichnungsmaßstab (echte Allplan-Plots: 1:200 aus 70 bzw. 37 Maßen) – auch wenn nirgends „M 1:200“ steht. Exportiert wird dann in Originalgröße.
+- Die Maßketten haben Vorrang vor einer „M 1:100“-Angabe im Plan (die kann zu einem Detail gehören); weichen beide ab, steht es im Info-Fenster („aus Maßketten, Plan nennt 1:100“). Ein von Hand gesetzter Maßstab bleibt unangetastet, Pläne ohne erkannte Maßketten (die neun Testscans) ebenso.
+- Erkennung, Geometrie und Texte unverändert (alle Prüfstände gleich).
+
 ## 0.29.0 – 15.11.2026
 ### Türmaße auch ohne erkannten Stern
 - Laufen die Zahlen einer Tür über beide Maßbegrenzungen (UG: „1.01“ / „2.12⁵“ bis in die Wände), erkennt die Sternsuche oft keinen der beiden Sterne – der Schablonen-Leser hatte keinen Ausgangspunkt. Jetzt sucht Traceify auf den Zeilen bekannter Sterne auch nach von Ziffern überdeckten Sternen (Schrägstrich, waagrechter und senkrechter Strich durch einen Punkt) und nimmt sie als Ausgangspunkt. Kreuzungen in Schraffuren, die dabei mitgefunden werden, sortiert die Lage- und Längenprobe des Lesers aus.

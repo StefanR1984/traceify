@@ -117,14 +117,22 @@ class ConvertResult:
 
 
 def apply_auto_scale(d: Drawing, settings: ConvertSettings) -> None:
-    """Erkannten Zeichnungsmaßstab anwenden (nur ohne manuell gesetzten Maßstab)."""
+    """Erkannten Zeichnungsmaßstab anwenden (nur ohne manuell gesetzten Maßstab). Vorrang haben
+    die Maßketten (viele Maße, die zur gezeichneten Länge passen) vor einer „M 1:100“-Angabe, die
+    auch zu einem Detail gehören kann."""
     if settings.scale is not None or not settings.auto_scale:
         return
-    n = find_scale(t.text for t in d.by_type(Text))
+    from .dimensions import scale_from_dims
+    texts = d.by_type(Text)
+    named = find_scale(t.text for t in texts)
+    measured = scale_from_dims(texts, d.scale)  # aus den Maßketten: Länge gegen Maßzahl
+    n = measured or named
     if n and n != 1:
         d.scale *= n
         d.meta["massstab"] = format_scale(n)
-        d.meta["massstab_quelle"] = "aus Plan erkannt"
+        d.meta["massstab_quelle"] = "aus Maßketten" if measured else "aus Plan erkannt"
+        if measured and named and named != measured:
+            d.meta["massstab_quelle"] += f", Plan nennt {format_scale(named)}"
 
 
 def _style_post(ents: list, mask: np.ndarray, paper_mm_per_px: float, settings) -> list:

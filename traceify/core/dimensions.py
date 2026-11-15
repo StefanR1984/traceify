@@ -627,6 +627,24 @@ def _dim(t: Text, sg: Seg, k: int, H: int) -> Tuple[float, float, float]:
     return along(p0, u), along(p1, u), along(p0, n)
 
 
+def scale_from_dims(texts, mm_per_px: float) -> Optional[float]:
+    """Zeichnungsmaßstab N (für 1:N) aus den Maßzahlen mit erkannter Maßlinie (Text.dim):
+    Länge der Maßlinie in Papier-mm gegen den Wert in Metern. Nur wenn mindestens fünf Maße auf
+    ±3 % übereinstimmen und das Ergebnis auf ±3 % ein üblicher Maßstab ist, sonst None."""
+    import math
+    from .scale_detect import COMMON
+    q = sorted(math.dist(*t.dim_points()) / metres(t.text) for t in texts
+               if getattr(t, "dim", None) and metres(t.text))
+    if len(q) < 5 or mm_per_px <= 0:
+        return None
+    r = q[len(q) // 2]                          # Pixel je Meter
+    if sum(abs(v / r - 1) <= 0.03 for v in q) < max(5, 0.5 * len(q)):
+        return None
+    n = 1000.0 / (r * mm_per_px)
+    best = min(COMMON, key=lambda c: abs(c / n - 1))
+    return float(best) if abs(best / n - 1) <= 0.03 else None
+
+
 def metres(t: str) -> Optional[float]:
     """Maßzahl in Meter: „6.70“ → 6.70, „74“ (cm) → 0.74, „88⁵“ → 0.885, „2.12⁵“ → 2.125."""
     plain = t.rstrip(SUP)

@@ -295,3 +295,19 @@ def test_tuermass_per_schablone():
     # nur unsicherer Ausgangspunkt (von Ziffern überdeckter Stern) reicht ebenso
     weak = dimensions.template_numbers(img, [], stars | hor, 10.0, tpl, [20], 100.0, extra=ticks)
     assert sorted(t for t, *_ in weak) == ["2.12", "88⁵"]
+
+
+def test_massstab_aus_massketten():
+    from traceify.core.model import Drawing
+    from traceify.core.pipeline import ConvertSettings, apply_auto_scale
+    # 1:200 bei 300 dpi: 1 m = 5 mm Papier = 59,06 px
+    mm = 25.4 / 300
+    r = 5.0 / mm
+    texts = [Text(t, (0.0, 0.0), 10.0, 0.0, dim=(0.0, metres * r / 10.0, 0.5))
+             for t, metres in (("6.70", 6.70), ("2.35", 2.35), ("74", 0.74), ("2.12⁵", 2.125), ("3.01", 3.01))]
+    assert dimensions.scale_from_dims(texts, mm) == 200
+    assert dimensions.scale_from_dims(texts[:4], mm) is None          # zu wenige
+    d = Drawing(100, 100, mm, texts + [Text("M 1:100", (0, 0), 10)])
+    apply_auto_scale(d, ConvertSettings())
+    assert d.scale == pytest.approx(mm * 200)
+    assert d.meta["massstab"] == "1:200" and "Plan nennt 1:100" in d.meta["massstab_quelle"]
