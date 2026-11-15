@@ -4,7 +4,8 @@ from __future__ import annotations
 import math
 from xml.sax.saxutils import escape
 
-from ..core.model import Arc, Circle, Drawing, Line, Polyline, Text, layer_color
+from ..core.hatch import find_regions, wants_areas
+from ..core.model import Arc, Circle, Drawing, LAYER_HATCH, Line, Polyline, Text, layer_color
 
 _DASH = {"DASHED": "3 1.5", "HIDDEN": "1.5 0.75", "DOT": "0.3 1", "DASHDOT": "4 1 0.5 1",
          "CENTER": "6 1 1.5 1"}
@@ -32,20 +33,49 @@ def _arc_path(e: Arc, s: float) -> str:
     return f"M{x0:.3f},{y0:.3f} A{r:.3f},{r:.3f} 0 {large} 1 {x1:.3f},{y1:.3f}"
 
 
+def _hatch_svg(regions, s: float, col: str) -> list:
+    """Schraffur-Flächen: Umriss (mit Löchern) gefüllt mit einem Linienmuster je Fläche."""
+    defs, body = [], []
+    for i, reg in enumerate(regions):
+        sp = reg.spacing * s
+        bx, by = reg.base[0] * s, reg.base[1] * s
+        # Kachel: eine Linie in halber Höhe; gedreht um den Winkel, verschoben auf den
+        # Basispunkt (die gedrehte y-Achse ist die Normale der Schraffurlinien)
+        defs.append(f'<pattern id="schraffur{i}" patternUnits="userSpaceOnUse" '
+                    f'width="{sp:.4f}" height="{sp:.4f}" patternTransform="translate('
+                    f'{bx:.3f} {by:.3f}) rotate({reg.angle:.3f}) translate(0 {-sp / 2:.4f})">'
+                    f'<line x1="-1" y1="{sp / 2:.4f}" x2="{sp + 1:.4f}" y2="{sp / 2:.4f}" '
+                    f'stroke="{col}" stroke-width="0.25"/></pattern>')
+        d = " ".join("M" + " L".join(f"{x * s:.3f},{y * s:.3f}" for x, y in ring) + " Z"
+                     for ring in [reg.outline] + reg.holes)
+        body.append(f'<path d="{d}" fill="url(#schraffur{i})" fill-rule="evenodd" '
+                    f'stroke="none"/>')
+    return ["<defs>"] + defs + ["</defs>"] + body
+
+
 def export_svg(d: Drawing, path: str, visible_layers=None) -> None:
     d = d.export_view()          # Schräglage des Scans herausdrehen
     s = d.scale
     W, H = d.width * s, d.height * s
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W:.2f}mm" height="{H:.2f}mm" '
            f'viewBox="0 0 {W:.3f} {H:.3f}">']
+    regions, skip = [], set()
+    if wants_areas(d) and (visible_layers is None or LAYER_HATCH in visible_layers):
+        regions = find_regions(d.entities)
+        skip = {id(m) for r in regions for m in r.members}
     by_layer = {}
     for e in d.expanded():
+        if id(e) in skip:
+            continue
         if visible_layers is None or e.layer in visible_layers:
             by_layer.setdefault(e.layer, []).append(e)
     for layer, ents in by_layer.items():
         rgb = layer_color(layer)[1]
         col = "#%02x%02x%02x" % rgb
         out.append(f'<g id="{layer}" stroke="{col}" fill="none" stroke-width="0.25">')
+        if layer == LAYER_HATCH and regions:
+            out += _hatch_svg(regions, s, col)
+            regions = []
         for e in ents:
             if isinstance(e, Line):
                 out.append(f'<line x1="{e.p1[0]*s:.3f}" y1="{e.p1[1]*s:.3f}" '
@@ -65,6 +95,11 @@ def export_svg(d: Drawing, path: str, visible_layers=None) -> None:
                            f'fill="{col}" stroke="none" font-family="sans-serif" '
                            f'transform="rotate({-e.angle:.2f} {x:.3f} {y:.3f})">'
                            f'{escape(e.text)}</text>')
+        out.append("</g>")
+    if regions:                  # nur Flächen, keine Einzellinien mehr auf SCHRAFFUR
+        col = "#%02x%02x%02x" % layer_color(LAYER_HATCH)[1]
+        out.append(f'<g id="{LAYER_HATCH}" fill="none">')
+        out += _hatch_svg(regions, s, col)
         out.append("</g>")
     out.append("</svg>")
     with open(path, "w", encoding="utf-8") as f:

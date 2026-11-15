@@ -23,7 +23,7 @@ import math
 
 from ..core import cad
 from ..core.edit import entity_points, move_point
-from ..core.model import Arc, Circle, Insert, Line, Polyline, Text, layer_color
+from ..core.model import Arc, Circle, Insert, LAYER_HATCH, Line, Polyline, Text, layer_color
 
 TOOL_SELECT, TOOL_ERASE, TOOL_PEN, TOOL_REGION = "select", "erase", "pen", "region"
 TOOL_SYMBOL = "symbol"
@@ -143,6 +143,46 @@ class EntityItem(QGraphicsPathItem):
         st.setWidth(8 / max(0.05, self.scene().views()[0].transform().m11()) if self.scene()
                     and self.scene().views() else 8)
         return st.createStroke(self.path())
+
+
+class HatchItem(QGraphicsPathItem):
+    """Schraffur-Fläche (wie im DXF als HATCH): Umriss mit Linienmuster, als Ganzes wählbar.
+
+    Steht für ihre Schraffurlinien (``members``); die Einzellinien sind solange verborgen."""
+
+    def __init__(self, region, width: float):
+        from ..core.hatch import pattern_lines
+        area = QPainterPath()
+        for ring in [region.outline] + region.holes:
+            area.addPolygon([QPointF(*p) for p in ring])
+            area.closeSubpath()
+        area.setFillRule(Qt.OddEvenFill)
+        lines = QPainterPath()
+        for a, b in pattern_lines(region):
+            lines.moveTo(*a)
+            lines.lineTo(*b)
+        super().__init__(lines)
+        self.area = area
+        self.members = list(region.members)
+        self.base_pen = QPen(QColor(*layer_color(LAYER_HATCH)[1]), width)
+        self.base_pen.setCosmetic(True)
+        self.setPen(self.base_pen)
+        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setZValue(1.5)
+
+    def boundingRect(self):
+        return self.area.boundingRect().united(super().boundingRect())
+
+    def paint(self, painter, option, widget=None):
+        pen = QPen(self.base_pen)
+        if self.isSelected():
+            pen.setColor(QColor(255, 120, 0))
+            painter.fillPath(self.area, QColor(255, 120, 0, 40))
+        painter.setPen(pen)
+        painter.drawPath(self.path())
+
+    def shape(self):
+        return self.area
 
 
 class InsertItem(QGraphicsPathItem):
@@ -301,6 +341,10 @@ class Canvas(QGraphicsView):
         self.bg_item: QGraphicsRectItem | None = None
         self.items_by_layer: dict[str, list] = {}
         self.item_by_id: dict[int, QGraphicsItem] = {}
+        self.hatch_items: list[HatchItem] = []
+        self.hatch_areas_provider = lambda: False   # Schraffur als Fläche zeigen?
+        self._layer_hidden: set[str] = set()
+        self._vectors_visible = True
         self.line_width = 1.6
         self.tool = TOOL_SELECT
         self.brush_size = 12
@@ -383,9 +427,36 @@ class Canvas(QGraphicsView):
             self.scene().addItem(it)
             self.items_by_layer.setdefault(e.layer, []).append(it)
             self.item_by_id[id(e)] = it
+        if self.hatch_areas_provider():
+            self._build_hatch(entities)
+        self._apply_visibility()
+
+    def _build_hatch(self, entities):
+        """Regelmäßige Schraffuren als Flächen zeigen (dieselben Regionen wie im DXF)."""
+        from ..core.hatch import find_regions
+        for reg in find_regions(entities):
+            it = HatchItem(reg, self.line_width)
+            self.scene().addItem(it)
+            self.hatch_items.append(it)
+
+    def _hidden_members(self) -> set:
+        return {id(m) for h in self.hatch_items for m in h.members}
+
+    def _apply_visibility(self):
+        hidden = self._hidden_members()
+        for layer, items in self.items_by_layer.items():
+            vis = self._vectors_visible and layer not in self._layer_hidden
+            for it in items:
+                it.setVisible(vis and id(it.entity) not in hidden)
+        for h in self.hatch_items:
+            h.setVisible(self._vectors_visible and LAYER_HATCH not in self._layer_hidden)
 
     def clear_entities(self):
         self.clear_handles()
+        for h in self.hatch_items:
+            if h.scene():
+                self.scene().removeItem(h)
+        self.hatch_items = []
         for items in self.items_by_layer.values():
             for it in items:
                 if it.scene():
@@ -415,16 +486,21 @@ class Canvas(QGraphicsView):
                 it.refresh()
 
     def set_layer_visible(self, layer: str, vis: bool):
-        for it in self.items_by_layer.get(layer, []):
-            it.setVisible(vis)
+        (self._layer_hidden.discard if vis else self._layer_hidden.add)(layer)
+        self._apply_visibility()
 
     def set_vectors_visible(self, vis: bool):
-        for items in self.items_by_layer.values():
-            for it in items:
-                it.setVisible(vis)
+        self._vectors_visible = bool(vis)
+        self._apply_visibility()
 
     def selected_entities(self):
-        return [it.entity for it in self.scene().selectedItems() if hasattr(it, "entity")]
+        out = []
+        for it in self.scene().selectedItems():
+            if hasattr(it, "entity"):
+                out.append(it.entity)
+            elif hasattr(it, "members"):
+                out += it.members
+        return out
 
     def select_entities(self, ents):
         ids = {id(e) for e in ents}
@@ -433,11 +509,18 @@ class Canvas(QGraphicsView):
             it = self.item_by_id.get(e_id)
             if it is not None:
                 it.setSelected(True)
+        for h in self.hatch_items:
+            if any(id(m) in ids for m in h.members):
+                h.setSelected(True)
 
     def remove_entity_items(self, ents):
         self._snap_index = None
         self.clear_handles()
         ids = {id(e) for e in ents}
+        # Fläche, deren Linien wegfallen, auflösen – übrige Linien erscheinen wieder einzeln
+        for h in [h for h in self.hatch_items if any(id(m) in ids for m in h.members)]:
+            self.scene().removeItem(h)
+            self.hatch_items.remove(h)
         for layer, items in self.items_by_layer.items():
             keep = []
             for it in items:
@@ -447,6 +530,7 @@ class Canvas(QGraphicsView):
                 else:
                     keep.append(it)
             self.items_by_layer[layer] = keep
+        self._apply_visibility()
 
     # ---- Knoten ----
     def clear_handles(self):

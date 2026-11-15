@@ -7,7 +7,7 @@ from typing import Callable, List, Optional
 import numpy as np
 
 from . import ocr as ocr_mod
-from .model import LAYER_DASHED, Drawing, Text
+from .model import LAYER_DASHED, LAYER_HATCH, Drawing, Text
 from .pdf_vector import PdfVectorSettings, has_vectors, import_page
 from .preprocess import PreprocessSettings, to_binary
 from .scale_detect import find_scale, format_scale
@@ -271,6 +271,11 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         # bis 0,8 mm immer; bis zum 2,5-Fachen nur, wo der Scan durchgehend Tinte zeigt
         close_gaps(ents, settings.style.close_gaps_mm / dpi_scale,
                    far=2.5 * settings.style.close_gaps_mm / dpi_scale, ink_ok=ink_ok)
+        if settings.style.hatch_layer:
+            from .cad import extend_hatch_ends
+            # Schraffur endet im Scan oft kurz vor der Wandkante: bis dorthin ziehen, wenn
+            # Nachbarlinien an derselben Kante enden
+            extend_hatch_ends(ents, 2.5 / dpi_scale, 8.0 / dpi_scale, LAYER_HATCH, ink_ok)
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + texts, source=source)

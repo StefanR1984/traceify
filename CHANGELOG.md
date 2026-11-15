@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.32.0 – 15.11.2026
+### Schraffur-Flächen auch in der Zeichenfläche und im SVG
+- Regelmäßige Schraffuren erscheinen jetzt schon in der Zeichenfläche als **Fläche mit Linienmuster** – genau so, wie sie im DXF/DWG als HATCH ankommen (dieselben Flächen, derselbe Winkel und Abstand). Ein Klick wählt die ganze Schraffur, Entf löscht sie, Rückgängig holt sie zurück. Der Layer SCHRAFFUR blendet Flächen und übrige Einzellinien gemeinsam aus.
+- Der **SVG-Export** gibt dieselben Flächen als Umriss mit Linienmuster (`<pattern>`) aus statt als Einzellinien.
+- Neuer Schalter **Ansicht → Schraffur als Fläche**: aus = Einzellinien in Zeichenfläche, DXF und SVG.
+### Schraffurlinien bis zur Wandkante
+- Schraffur endet im Scan oft kurz vor der Wandkante – auf weißem Papier, die Tintenprüfung von „Lücken schließen“ greift dort nicht. Jetzt zieht Traceify ein freies Schraffurende bis zur Kante in seiner Richtung (höchstens 2,5 mm und nicht weiter, als die Linie lang ist), wenn mindestens zwei weitere Schraffurlinien im Umkreis von 8 mm an derselben Kante enden – auch wenn die Kante im Scan in mehrere Stücke zerfallen ist. Ziel ist nie eine andere Schraffurlinie.
+- **Gemessen:** offene Enden image-89 98 statt 140, image-94 96 statt 114, image-4 1928 statt 1947, image-27 1515 statt 1535; Objekte und Abdeckung gleich, Wahrheits-Prüfstand (simuliert und echte Plots) unverändert.
+- Prüfstand: Spalte „Schraffur“ (Linien auf SCHRAFFUR, Zahl der Flächen) und „Einzellinien“ (Anteil, der nicht in einer Fläche aufgeht).
+
 ## 0.31.0 – 15.11.2026
 ### Abgerundete Ecken werden wieder spitz
 - Das Skelett rundet rechtwinklige Ecken dicker Striche ab, die Kreisanpassung machte daraus kleine Bögen (Radius 1–3 mm, um 90°). Im Original-CAD-Plan liegen dort zwei Linien – das war die Hauptquelle falscher Bögen. Jetzt prüft Traceify je kleinem Bogen den Schnittpunkt der Tangenten an beiden Enden: Liegt dort Tinte und laufen beide Tangentenstücke zu mindestens 70 % über Tinte, werden daraus zwei Linien über die Ecke (fast achsparallel → exakt waagrecht/senkrecht). Echte Bögen (Türschwenk, Rundungen) haben eine leere Ecke und bleiben – in den simulierten Plänen ging kein echter Bogen verloren.

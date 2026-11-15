@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDockWidget, QFileDialog
 
 from .. import __version__
 from ..api import load_settings, save_settings
-from ..core import loader, preprocess
+from ..core import hatch, loader, preprocess
 from ..core.model import Drawing, layer_color
 from ..core.pipeline import convert_source
 from ..export import export
@@ -83,6 +83,8 @@ class MainWindow(QMainWindow):
         self.canvas.nodeEditFinished.connect(self.on_node_edit_finished)
         self.canvas.toolCancelled.connect(lambda: self.set_tool("select"))
         self.canvas.entities_provider = lambda: self.drawing.entities if self.drawing else []
+        self.canvas.hatch_areas_provider = lambda: (self.drawing is not None
+                                                    and hatch.wants_areas(self.drawing))
         self.canvas.mm_per_px_provider = lambda: (self.drawing.scale if self.drawing
                                                   else self.img_scale)
         self.canvas.entitiesDrawn.connect(self.on_entities_drawn)
@@ -304,6 +306,8 @@ class MainWindow(QMainWindow):
         self.a_show_vec.setChecked(True)
         self.a_show_bin = A("Binärbild statt Original", self.toggle_binary, "B",
                             checkable=True)
+        self.a_hatch_areas = A("Schraffur als Fläche", self.toggle_hatch_areas,
+                               checkable=True)
 
         self.a_batch = A("Stapelkonvertierung …", self.open_batch, "Ctrl+B",
                          "Viele Dateien / PDF-Seiten auf einmal umwandeln")
@@ -366,7 +370,7 @@ class MainWindow(QMainWindow):
 
         m = self.menuBar().addMenu("&Ansicht")
         for a in (self.a_fit, self.a_zoom_100, self.a_zoom_in, self.a_zoom_out, None,
-                  self.a_show_vec, self.a_show_bin):
+                  self.a_show_vec, self.a_show_bin, self.a_hatch_areas):
             m.addSeparator() if a is None else m.addAction(a)
         m.addSeparator()
         m.addAction(self.dock_settings.toggleViewAction())
@@ -518,6 +522,10 @@ class MainWindow(QMainWindow):
             self.canvas.ortho_angle = 0.0
         has_img = self.gray is not None
         has_vec = self.drawing is not None and bool(self.drawing.entities)
+        self.a_hatch_areas.blockSignals(True)
+        self.a_hatch_areas.setChecked(self.drawing is not None and hatch.wants_areas(self.drawing))
+        self.a_hatch_areas.blockSignals(False)
+        self.a_hatch_areas.setEnabled(has_vec)
         busy = self.worker is not None
         for a in (self.a_convert, self.a_rot_l, self.a_rot_r, self.a_crop, self.a_deskew,
                   self.a_invert, self.a_calib, self.a_show_bin, self.a_ai_suggest,
@@ -1232,6 +1240,17 @@ class MainWindow(QMainWindow):
 
     def on_node_edit_finished(self):
         self.statusBar().showMessage("Knoten verschoben (Strg+Z = zurück).")
+
+    def toggle_hatch_areas(self, on):
+        """Schraffur als Fläche (Zeichenfläche, DXF, SVG) oder als Einzellinien."""
+        if self.drawing is None:
+            return
+        self.drawing.meta[hatch.META_KEY] = "1" if on else "0"
+        self.canvas.set_entities(self.drawing.entities)
+        for i in range(self.layer_list.count()):
+            it = self.layer_list.item(i)
+            if it.checkState() != Qt.Checked:
+                self.canvas.set_layer_visible(it.data(Qt.UserRole), False)
 
     def toggle_connected(self, on):
         self.canvas.node_connected = bool(on)
@@ -2087,9 +2106,11 @@ class MainWindow(QMainWindow):
             "<b>KI-Server</b> – im KI-Panel über ⚙: Ollama oder vLLM / OpenAI-kompatibel.<br>"
             "<b>Schräglage</b> des Scans wird erkannt, Linien werden ausgerichtet und beim "
             "Export gerade gedreht, ein schräger Gebäudeflügel wird in sich ausgerichtet. "
-            "Linien, die im Scan knapp vor einem anderen Objekt abreißen, werden verbunden. "
-            "Schraffur kommt auf den Layer SCHRAFFUR und im DXF/DWG als "
-            "Schraffur-Fläche (HATCH), Wände auf Wunsch als Umriss auf WAENDE.<br><br>"
+            "Linien, die im Scan knapp vor einem anderen Objekt abreißen, werden verbunden, "
+            "Schraffurlinien bis zur Wandkante gezogen. "
+            "Schraffur kommt auf den Layer SCHRAFFUR und erscheint in der Zeichenfläche, "
+            "im SVG und im DXF/DWG als Schraffur-Fläche (HATCH; Ansicht → Schraffur als "
+            "Fläche schaltet auf Einzellinien um; ein Klick wählt die ganze Fläche), Wände auf Wunsch als Umriss auf WAENDE.<br><br>"
             "<b>Updates</b> – Klick auf »⬆ Update verfügbar« unten rechts, dann »Jetzt "
             "installieren«: Traceify lädt, prüft und installiert das Update und startet neu."
             "<br><br>"

@@ -406,7 +406,12 @@ def trim(ents: list, target, click: Point) -> Tuple[list, list]:
 def _extend_ray(others, a: Point, b: Point, forward: bool) -> Optional[float]:
     """Nächster Schnittparameter der Geraden a→b mit anderen Objekten jenseits von b
     (forward) bzw. vor a (rückwärts)."""
-    best = None
+    return _ray_hit(others, a, b, forward)[0]
+
+
+def _ray_hit(others, a: Point, b: Point, forward: bool = True):
+    """Wie ``_extend_ray``, gibt (Parameter, getroffenes Objekt) oder (None, None)."""
+    best, hit = None, None
     for e in others:
         for pr in primitives(e):
             if isinstance(pr, Seg):
@@ -416,10 +421,10 @@ def _extend_ray(others, a: Point, b: Point, forward: bool) -> Optional[float]:
                 cands = [t for _, t in line_circle(a, b, pr, infinite=True)]
             for t in cands:
                 if forward and t > 1 + 1e-6 and (best is None or t < best):
-                    best = t
+                    best, hit = t, e
                 if not forward and t < -1e-6 and (best is None or t > best):
-                    best = t
-    return best
+                    best, hit = t, e
+    return best, hit
 
 
 def _lerp(a: Point, b: Point, t: float) -> Point:
@@ -558,6 +563,86 @@ def close_gaps(ents: list, dist: float, far: float = 0.0, ink_ok=None) -> int:
             else:
                 e.points[0] = p
             n += 1
+    return n
+
+
+def extend_hatch_ends(ents: list, max_gap: float, near: float, layer: str,
+                      ink_ok=None, min_peers: int = 2) -> int:
+    """Freie Enden von Schraffurlinien (Layer ``layer``) bis an die Kante ziehen.
+
+    Handschraffur und gedruckte Schraffur enden im Scan oft kurz vor der Wandkante – auf
+    weißem Papier, die Tintenprüfung von ``close_gaps`` greift dort nicht. Ein Ende wird bis
+    zum Objekt in seiner Richtung (höchstens ``max_gap`` und nicht weiter, als die Linie lang
+    ist) verlängert, wenn
+      * mindestens ``min_peers`` weitere Schraffurenden im Umkreis ``near`` an genau diesem
+        Objekt enden oder knapp davor stehen (die Kante begrenzt die Schraffur), oder
+      * ``ink_ok(p, q)`` auf der ganzen Lücke Tinte sieht.
+    Ziel muss eine Linie/Bogen eines anderen Layers sein – nie eine andere Schraffurlinie.
+    Gibt die Zahl der verlängerten Enden zurück."""
+    hatch = [e for e in ents if isinstance(e, Line) and e.layer == layer]
+    if not hatch or max_gap <= 0:
+        return 0
+    others = [e for e in ents if not isinstance(e, (Text, Insert))]
+    cell = max(32.0, 4 * max_gap)
+    grid = {}
+    for e in others:
+        pts = []
+        for pr in primitives(e):
+            pts += [pr.a, pr.b] if isinstance(pr, Seg) else \
+                [(pr.c[0] - pr.r, pr.c[1] - pr.r), (pr.c[0] + pr.r, pr.c[1] + pr.r)]
+        xs, ys = [q[0] for q in pts], [q[1] for q in pts]
+        if not xs:
+            continue
+        for gx in range(int((min(xs) - max_gap) // cell), int((max(xs) + max_gap) // cell) + 1):
+            for gy in range(int((min(ys) - max_gap) // cell), int((max(ys) + max_gap) // cell) + 1):
+                grid.setdefault((gx, gy), []).append(e)
+
+    def nearby(p, owner):
+        return [o for o in grid.get((int(p[0] // cell), int(p[1] // cell)), ()) if o is not owner]
+
+    def touched(p, owner):
+        for o in nearby(p, owner):
+            for pr in primitives(o):
+                q = closest_on_seg(pr.a, pr.b, p) if isinstance(pr, Seg) else closest_on_circ(pr, p)
+                if math.dist(p, q) <= 1.0:
+                    return o
+        return None
+    # je Schraffurende: berührtes oder in Reichweite getroffenes Objekt
+    ends = []                 # (Linie, letztes Ende?, Ende, Ziel, Punkt oder None, Lücke)
+    for e in hatch:
+        for end, prev, last in ((e.p1, e.p2, False), (e.p2, e.p1, True)):
+            t = touched(end, e)
+            if t is not None:
+                ends.append((e, last, end, t, None, 0.0))
+                continue
+            L = math.dist(prev, end)
+            if L < 1e-6:
+                continue
+            tt, obj = _ray_hit(nearby(end, e), prev, end, True)
+            if tt is None or (tt - 1.0) * L > min(max_gap, L):
+                continue
+            ends.append((e, last, end, obj, _lerp(prev, end, tt), (tt - 1.0) * L))
+    def on_edge(q, obj) -> bool:
+        """Liegt q auf obj – bei Linien auch auf deren Verlängerung (zerstückelte Kanten)?"""
+        if isinstance(obj, Line):
+            dx, dy = obj.p2[0] - obj.p1[0], obj.p2[1] - obj.p1[1]
+            L = math.hypot(dx, dy)
+            return L > 1e-6 and abs((q[0] - obj.p1[0]) * dy - (q[1] - obj.p1[1]) * dx) / L <= 1.5
+        return any(math.dist(q, closest_on_seg(pr.a, pr.b, q) if isinstance(pr, Seg)
+                             else closest_on_circ(pr, q)) <= 1.5 for pr in primitives(obj))
+    n = 0
+    for k, (e, last, end, obj, p, gap) in enumerate(ends):
+        if p is None or obj.layer == layer:
+            continue
+        peers = sum(1 for j, o in enumerate(ends) if j != k and o[0] is not e
+                    and math.dist(o[2], end) <= near and on_edge(o[4] or o[2], obj))
+        if peers < min_peers and not (ink_ok is not None and ink_ok(end, p)):
+            continue
+        if last:
+            e.p2 = p
+        else:
+            e.p1 = p
+        n += 1
     return n
 
 

@@ -196,7 +196,7 @@ def run_file(path: str, settings=None, page: int = 0, reference: Optional[str] =
     mine = measure("Traceify", d.expanded(), ink, mm_px, res.text_boxes, dt,
                    export_ents=d.export_view().expanded())
     out = {"datei": path, "bild": [int(ink.shape[1]), int(ink.shape[0])],
-           "mm_pro_px": mm_px, "traceify": mine}
+           "mm_pro_px": mm_px, "traceify": mine, "schraffur": hatch_stats(d)}
     if reference:
         ents, (s, dx, dy) = fit_to_image(read_dxf(reference), ink)
         ref = measure(ref_name, ents, ink, mm_px)
@@ -204,6 +204,16 @@ def run_file(path: str, settings=None, page: int = 0, reference: Optional[str] =
         out["lage"] = {"massstab": round(s, 5), "dx": round(dx, 1), "dy": round(dy, 1)}
         out["woerter"] = word_overlap(mine, ref)
     return out
+
+
+def hatch_stats(d) -> dict:
+    """Schraffurlinien und wie viele davon in Flächen (HATCH) aufgehen."""
+    from .hatch import find_regions
+    from .model import LAYER_HATCH, Line
+    n = sum(1 for e in d.entities if isinstance(e, Line) and e.layer == LAYER_HATCH)
+    regs = find_regions(d.entities)
+    used = sum(len(r.members) for r in regs)
+    return {"linien": n, "flaechen": len(regs), "einzeln": n - used}
 
 
 def _pp():

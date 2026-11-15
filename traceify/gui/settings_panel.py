@@ -154,8 +154,8 @@ class SettingsPanel(QScrollArea):
                               "Layer und lassen sich im CAD mit einem Klick ausblenden")
         self.hatch.setChecked(True)
         f.addRow(self.hatch)
-        self.hatch_areas = QCheckBox("Schraffur als Fläche exportieren (DXF-HATCH)")
-        self.hatch_areas.setToolTip("Regelmäßige Schraffuren kommen im DXF/DWG als eine "
+        self.hatch_areas = QCheckBox("Schraffur als Fläche (DXF-HATCH, SVG, Ansicht)")
+        self.hatch_areas.setToolTip("Regelmäßige Schraffuren kommen im DXF/DWG/SVG und in der Zeichenfläche als eine "
                                     "Schraffur-Fläche mit Winkel und Abstand statt als viele "
                                     "Einzellinien – im CAD als Ganzes änderbar")
         self.hatch_areas.setChecked(True)

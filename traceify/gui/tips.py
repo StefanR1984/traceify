@@ -146,6 +146,8 @@ ACTIONS = {
     "a_select_all": "Alle Objekte markieren.",
     "a_select_layer": "Alle Objekte auf den Layern der aktuellen Auswahl markieren.",
     "a_show_bin": "Statt des Originals das Schwarz-Weiß-Bild zeigen, mit dem umgewandelt wird.",
+    "a_hatch_areas": "Regelmäßige Schraffuren als Fläche mit Linienmuster zeigen und so auch "
+                     "als DXF-HATCH bzw. SVG-Muster exportieren; aus: Einzellinien.",
     "a_show_vec": "Die erzeugten Vektoren über dem Bild ein- oder ausblenden.",
     "a_symbol_folder": "Ordner mit den gespeicherten Symbolen öffnen.",
     "a_undo": "Letzten Schritt zurücknehmen (Strg+Z).",

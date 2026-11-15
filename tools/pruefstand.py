@@ -25,11 +25,13 @@ KOPF = ("| Datei | Programm | Zeit s | Objekte | Linien | Bögen | Kreise | Text
         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 
 
-def zeile(datei, m, woerter=""):
+def zeile(datei, m, woerter="", sch=None):
     return (f"| {datei} | {m.name} | {m.seconds or ''} | {m.objects} | {m.lines} | {m.arcs} | "
             f"{m.circles} | {m.texts} | {m.splinters} | {m.ortho * 100:.0f} % | {m.free_ends} | "
             f"{m.coverage * 100:.1f} % | "
-            f"{m.precision * 100:.1f} % | {woerter} |")
+            f"{m.precision * 100:.1f} % | {woerter} | " +
+            (f"{sch['linien']} ({sch['flaechen']} Fl.) | "
+             f"{sch['einzeln'] / max(1, sch['linien']) * 100:.0f} % |" if sch else " | |"))
 
 
 def main(argv=None) -> int:
@@ -51,7 +53,7 @@ def main(argv=None) -> int:
         r = run_file(f, s, reference=ref, ref_name=a.name)
         w = r.get("woerter")
         rows.append(zeile(base, r["traceify"],
-                          f"{w['gemeinsam']} von {w['gemeinsam'] + w['nur_vergleich']}" if w else ""))
+                          f"{w['gemeinsam']} von {w['gemeinsam'] + w['nur_vergleich']}" if w else "", r.get("schraffur")))
         if ref:
             rows.append(zeile(base, r["vergleich"]))
         raw.append({k: (v.as_dict() if hasattr(v, "as_dict") else v) for k, v in r.items()})
