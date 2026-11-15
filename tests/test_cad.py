@@ -132,3 +132,22 @@ def test_trim_keeps_layer():
     c = tf.Circle((0, 0), 10, layer="ROHRE")
     _, added = cad.trim([c, tf.Line((-20, 0), (20, 0))], c, (0, -10))
     assert added[0].layer == "ROHRE"
+
+
+def test_abgerundete_ecke_wird_spitz_echter_bogen_bleibt():
+    import cv2
+    import numpy as np
+    from traceify.core.cad import arcs_to_corners, ink_share
+    from traceify.core.model import Arc, Line
+    gray = np.full((200, 400), 255, np.uint8)
+    cv2.line(gray, (20, 50), (100, 50), 0, 3)            # rechtwinklige Ecke bei (100, 50)
+    cv2.line(gray, (100, 50), (100, 130), 0, 3)
+    cv2.ellipse(gray, (250, 130), (60, 60), 0, 270, 360, 0, 3)   # echter Viertelkreis
+    ecke = Arc((90.0, 60.0), 10.0, 270.0, 0.0)           # Skelett hat die Ecke abgerundet
+    echt = Arc((250.0, 130.0), 60.0, 270.0, 0.0)
+    ents = [ecke, echt]
+    assert arcs_to_corners(ents, ink_share(gray), max_radius=80) == 1
+    lines = [e for e in ents if isinstance(e, Line)]
+    assert len(lines) == 2 and ents[1] is echt
+    assert all(abs(l.p2[0] - 100) < 1 and abs(l.p2[1] - 50) < 1 or abs(l.p1[0] - 100) < 1 for l in lines)
+    assert {l.layer for l in lines} == {"LINIEN"}

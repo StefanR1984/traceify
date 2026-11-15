@@ -250,6 +250,9 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
     ink_gray = None
     if not settings.preprocess.deskew:           # nur, wenn Graubild und Vektoren deckungsgleich
         ink_gray = 255 - gray if settings.preprocess.invert else gray
+    if ink_gray is not None and settings.vectorize.mode == MODE_CENTERLINE:
+        from .cad import arcs_to_corners, ink_share
+        arcs_to_corners(ents, ink_share(ink_gray), 4.0 / dpi_scale)   # abgerundete Ecken wieder spitz
     if settings.style.straighten and settings.vectorize.mode == MODE_CENTERLINE:
         from .cad import ink_share
         from .straighten import straighten

@@ -148,6 +148,10 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   Bögen −20–64 % (Scans), PLAN2_EG 261 → 189; Trefferquote/Genauigkeit fast überall besser,
   Splitter und offene Enden weniger. Rest: flache Ausbeulungen an Abzweigen, Kehren an
   Doppellinienenden, Fehlbögen in fleckigen Füllflächen.
+- **0.31.0 Fehlbögen = abgerundete Ecken** (Analyse: 421 von 598 Bögen in 4 Plänen liegen auf Originallinien, Radius
+  1–3 mm, ~90°): `cad.arcs_to_corners` – Tangenten-Ecke P auf Tinte und beide Tangentenstücke ≥ 70 % Tinte → zwei
+  Linien (echte Bögen ≤ 68 %), Radius ≤ 4 mm Papier. PLAN2_EG 189→141, echt EG 147→86. Rest: Ecken mit Tinte
+  < 70 % an den Tangenten (Bogenenden schräg). Verworfen: Geraden hinter den Bogenenden verlangen (Gewinn weg).
 - **Ortho** 52–73 % gegen 71–91 % im Original (Schraffur des Originals ist dort als Einzellinien).
 - **Wörter (0.21.0, korrigierte Simulation, mit Tesseract):** 523 von 887 richtig, 199 falsch. Je Gruppe
   (Stand vor 0.21): Maße mit Hochziffer 8 % (0.21: Nachlesen `ocr.fix_superscripts`), reine Zahlen 50 %,

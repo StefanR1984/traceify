@@ -692,3 +692,53 @@ def pick(ents: Iterable, p: Point, radius: float):
             if d <= bd:
                 best, bd = e, d
     return best
+
+
+def _axis(deg: float, tol: float = 8.0):
+    """„h“ für fast waagrecht, „v“ für fast senkrecht, sonst None."""
+    a = deg % 180
+    if min(a, 180 - a) <= tol:
+        return "h"
+    return "v" if abs(a - 90) <= tol else None
+
+
+def arcs_to_corners(ents: list, share, max_radius: float, min_sweep: float = 45.0,
+                    max_sweep: float = 135.0, min_ink: float = 0.7) -> int:
+    """Vom Skelett abgerundete Ecken wieder spitz machen (ents wird geändert).
+
+    Das Skelett rundet rechtwinklige Ecken dicker Striche ab; die Kreisanpassung macht daraus
+    kleine Bögen (Radius 1–3 mm, um 90°) – in den Original-CAD-Plänen liegen dort zwei Linien.
+    Prüfung je Bogen: Schnittpunkt P der Tangenten an beiden Bogenenden; liegen beide
+    Tangentenstücke Bogenende → P im Scan auf Tinte (share: cad.ink_share), war es eine Ecke →
+    zwei Linien über P. Bei echten Bögen (Türschwenk, gerundete Möbel) ist die Ecke leer:
+    gemessen höchstens 68 % Tinte, bei abgerundeten Ecken meist 70–90 % (die Bogenenden liegen
+    leicht schräg zur Linie). max_radius (px): größere Bögen bleiben unangetastet.
+    Gibt die Zahl der ersetzten Bögen zurück."""
+    from .model import LAYER_ARCS, LAYER_LINES, Arc, Line
+    n = 0
+    for i, e in enumerate(ents):
+        if not isinstance(e, Arc):
+            continue
+        sweep = (e.end_angle - e.start_angle) % 360
+        if not min_sweep <= sweep <= max_sweep or e.radius > max_radius:
+            continue
+        a0, a1 = math.radians(e.start_angle), math.radians(e.start_angle + sweep)
+        am = (a0 + a1) / 2
+        cx, cy = e.center
+        p0 = (cx + e.radius * math.cos(a0), cy + e.radius * math.sin(a0))
+        p1 = (cx + e.radius * math.cos(a1), cy + e.radius * math.sin(a1))
+        d = e.radius / math.cos(math.radians(sweep / 2))
+        P = (cx + d * math.cos(am), cy + d * math.sin(am))
+        # Tangente fast achsparallel (≤ 8°): Ecke so, dass das Linienstück exakt waagrecht bzw.
+        # senkrecht wird (sonst stehen die neuen Stücke um die Bogenungenauigkeit schräg)
+        h0, h1 = (_axis(e.start_angle + 90), _axis(e.start_angle + sweep + 90))
+        if h0 is not None and h1 is not None and h0 != h1:
+            P = (p1[0], p0[1]) if h0 == "h" else (p0[0], p1[1])
+        if share(P, P) < 1 or share(p0, P) < min_ink or share(P, p1) < min_ink:
+            continue                            # Spitze ohne Tinte: glatte Kurve, keine Ecke
+        attrs = dict(layer=LAYER_LINES if e.layer == LAYER_ARCS else e.layer, color=e.color,
+                     linetype=e.linetype, lineweight=e.lineweight)
+        ents[i] = Line(p0, P, **attrs)
+        ents.append(Line(P, p1, **attrs))
+        n += 1
+    return n

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.31.0 – 15.11.2026
+### Abgerundete Ecken werden wieder spitz
+- Das Skelett rundet rechtwinklige Ecken dicker Striche ab, die Kreisanpassung machte daraus kleine Bögen (Radius 1–3 mm, um 90°). Im Original-CAD-Plan liegen dort zwei Linien – das war die Hauptquelle falscher Bögen. Jetzt prüft Traceify je kleinem Bogen den Schnittpunkt der Tangenten an beiden Enden: Liegt dort Tinte und laufen beide Tangentenstücke zu mindestens 70 % über Tinte, werden daraus zwei Linien über die Ecke (fast achsparallel → exakt waagrecht/senkrecht). Echte Bögen (Türschwenk, Rundungen) haben eine leere Ecke und bleiben – in den simulierten Plänen ging kein echter Bogen verloren.
+- **Gemessen:** Bögen simuliert PLAN2_EG 141 statt 189 (Original 90), PLAN2_OG1 142 statt 212, PLAN3_DG 54 statt 69 (Original 0); echte Plots EG 86 statt 147, UG 120 statt 151; Testscans z. B. image-27 141 statt 548, image-4 97 statt 351. Trefferquote und Genauigkeit gleich bis −0,1 Punkte, weniger offene Enden, Texte unverändert. Dafür 1–5 % mehr Objekte (ein Bogen wird zu zwei Linien), Ortho bis −1 Punkt (neue Eckstücke an schrägen Details zählen als schräge Linien).
+- Untersucht und verworfen: zusätzlich verlangen, dass die Geraden hinter den Bogenenden weiterlaufen – die meisten Ecken haben kurze Schenkel, der Gewinn fiel fast ganz weg.
+
 ## 0.30.0 – 15.11.2026
 ### Zeichnungsmaßstab aus den Maßketten
 - Traceify kennt jetzt für jede erkannte Maßzahl die gezeichnete Länge ihrer Maßlinie. Stimmen mindestens fünf Maße überein, ergibt sich daraus der Zeichnungsmaßstab (echte Allplan-Plots: 1:200 aus 70 bzw. 37 Maßen) – auch wenn nirgends „M 1:200“ steht. Exportiert wird dann in Originalgröße.

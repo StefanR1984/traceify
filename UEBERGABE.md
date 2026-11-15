@@ -39,6 +39,7 @@ Echte Scans 0.17.0 → 0.20.0: gleich viele Texte, Bögen −30 bis −60 %, off
 - **Türmaße als berührendes Paar: zwei Versuche gescheitert** (Details CLAUDE.md, Idee 7), Vorschlag:
   Fable gezielt darauf ansetzen (nur mit Okay des Nutzers). Material: `Testdaten Traceify/fable_tueren/`
   (Ausschnitte EG/UG, Medianbilder, Versuch-1-Code).
+- **0.31.0** abgerundete Ecken wieder spitz (`cad.arcs_to_corners`): Bögen PLAN2_EG 189→141, echt EG 147→86.
 - **0.30.0** Zeichnungsmaßstab aus den Maßketten (echte Plots 1:200), Prüfstände unverändert.
 - **0.29.0** Türmaße auch ohne erkannten Stern: je Text EG 140, UG 96; Wörter echt 129 / 37; simuliert 536 / 199.
 - **0.28.0** Türmaße per Ziffern-Schablone (Fable): echte Plots je Text EG 137, UG 89; simuliert 533 / 198.
