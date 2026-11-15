@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.28.0 – 15.11.2026
+### Türmaße per Ziffern-Schablone (mit Fable erarbeitet)
+- **„88⁵“ über einer Tür wird gelesen:** Breite (über der Linie) und Höhe (darunter) stehen eng zwischen zwei Sternen, überlappen sich und laufen über den rechten Stern – Tesseract scheitert daran. Traceify baut jetzt aus den sicher gelesenen Maßzahlen desselben Plans **Ziffern-Schablonen** (gleiche Schrift, gleiche Größe) und gleicht die Ziffern neben einem bekannten Stern damit ab; Stern- und Linientinte zählen nicht mit. Die gelesene Breite muss zur Lage passen (Zahl mittig zwischen Stern und der Stelle im Abstand Breite × Maßstab, dort ein Querstrich). Hochziffer nur „⁵“. Die Höhe darunter wird mit strengen Schwellen gelesen.
+- **Gemessen** (echte 300-dpi-Plots, je gedrucktem Text nach Lage): PLAN1_EG 137 statt 116 („88⁵“ 18 von 19), PLAN1_UG 89 statt 80 („1.01“, „2.12⁵“, „3.01“/„3.00“); kein bisher richtiger Text verloren. Wörter echt EG 63 statt 60, UG 60 statt 57, falsche gleich (13 / 20). Simuliert 533 / 198 statt 530 / 197 (nur PLAN1_EG geändert). Neun Testscans unverändert, etwa 3 s mehr je Plan mit Türmaßen.
+- Noch offen: Höhe unter der Linie im EG („2.12⁵“, überlappt mit der Breite), UG-Türen, deren beide Sterne von den Zahlen überdeckt sind. Die Schwellen sind an zwei Plots eingestellt.
+
 ## 0.27.0 – 15.11.2026
 ### Kleine Maße über zwei engen Maßbegrenzungen
 - **„24“ über „✳✳“:** Ist ein Maß so kurz, dass die Zahl nicht zwischen die beiden Sterne passt (Wandputz, Anschläge: 24, 25, 30 cm), setzt Allplan sie darüber – oft breiter als das Sternpaar und dicht an Nachbarschrift. Traceify sucht über jedem engen Sternpaar Ziffern in der Schrifthöhe der übrigen Maßzahlen, liest sie gezielt und übernimmt sie nur, wenn die Zahl zum Abstand der Sterne passt (Maßstab aus den Maßen selbst, seit 0.25.0). Eine andere Hochziffer als ⁵ wird dabei verworfen – sie stammt bei so kleinen Maßen fast immer aus Nachbarschrift (im Original 117 × ⁵, 1 × ³).

@@ -76,7 +76,7 @@ def _ticks(bw: np.ndarray, px_per_mm: float):
     return out, cv2.dilate(mask, np.ones((3, 3), np.uint8))
 
 
-def _horizontal_gaps(bw: np.ndarray, px_per_mm: float) -> List[Gap]:
+def _horizontal_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = None) -> List[Gap]:
     """Schrift in Lücken waagrechter Linien (Box der Schrift, Box der vollen Ziffern).
 
     Die Lücke liegt zwischen zwei Linienstücken oder zwei Maßbegrenzungen („✳74✳74✳“: Allplan
@@ -87,6 +87,8 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float) -> List[Gap]:
     n, _, st, _ = cv2.connectedComponentsWithStats(hor, connectivity=8)
     thin = max(3, int(round(0.6 * px_per_mm)))
     ticks, stars = _ticks(bw, px_per_mm)
+    if keep is not None:
+        keep.append((ticks, stars | hor))           # für template_numbers: Sterne, Fremdtinte
     rt = 0.4 * px_per_mm
     segs = sorted([(y + h / 2.0, x, x + w) for x, y, w, h, _ in st[1:] if h <= thin]
                   + [(cy, cx - rt, cx + rt) for cx, cy in ticks])
@@ -218,13 +220,13 @@ def _number(full, comps, rest, g0: int, g1: int):
     return (fx0, fy0, fx1 - fx0, by1 - fy0), fb, sup[0] if sup else None
 
 
-def line_gaps(bw: np.ndarray, px_per_mm: float) -> List[Tuple[Gap, int]]:
+def line_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = None) -> List[Tuple[Gap, int]]:
     """Schrift in Lücken waagrechter (k=0) und senkrechter Linien (k=1, liest von unten nach
-    oben). Boxen im Originalbild."""
-    out = [(g, 0) for g in _horizontal_gaps(bw, px_per_mm)]
+    oben). Boxen im Originalbild. keep sammelt je Richtung (Sterne, Maske Sterne + Linien)."""
+    out = [(g, 0) for g in _horizontal_gaps(bw, px_per_mm, keep)]
     H = bw.shape[0]
     rot = np.ascontiguousarray(np.rot90(bw, -1))      # wie ocr.recognize, k=1
-    for g in _horizontal_gaps(rot, px_per_mm):
+    for g in _horizontal_gaps(rot, px_per_mm, keep):
         back = tuple(b and (b[1], H - (b[0] + b[2]), b[3], b[2]) for b in g[:3])
         out.append((back + g[3:], 1))
     return out
@@ -260,7 +262,8 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
     """Maßzahlen in Lücken der Maßlinie lesen. Gibt (Texte, Boxen x, y, w, h) zurück."""
     from . import textlines
     from .ocr import NUM_WHITELIST, SUPERSCRIPT
-    gaps = line_gaps(bw, px_per_mm)
+    keep: list = []
+    gaps = line_gaps(bw, px_per_mm, keep)
     if not gaps:
         return [], []
     LH = textlines.LINE_H
@@ -285,7 +288,7 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
             want = h * DIGIT_W * (len(t) - 0.5 * t.count(".") - 0.15)
             ok = 0.75 <= w / want <= 1.25
         cand.append([t + high if ok else None, raw, conf])
-    check_lengths(cand, [g for g, _ in gaps], [k for _, k in gaps])
+    r = check_lengths(cand, [g for g, _ in gaps], [k for _, k in gaps])
     texts, boxes = [], []
     for ((b, fb, sup, side, sg), k), (t, _, _) in zip(gaps, cand):
         if t is None:
@@ -307,7 +310,253 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
             txt.dim = _dim(txt, sg, k, bw.shape[0])
         texts.append(txt)
         boxes.append(b)
+    if r:
+        _door_numbers(bw, px_per_mm, gaps, cand, keep, r, texts, boxes)
     return texts, boxes
+
+
+def _door_numbers(bw, px_per_mm, gaps, cand, keep, r, texts, boxes) -> None:
+    """Türmaße (template_numbers) in beiden Richtungen lesen und an texts/boxes anhängen, wo
+    noch keine Lückenzahl steht."""
+    from .ocr import _overlap
+    tpl, heights = digit_templates(bw, gaps, cand)
+    if len(tpl) < 8 or "5" not in tpl or not heights:
+        return
+    H = bw.shape[0]
+    found = []
+    for k, (ticks, alien) in enumerate(keep):
+        img = bw if k == 0 else np.ascontiguousarray(np.rot90(bw, -1))
+        # Seiten eines Sterns, an denen schon eine gelesene Maßzahl ihr Segment füllt
+        done = [(sg[j], sg[0], dr) for (g, kk), c in zip(gaps, cand) for sg in [g[4]]
+                if kk == k and c[0] and sg is not None and g[3] == 0 for j, dr in ((1, 1), (2, -1))]
+        for t, (x, y, w, h), hs, sc in template_numbers(img, ticks, alien, px_per_mm, tpl, heights, r, done):
+            if k == 0:
+                found.append((sc, Text(t, (float(x), float(y + h)), float(hs), 0.0), (x, y, w, h)))
+            else:                                    # zurückdrehen wie line_gaps
+                b = (y, H - (x + w), h, w)
+                found.append((sc, Text(t, (float(b[0] + b[2]), float(b[1] + b[3])), float(hs), 90.0), b))
+    for sc, t, b in sorted(found, key=lambda f: -f[0]):
+        if not any(_overlap(b, o) > 0.3 for o in boxes):
+            texts.append(t)
+            boxes.append(b)
+
+
+TPL_H = 32          # Höhe der Ziffern-Schablonen
+
+
+def digit_templates(bw: np.ndarray, gaps: list, cand: list):
+    """Ziffern-Schablonen aus den sicher gelesenen Maßzahlen dieses Plans (gleiche Schrift):
+    ({Ziffer: Mittelbild, Höhe TPL_H, Werte 0..1}, vorkommende Ziffernhöhen in px)."""
+    import cv2
+    samples, hs = {}, []
+    for ((_b, fb, _sup, side, _sg), k), c in zip(gaps, cand):
+        if c[0] is None or side != 0:
+            continue
+        plain = c[0].rstrip(SUP).replace(".", "")
+        x, y, w, h = fb
+        win = bw[y:y + h, x:x + w]
+        win = np.ascontiguousarray(np.rot90(win, -1) if k else win)
+        _, _, st, _ = cv2.connectedComponentsWithStats(win, connectivity=8)
+        full = sorted((q for q in st[1:] if q[3] >= 0.75 * win.shape[0]), key=lambda q: q[0])
+        if len(full) != len(plain):                  # verschmolzene oder zerrissene Ziffern
+            continue
+        hs.append(win.shape[0])
+        for ch, (cx, cy, cw, chh, _) in zip(plain, full):
+            samples.setdefault(ch, []).append(win[cy:cy + chh, cx:cx + cw].astype(np.float32))
+    tpl = {}
+    for ch, L in samples.items():
+        w = max(2, int(round(np.median([q.shape[1] * TPL_H / q.shape[0] for q in L]))))
+        tpl[ch] = np.mean([cv2.resize(q, (w, TPL_H), interpolation=cv2.INTER_AREA) for q in L], axis=0)
+    groups = []                                      # Höhengruppen (Türmaße sind oft kleiner)
+    for h in sorted(hs):
+        if not groups or h > 1.15 * groups[-1][0]:
+            groups.append([h, 0])
+        groups[-1][1] += 1
+    return tpl, [h for h, n in groups if n >= 2]     # kleinste Höhe der Gruppe: Unschärfe macht größer
+
+
+def _scaled(t: np.ndarray, hs: float) -> np.ndarray:
+    import cv2
+    w = max(2, int(round(t.shape[1] * hs / TPL_H)))
+    return (cv2.resize(t, (w, max(3, int(round(hs)))), interpolation=cv2.INTER_AREA) > 0.4).astype(np.float32)
+
+
+def _match(I: np.ndarray, W: np.ndarray, t: np.ndarray) -> np.ndarray:
+    """Überdeckung Schablone/Tinte an jeder Stelle: Tinte auf der Schablone geteilt durch
+    (Schablone + Tinte daneben). Wo W = 0 ist (bekannte Fremdtinte: Stern, Linie), zählt nichts."""
+    import cv2
+    bg = 1 - cv2.dilate(t, np.ones((3, 3), np.uint8))
+    Iw = I * W
+    vis = cv2.matchTemplate(W, t, cv2.TM_CCORR)
+    sc = cv2.matchTemplate(Iw, t, cv2.TM_CCORR) / (vis + cv2.matchTemplate(Iw, bg, cv2.TM_CCORR) + 1e-3)
+    sc[vis < 0.5 * t.sum()] = -1                     # Schablone überwiegend verdeckt
+    return sc
+
+
+def _digit_maps(I, W, tp):
+    """Je Ziffer der Wert an jeder Zellenlage (Zelle = breiteste Ziffer, Ziffer mittig; ±1 px Spiel)."""
+    import cv2
+    cw = max(t.shape[1] for t in tp.values())
+    hh = next(iter(tp.values())).shape[0]
+    M = np.full((10, I.shape[0] - hh + 1, I.shape[1] - cw + 1), -1.0, np.float32)
+    for ch, tb in tp.items():
+        t = np.zeros((hh, cw), np.float32)
+        pad = (cw - tb.shape[1]) // 2
+        t[:, pad:pad + tb.shape[1]] = tb
+        if cv2.matchTemplate(I, t, cv2.TM_CCORR).max() < 0.5 * tb.sum():
+            continue                                 # nirgends genug Tinte für diese Ziffer (Zeit)
+        M[int(ch)] = cv2.dilate(_match(I, W, t), np.ones((3, 3), np.uint8))
+    return M, cw
+
+
+def _read_band(M, pitch: float, dot: bool):
+    """Beste Ziffernfolge je Startstelle im Format „dd“ oder „d.dd“ (feste Ziffernbreite):
+    (Mittelwert, kleinster Ziffernwert, beste Ziffer, Abstand zur zweitbesten, Zellenlagen)."""
+    offs = [int(round(o * pitch)) for o in ((0, 1.5, 2.5) if dot else (0, 1))]
+    srt = np.sort(M, axis=0)
+    best, marg, arg = srt[-1], srt[-1] - srt[-2], M.argmax(axis=0)
+    W = best.shape[1] - offs[-1]
+    if W <= 0:
+        return None
+    cells = np.stack([best[:, o:o + W] for o in offs])
+    return cells.mean(axis=0), cells.min(axis=0), arg, marg, offs
+
+
+def _sup5(I, W, t5, hs, xe: int, top: int) -> float:
+    """Hochgestellte 5 rechts oben an der Zahl (xe = rechtes Ende, top = Oberkante): bester Wert."""
+    x0, y0 = int(xe - 0.1 * hs), int(top - 0.4 * hs)
+    x1, y1 = int(xe + 0.85 * hs), int(top + 0.6 * hs)
+    best = -1.0
+    if x0 < 0 or y0 < 0 or x1 > I.shape[1] or y1 > I.shape[0]:
+        return best
+    for f in (0.5, 0.6, 0.7):
+        t = _scaled(t5, max(5.0, f * hs))
+        if t.shape[0] < y1 - y0 and t.shape[1] < x1 - x0:
+            best = max(best, float(_match(I[y0:y1, x0:x1], W[y0:y1, x0:x1], t).max()))
+    return best
+
+
+def template_numbers(bw: np.ndarray, ticks, alien: np.ndarray, px_per_mm: float, tpl: dict,
+                     heights, r: float, done=()) -> list:
+    """Türmaße an einer Maßbegrenzung per Schablonenabgleich lesen: Breite direkt über der
+    Maßlinie („88⁵“, „1.01“), Höhe direkt darunter („2.12⁵“). Die Zahlen berühren sich, laufen
+    über den zweiten Stern und in Wände – Tesseract liest dort nichts, und der zweite Stern wird
+    nicht als Stern erkannt. Darum von einem bekannten Stern aus (nach beiden Seiten):
+
+    - Ziffern der Planschrift (tpl aus digit_templates) über der Linie abgleichen;
+    - die gelesene Breite muss zur Lage passen: Zahl mittig zwischen dem Stern und der Stelle
+      im Abstand Breite × r (px je Meter), dort ein Strich quer durch die Maßlinie;
+    - dann die Höhe unter der Linie im Format „d.dd“; der vermutete zweite Stern zählt nicht mit.
+
+    alien: bekannte Fremdtinte (Sterne, Linien); done: (x, Zeile, Seite ±1) – Sternseiten, die
+    schon ein gelesenes Maß haben und nicht abgesucht werden. Gibt (Text, Box x y w h, Ziffernhöhe, Wert)
+    zurück; nur deutliche Treffer (Überdeckung und Abstand zur zweitbesten Ziffer)."""
+    import cv2
+    H, Wd = bw.shape
+    I = bw.astype(np.float32)
+    Wt = (alien == 0).astype(np.float32)
+    rr = max(3, int(round(0.4 * px_per_mm)))
+    e = np.eye(max(4, int(round(0.7 * px_per_mm))), dtype=np.uint8)
+    out = []
+    T = np.array(ticks, float).reshape(-1, 2)
+    open_ = {}                                       # Stern → noch offene Seiten
+    row = -9
+    for tx, cy in sorted(ticks, key=lambda t: t[1]):
+        sides = [dr for dr in (1, -1) if not any(x == tx and abs(y - cy) <= 2.5 and q == dr for x, y, q in done)]
+        if int(round(cy)) - row > 1:                 # Sterne einer Kette (±1 px) teilen sich die Zeile
+            row = int(round(cy))
+        if sides:
+            open_[int(round(tx)), row] = sides
+
+    def emit(s, x0, top, w, hs, sc):
+        if _sup5(I, Wt, tpl["5"], hs, x0 + w, top) >= 0.75:
+            out.append((s + "⁵", (x0, top - int(0.3 * hs), w + int(0.5 * hs), hs + int(0.3 * hs)), hs, sc))
+        else:
+            out.append((s, (x0, top, w, hs), hs, sc))
+    for hs in heights:
+        tp = {ch: _scaled(t, hs) for ch, t in tpl.items()}
+        pitch = DIGIT_W * hs
+        ext = int(1.7 * r) + 2 * hs
+        rows = {}                                    # Zeile → Sterne; Nachbarn teilen sich den Abgleich
+        for tx, cy in open_:
+            rows.setdefault(cy, []).append(tx)
+        found = {}                                   # (tx, cy) → bester Treffer über der Linie
+        for cy, xs in rows.items():
+            ya, yb = cy - 5 - hs, cy + 1             # Fuß der Ziffern 0–4 px über der Linienmitte
+            if ya < hs or yb + 2 * hs >= H:
+                continue
+            # abzusuchende Abschnitte: je offener Seite vom Stern aus, überlappende zusammen
+            runs = []
+            for a, b, tx in sorted((min(tx - dr * 2 * hs, tx + dr * ext), max(tx - dr * 2 * hs, tx + dr * ext), tx)
+                                   for tx in xs for dr in open_[tx, cy]):
+                if runs and a <= runs[-1][1]:
+                    runs[-1][1] = max(runs[-1][1], b)
+                    runs[-1][2].add(tx)
+                else:
+                    runs.append([a, b, {tx}])
+            for xa, xb, run in runs:
+                xa, xb = max(0, xa), min(Wd, xb)
+                up = slice(ya, cy - hs // 2 - 2), slice(xa, xb)
+                if (I[up] * Wt[up]).sum() < 0.12 * hs * hs:
+                    continue                         # nichts ganz über der Linie (Zahl auf der Linie: Zeit)
+                M, cw = _digit_maps(I[ya:yb, xa:xb], Wt[ya:yb, xa:xb], tp)
+                for dot in (False, True):
+                    rb = _read_band(M, pitch, dot)
+                    if rb is None:
+                        continue
+                    sc, mn, arg, marg, offs = rb
+                    for y, x in zip(*np.nonzero((sc >= 0.75) & (mn >= 0.65)
+                                                & (sc == cv2.dilate(sc, np.ones((3, 5), np.uint8))))):
+                        s = "".join(str(int(arg[y, x + o])) for o in offs)
+                        s = s[0] + "." + s[1:] if dot else s
+                        v = metres(s)
+                        m = min(float(marg[y, x + o]) for o in offs)
+                        if not v or v < 0.4 or (m < 0.09 and sc[y, x] < 0.85):
+                            continue
+                        left = (slice(ya + y, ya + y + hs), slice(max(0, xa + x - cw), xa + x))
+                        if (I[left] * Wt[left]).mean() > 0.4:
+                            continue                                     # Zahlenhaufen, Schrift davor
+                        mid = xa + x + (offs[-1] + cw) / 2.0             # Mitte der Ziffern
+                        for tx in run:
+                            dr = 1 if mid > tx else -1
+                            far = tx + dr * v * r
+                            fi = int(round(far))
+                            if dr not in open_[tx, cy] or abs(mid - (tx + far) / 2.0) > 0.2 * hs + 2 or not 3 <= fi < Wd - 3:
+                                continue
+                            if not bw[cy - rr:cy + rr + 1, fi - 2:fi + 3].any(axis=1).all():
+                                continue                                 # kein Strich am anderen Ende
+                            lo, hi = min(tx, far) + 3, max(tx, far) - 3
+                            if ((abs(T[:, 1] - cy) <= 2.5) & (T[:, 0] > lo) & (T[:, 0] < hi)).any():
+                                continue                                 # Sterne dazwischen
+                            if (tx, cy) not in found or sc[y, x] > found[tx, cy][0]:
+                                found[tx, cy] = (float(sc[y, x]), s, xa + int(x), ya + int(y), offs[-1] + cw, far)
+        for (tx, cy), best in found.items():
+            sc0, s, x0, top, w, far = best
+            emit(s, x0, top, w, hs, sc0)
+            # Höhe unter der Linie; sie ragt bei kleiner Schrift bis über die Linie
+            a, b = sorted((tx, int(round(far))))
+            xa, xb = a - 2 * hs, b + 4 * hs
+            ya, yb = cy - int(0.5 * hs), cy + hs + 7
+            if xa < 0 or xb >= Wd:
+                continue
+            Wb = Wt[ya:yb, xa:xb].copy()
+            fx, fy = int(round(far)) - xa, cy - ya
+            cv2.line(Wb, (fx, fy - rr - 2), (fx, fy + rr + 2), 0, 3)        # zweiter Stern: Strich
+            sl = (slice(max(0, fy - 3 * rr), fy + 3 * rr), slice(max(0, fx - 3 * rr), fx + 3 * rr))
+            win = np.ascontiguousarray(bw[ya:yb, xa:xb][sl])
+            dg = cv2.morphologyEx(win, cv2.MORPH_OPEN, e) | cv2.morphologyEx(win, cv2.MORPH_OPEN, np.fliplr(e))
+            Wb[sl][cv2.dilate(dg, np.ones((3, 3), np.uint8)) > 0] = 0      # … und Schrägstrich
+            Wb[fy - 1:fy + 2, a - xa:b - xa] = 0                           # Maßlinie dazwischen
+            M, cw = _digit_maps(I[ya:yb, xa:xb], Wb, tp)
+            rb = _read_band(M, pitch, True)
+            if rb is None:
+                continue
+            sc, mn, arg, marg, offs = rb
+            y, x = np.unravel_index(int(np.argmax(sc)), sc.shape)
+            if sc[y, x] >= 0.8 and mn[y, x] >= 0.7 and min(marg[y, x + o] for o in offs) >= 0.05:
+                s = "".join(str(int(arg[y, x + o])) for o in offs)
+                emit(s[0] + "." + s[1:], xa + int(x), ya + int(y), offs[-1] + cw, hs, float(sc[y, x]))
+    return out
 
 
 def _mid(sg: Seg) -> bool:

@@ -2079,7 +2079,7 @@ class MainWindow(QMainWindow):
             "<b>Texte</b> werden in allen vier Richtungen erkannt, auch auf dem Kopf und schräg. "
             "Maßzahlen werden nachgelesen (auch in der Lücke einer Maßlinie und zwischen Maßbegrenzungen) "
             "und gegen die Länge ihrer Maßlinie geprüft, auch kleine Maße über zwei engen "
-            "Maßbegrenzungen („24“ über „✳✳“), fehlende Kommas "
+            "Maßbegrenzungen („24“ über „✳✳“) und Türmaße („88⁵“), fehlende Kommas "
             "ergänzt, verlesene Planbegriffe "
             "per Wörterbuch korrigiert („Kuche“ → „Küche“). "
             "Handschrift liest die KI (KI → Unerkannte Schrift mit KI lesen).<br>"

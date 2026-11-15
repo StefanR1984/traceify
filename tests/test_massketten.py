@@ -236,3 +236,58 @@ def test_laengenpruefung_kleines_mass_ueber_sternpaar():
     cand, gaps = [c for c, _ in rows], [g for _, g in rows]
     dimensions.check_lengths(cand, gaps, [0] * len(gaps))
     assert [c[0] for c in cand[5:]] == ["24", None, "24"]
+
+
+def _ziffern():
+    """Schablonen 0–9 (Höhe TPL_H) aus der OpenCV-Schrift."""
+    tpl = {}
+    for ch in "0123456789":
+        img = np.zeros((80, 80), np.uint8)
+        cv2.putText(img, ch, (15, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, 1, 3)
+        ys, xs = np.nonzero(img)
+        c = img[ys.min():ys.max() + 1, xs.min():xs.max() + 1].astype(np.float32)
+        tpl[ch] = cv2.resize(c, (int(round(c.shape[1] * dimensions.TPL_H / c.shape[0])), dimensions.TPL_H),
+                             interpolation=cv2.INTER_AREA)
+    return tpl
+
+
+def _tuer(tpl, strich=True):
+    """Türmaß an einem Stern (100, 150): „88⁵“ über der Linie, „2.12“ darunter, 100 px je Meter;
+    der zweite Stern (188) ist nur ein Strich, die „2“ der Höhe läuft darüber."""
+    hs, img = 20, np.zeros((300, 400), np.uint8)
+    tp = {ch: dimensions._scaled(t, hs) for ch, t in tpl.items()}
+    cw, pitch = max(t.shape[1] for t in tp.values()), dimensions.DIGIT_W * hs
+
+    def put(ch, x, top, glyphs=tp):
+        g = glyphs[ch]
+        x += (cw - g.shape[1]) // 2
+        img[top:top + g.shape[0], x:x + g.shape[1]] |= g.astype(np.uint8)
+    cv2.line(img, (60, 150), (330, 150), 1, 2)
+    _star(img, 100, 150)
+    if strich:
+        cv2.line(img, (188, 142), (188, 158), 1, 2)
+    x0 = int(144 - (pitch + cw) / 2)                     # „88“ mittig zwischen 100 und 188
+    for i in range(2):
+        put("8", x0 + int(round(i * pitch)), 150 - 3 - hs)
+    put("5", x0 + int(pitch) + cw - 3, 150 - 3 - hs - 5, {"5": dimensions._scaled(tpl["5"], 12)})
+    for ch, o in zip("212", (0, 1.5, 2.5)):
+        put(ch, 130 + int(round(o * pitch)), 154)
+    img[170:173, 130 + int(1.1 * pitch):130 + int(1.1 * pitch) + 3] = 1      # Dezimalpunkt
+    return img
+
+
+def test_tuermass_per_schablone():
+    tpl = _ziffern()
+    img = _tuer(tpl)
+    ticks, stars = dimensions._ticks(img, 10.0)
+    assert [round(x) for x, _ in ticks] == [100]         # der zweite Stern ist keiner
+    hor = cv2.morphologyEx(img, cv2.MORPH_OPEN, np.ones((1, 30), np.uint8))
+    got = dimensions.template_numbers(img, ticks, stars | hor, 10.0, tpl, [20], 100.0)
+    assert sorted(t for t, _, _, _ in got) == ["2.12", "88⁵"]
+    (x, y, w, h), = [b for t, b, _, _ in got if t == "88⁵"]
+    assert 100 < x and x + w < 215 and y + h <= 150
+    # ohne Strich am anderen Ende passt die Breite zu nichts; Sternseite schon belegt → nichts
+    assert dimensions.template_numbers(_tuer(tpl, False), ticks, stars | hor, 10.0, tpl, [20], 100.0) == []
+    done = [(ticks[0][0], ticks[0][1], 1)]
+    assert dimensions.template_numbers(img, ticks, stars | hor, 10.0, tpl, [20], 100.0, done) == []
+    assert dimensions.template_numbers(img, ticks, stars | hor, 10.0, tpl, [20], 60.0) == []   # falscher Maßstab

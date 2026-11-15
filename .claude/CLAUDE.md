@@ -219,5 +219,10 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    **0.27.0** kleine Maße über engen Sternpaaren (`_close_pairs`, „24“ über „✳✳“, Länge gegen Sternabstand,
    Hochziffer ≠ ⁵ verworfen): EG 112→116, UG 71→80, Simulation 530/197. UG-Knäuel aus übereinander
    gedruckten Maßen („15“/„25“/„10“) unlösbar.
+   **0.28.0 Türmaße (Fable):** Ziffern-Schablonen aus sicheren Lückenzahlen (`digit_templates`), Abgleich neben
+   bekannten Sternen (`template_numbers`, `_door_numbers`), Breite gegen Lage geprüft, Hochziffer nur ⁵.
+   EG 116→137 („88⁵“ 18/19), UG 80→89, simuliert 533/198. Offen: Höhe „2.12⁵“ im EG (überlappt), UG-Türen ohne
+   erkannten Stern; Ziffernhöhe ±1 px entscheidend (UG-Gruppe nur 2 Zahlen). Ideen: Höhe ±1 px absuchen,
+   untere Zahl über Plan-Wortschatz, schwacher Stern nur als Ausgangspunkt für den Schablonen-Leser.
 8. Workflow „Integration (echt)“: ODA-Suchmuster angepasst (Dateiname hat keine Versionsnummer
    mehr: `ODAFileConverter_QT6_vc16_amd64dll.msi`), aber noch **nicht live getestet**.
