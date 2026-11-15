@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.34.0 – 15.11.2026
+### Schraffierte Wände als Ganzes
+- **Wandband:** Im Scan zerfällt die Schraffur einer Wand oft in kleine Flächen, dazwischen liegen lose Striche und Zickzack-Bruchstücke. Liegt eine Schraffurfläche zwischen zwei langen, parallelen Wandkanten, legt Traceify die Fläche jetzt auf das ganze Band zwischen diesen Kanten – so weit dort Schraffurstriche oder Bruchstücke liegen (Türöffnungen beenden das Band). Zerstückelte Kanten werden dafür zu einer Kette verbunden. Flächen mit gleichem Raster in derselben Wand werden eine Fläche, lose Striche und Bruchstücke im Band gehören dazu und verschwinden im DXF/SVG unter dem Muster. Linien längs der Wand (z. B. Dämmung) und Linien quer über die ganze Wandbreite bleiben. An Wandecken weicht die kleinere Fläche der größeren.
+- **Lose Striche ohne Fläche** kommen zurück auf LINIEN, wenn keine Schraffurfläche in der Nähe ist (10 mm), keine Schar paralleler Striche und keine Kanten beidseits – meist Buchstabenstriche nicht gelesener Handschrift.
+- **Gemessen:** Einzellinien image-4 39 % statt 50 %, image-27 42 % statt 51 %, image-37 25 % statt 41 %, image-89 12 % statt 15 %, image-94 6 % statt 10 %, image-99 12 % statt 17 %. Handschrift-Fehltreffer image-17 9 statt 35 Striche. Objekte, Abdeckung, offene Enden und Wahrheits-Prüfstand unverändert.
+- Neue Prüfstand-Spalte „Muster auf Tinte“ (Anteil der Musterlinien auf Tinte): 87–100 %, beim handschraffierten Kellerplan 80 % – das gleichmäßige Muster läuft dort auch über die Lücken der gestrichelten Handschraffur.
+- Bekannt: Einige Striche einzeln stehender, schraffierter Wandstücke ohne Fläche fallen mit zurück auf LINIEN (image-4 etwa 50).
+
 ## 0.33.0 – 15.11.2026
 ### Mehr Schraffur erkannt
 - **Zweiter Erkennungsdurchgang:** Die Schraffur-Erkennung lief bisher nur auf den rohen Strichen, bevor Linien ausgerichtet, Fransen entfernt und Lücken geschlossen werden. Gerade bei verrauschten Scans waren Schraffurlinien da noch zerrissen und fielen durch. Jetzt prüft Traceify die fertige Geometrie ein zweites Mal.

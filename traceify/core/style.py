@@ -15,8 +15,8 @@ from typing import List
 import cv2
 import numpy as np
 
-from .model import (Arc, Circle, LAYER_DASHED, LAYER_HATCH, LAYER_THICK, LAYER_WALLS, Line,
-                    Polyline, Text)
+from .model import (Arc, Circle, LAYER_DASHED, LAYER_HATCH, LAYER_LINES, LAYER_THICK,
+                    LAYER_WALLS, Line, Polyline, Text)
 
 RHO_CELL = 60.0   # px – Zellengröße für die Vorauswahl (Abstand der Trägergeraden)
 ISO_PENS = [0.13, 0.18, 0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0]
@@ -411,3 +411,57 @@ def cleanup(ents: List) -> None:
                 del e._width_px
             except AttributeError:
                 pass
+
+
+def drop_loose_hatch(ents: list, regions: list, min_edge: float, near_region: float) -> int:
+    """Schraffurlinien ohne Fläche und ohne begrenzende Kanten zurück auf LINIEN legen.
+
+    Schraffur füllt eine Fläche zwischen Kanten (Wand, Bauteil). Ein Strich auf SCHRAFFUR, der
+    zu keiner Fläche gehört, weiter als ``near_region`` von jeder Schraffurfläche liegt, im
+    Umkreis 0,6 × near_region weniger als drei parallele Schraffurstriche hat und nicht in
+    beide Richtungen nach höchstens 2,5 Strichlängen auf eine lange Kante (≥ ``min_edge`` px und ≥ 2 × Strichlänge, anderer Layer) trifft, ist meist ein
+    Buchstabenstrich nicht gelesener Handschrift oder ein Möbeldetail.
+    Gibt die Zahl der zurückgelegten Linien zurück."""
+    from shapely.geometry import LineString, Polygon
+    from shapely.strtree import STRtree
+    from .cad import _ray_hit
+    used = {id(m) for r in regions for m in r.members}
+    loose = [e for e in ents if isinstance(e, Line) and e.layer == LAYER_HATCH
+             and id(e) not in used]
+    if not loose:
+        return 0
+    rtree = STRtree([Polygon(r.outline, r.holes) for r in regions]) if regions else None
+    long_ = [e for e in ents if isinstance(e, Line) and e.layer != LAYER_HATCH
+             and math.dist(e.p1, e.p2) >= min_edge]
+    tree = STRtree([LineString([e.p1, e.p2]) for e in long_]) if long_ else None
+    hatch = [e for e in ents if isinstance(e, Line) and e.layer == LAYER_HATCH]
+    mids = [((h.p1[0] + h.p2[0]) / 2, (h.p1[1] + h.p2[1]) / 2) for h in hatch]
+    from scipy.spatial import cKDTree
+    ktree = cKDTree(np.array(mids))
+    ang = [math.degrees(math.atan2(h.p2[1] - h.p1[1], h.p2[0] - h.p1[0])) % 180.0 for h in hatch]
+    pos = {id(h): i for i, h in enumerate(hatch)}
+    n = 0
+    for e in loose:
+        L = math.dist(e.p1, e.p2)
+        g = LineString([e.p1, e.p2])
+        if rtree is not None and len(rtree.query(g.buffer(near_region))):
+            continue
+        i = pos[id(e)]
+        par = sum(1 for j in ktree.query_ball_point(mids[i], 0.6 * near_region)
+                  if j != i and abs((ang[j] - ang[i] + 90.0) % 180.0 - 90.0) <= 10.0)
+        if par >= 3:
+            continue                 # dichte Schar paralleler Striche: echte Schraffur
+        ok = False
+        if tree is not None and L > 1e-6:
+            near = [long_[int(i)] for i in tree.query(g.buffer(3.0 * L))]
+            near = [o for o in near if math.dist(o.p1, o.p2) >= 2 * L]
+            # etwas verkürzt, damit eine Kante genau am Strichende mitzählt
+            dx, dy = (e.p2[0] - e.p1[0]) * 0.05, (e.p2[1] - e.p1[1]) * 0.05
+            a, b = (e.p1[0] + dx, e.p1[1] + dy), (e.p2[0] - dx, e.p2[1] - dy)
+            t1, _ = _ray_hit(near, a, b, True)
+            t2, _ = _ray_hit(near, a, b, False)
+            ok = t1 is not None and t2 is not None and t1 - 1.0 <= 2.5 and -t2 <= 2.5
+        if not ok:
+            e.layer = LAYER_LINES
+            n += 1
+    return n

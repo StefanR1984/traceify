@@ -205,7 +205,15 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    (`benchmark.hatch_stats`). **0.33.0** zweiter `detect_hatch`-Durchgang nach `close_gaps` (fertige
    Geometrie; nicht bei Farb-Layern) + Mauerwerk (langer/kurzer Strich, kurzer ganz daneben,
    ≥ 0,2 × lang, lang ≤ 10 mm). Linien in Flächen image-4 405→589, -27 781→868, -37 213→269.
-   Offen: Einzellinien-Anteil steigt (mehr erkannte Reste in verrauschten Wänden, image-27 51 %);
+   **0.34.0** `hatch._fit_to_edges` (Standard in `find_regions`, `fit_edges=True`): Wandband zwischen zwei
+   parallelen Kanten (Fläche ≥ 80 % im Band, Breite 0,6–3 × Strichlänge·sin), Kanten zu Ketten (Lücke ≤ 2 sp),
+   Band so weit Schraffur/Bruchstücke liegen (Lücke ≤ 3 sp), Bruchstücke anderer Layer werden `members`
+   (Achtung: `members` enthält jetzt auch Nicht-Schraffur-Linien). `style.drop_loose_hatch` im Pipeline-Ende.
+   Einzellinien 39/42/25/12/6/12 % (image-4/-27/-37/-89/-94/-99), image-17 35→9. Verworfen: Umriss
+   pauschal 1,5 sp wachsen lassen und an Vektorkanten schneiden (Muster auf Tinte 99 → 70 %, Kanten
+   fehlen oft); `_adopt_rest` lockern (wenig Gewinn). Offen: Wandstücke ohne Fläche verlieren Striche an
+   LINIEN; Zickzack-Mitte in image-27 teils noch nicht im Band; dichte Wandknäuel ohne Fläche.
+   Offen (0.33): Einzellinien-Anteil steigt (mehr erkannte Reste in verrauschten Wänden, image-27 51 %);
    Handschrift-Großbuchstaben (N, M, A) werden teils Schraffur (image-17 35 Striche, keine Fläche);
    Mauerwerk wird als HATCH mit halbem Abstand durchgezogen (kurze Striche = volle Linien);
    an der Wandkante abknickende Strichenden (anderer Winkel) bleiben eigene Linien.

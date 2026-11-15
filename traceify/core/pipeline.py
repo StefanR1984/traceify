@@ -280,6 +280,10 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         # Nachbarlinien an derselben Kante enden
         extend_hatch_ends(ents, 2.5 / dpi_scale, 8.0 / dpi_scale, LAYER_HATCH,
                           None if ink_gray is None else ink_checker(ink_gray))
+        from .hatch import find_regions
+        from .style import drop_loose_hatch
+        # lose Striche ohne Fläche und ohne Kanten (Handschrift, Möbel) sind keine Schraffur
+        drop_loose_hatch(ents, find_regions(ents), 3.0 / dpi_scale, 10.0 / dpi_scale)
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + texts, source=source)

@@ -36,7 +36,8 @@ Echte Scans 0.17.0 → 0.20.0: gleich viele Texte, Bögen −30 bis −60 %, off
 ## Stand 15.11.2026 (abends) – Schraffur
 - **0.32.0** Schraffur-Flächen in Zeichenfläche und SVG, Schalter Ansicht → Schraffur als Fläche;
   Schraffurenden bis zur Wandkante (`cad.extend_hatch_ends`). **0.33.0** zweiter Erkennungsdurchgang +
-  Mauerwerks-Schraffur. Messwerte und Offenes: CLAUDE.md, Offene Ideen 5 und 6.
+  Mauerwerks-Schraffur. **0.34.0** Wandband (Fläche von Kante zu Kante, Bruchstücke gehen auf), lose
+  Striche ohne Fläche/Kanten zurück auf LINIEN. Messwerte und Offenes: CLAUDE.md, Offene Ideen 5 und 6.
 
 ## Stand 15.11.2026
 - **0.25.0** Längenprüfung der Maßzahlen (Maßstab aus den Maßen selbst, Rettung/Verwerfen), **0.26.0**

@@ -160,3 +160,56 @@ def test_mauerwerk_lange_und_kurze_striche():
     assert all(e.layer == LAYER_HATCH for e in kurze)
     assert sum(e.layer == LAYER_HATCH for e in ents) >= 12
     assert not any(e.layer == LAYER_HATCH for e in sessel)
+
+
+def _wand_mit_luecke():
+    """Waagrechte Wand 30 px breit zwischen zerstückelten Kanten; Schraffur 45° in zwei
+    Stücken, dazwischen nur Zickzack-Bruchstücke auf LINIEN."""
+    kanten = [Line((0, 0), (150, 0), "LINIEN"), Line((150, 0), (400, 0), "LINIEN"),
+              Line((0, 30), (260, 30), "LINIEN"), Line((260, 30), (400, 30), "LINIEN")]
+    hatch = []
+    for k in range(40):
+        x = 10 + 9 * k
+        if 150 < x < 240:
+            continue                                  # hier zerfiel die Schraffur
+        hatch.append(Line((x, 28), (x + 26, 2), LAYER_HATCH))
+    zick = [Line((160, 5), (170, 25), "LINIEN"), Line((170, 25), (180, 6), "LINIEN"),
+            Line((190, 24), (205, 8), "LINIEN"), Line((215, 26), (228, 4), "LINIEN")]
+    laengs = Line((160, 15), (230, 15), "LINIEN")     # z. B. Dämmlinie längs der Wand
+    return kanten, hatch, zick, laengs
+
+
+def test_wandband_verbindet_schraffurstuecke():
+    from shapely.geometry import Polygon
+    from traceify.core.hatch import find_regions
+    kanten, hatch, zick, laengs = _wand_mit_luecke()
+    regs = find_regions(kanten + hatch + zick + [laengs])
+    assert len(regs) == 1
+    r = regs[0]
+    P = Polygon(r.outline, r.holes)
+    xs = [p[0] for p in r.outline]
+    assert min(xs) < 15 and max(xs) > 370               # ganze Wand, über die Lücke
+    assert all(0 <= p[1] <= 30.5 for p in r.outline)  # nicht über die Kanten hinaus
+    ids = {id(m) for m in r.members}
+    assert all(id(h) in ids for h in hatch)
+    assert all(id(z) in ids for z in zick)            # Bruchstücke gehören zur Fläche
+    assert id(laengs) not in ids and not any(id(k) in ids for k in kanten)
+    assert P.area > 0.85 * 360 * 30
+    # ohne Kanten: zwei getrennte Flächen wie bisher
+    assert len(find_regions(hatch + zick)) == 2
+
+
+def test_lose_schraffur_ohne_kanten_zurueck_auf_linien():
+    from traceify.core.hatch import find_regions
+    from traceify.core.style import drop_loose_hatch
+    mm = 0.2
+    # Buchstabenstriche: einzeln, schräg, ohne Kanten
+    buchst = [Line((500 + 40 * k, 100), (510 + 40 * k, 80), LAYER_HATCH) for k in range(3)]
+    # Wandstriche ohne Fläche, aber zwischen zwei langen Kanten
+    kanten = [Line((0, 300), (200, 300), "LINIEN"), Line((0, 330), (200, 330), "LINIEN")]
+    wand = [Line((20, 328), (46, 302), LAYER_HATCH), Line((120, 328), (146, 302), LAYER_HATCH)]
+    ents = buchst + kanten + wand
+    n = drop_loose_hatch(ents, find_regions(ents), 3.0 / mm, 10.0 / mm)
+    assert n == 3
+    assert all(e.layer == "LINIEN" for e in buchst)
+    assert all(e.layer == LAYER_HATCH for e in wand)

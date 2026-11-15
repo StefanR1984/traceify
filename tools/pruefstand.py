@@ -21,8 +21,9 @@ from traceify.core import loader  # noqa: E402
 from traceify.core.benchmark import run_file  # noqa: E402
 
 KOPF = ("| Datei | Programm | Zeit s | Objekte | Linien | Bögen | Kreise | Texte | Splitter "
-        "| Ortho | Offene Enden | Abdeckung | Genauigkeit | Wörter gemeinsam |\n"
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        "| Ortho | Offene Enden | Abdeckung | Genauigkeit | Wörter gemeinsam "
+        "| Schraffur | Einzellinien | Muster auf Tinte |\n"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 
 
 def zeile(datei, m, woerter="", sch=None):
@@ -31,7 +32,8 @@ def zeile(datei, m, woerter="", sch=None):
             f"{m.coverage * 100:.1f} % | "
             f"{m.precision * 100:.1f} % | {woerter} | " +
             (f"{sch['linien']} ({sch['flaechen']} Fl.) | "
-             f"{sch['einzeln'] / max(1, sch['linien']) * 100:.0f} % |" if sch else " | |"))
+             f"{sch['einzeln'] / max(1, sch['linien']) * 100:.0f} % | "
+             f"{sch.get('muster_tinte', 0) * 100:.0f} % |" if sch else " | | |"))
 
 
 def main(argv=None) -> int:

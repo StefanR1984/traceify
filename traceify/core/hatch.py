@@ -83,8 +83,11 @@ def _spacing(offs: np.ndarray) -> float:
 
 
 def find_regions(ents: list, min_count: int = 4, max_residual: float = 0.22,
-                 simplify: float = 0.7) -> List[HatchRegion]:
-    """Schraffur-Flächen aus den Linien auf dem Layer SCHRAFFUR bilden."""
+                 simplify: float = 0.7, fit_edges: bool = True) -> List[HatchRegion]:
+    """Schraffur-Flächen aus den Linien auf dem Layer SCHRAFFUR bilden.
+
+    fit_edges: Flächen bis an die begrenzenden Kanten (Linien anderer Layer) ausdehnen und dort
+    abschneiden; lose Schraffurlinien darin gehören dann mit zur Fläche."""
     from shapely.geometry import LineString, Polygon
     from shapely.ops import unary_union
 
@@ -164,6 +167,8 @@ def find_regions(ents: list, min_count: int = 4, max_residual: float = 0.22,
                 if reg is not None:
                     out.append(reg)
     _adopt_rest(out, lines)
+    if fit_edges:
+        _fit_to_edges(out, ents, lines)
     return out
 
 
@@ -284,7 +289,8 @@ def _make_region(poly, members: List[Line], k: np.ndarray, min_count: int,
         holes=[[tuple(map(float, c)) for c in list(h.coords)[:-1]] for h in p.interiors],
         angle=ang, spacing=msp, base=base, members=members)
 
-def _adopt_rest(regions: List[HatchRegion], lines: List[Line], tol: float = 0.3) -> None:
+def _adopt_rest(regions: List[HatchRegion], lines: List[Line], tol: float = 0.3,
+                max_angle: float = 6.0, reach: float = 1.5) -> None:
     """Übrig gebliebene Schraffurlinien einer benachbarten Fläche zuordnen, wenn sie in
     deren Raster passen (Richtung, Lage quer zur Richtung); die Fläche wächst um sie."""
     if not regions:
@@ -303,7 +309,7 @@ def _adopt_rest(regions: List[HatchRegion], lines: List[Line], tol: float = 0.3)
         for k in tree.query(g.buffer(2.0 * max(r.spacing for r in regions))):
             r = regions[int(k)]
             da = abs((_angle(l) - r.angle + 90.0) % 180.0 - 90.0)
-            if da > 6.0 or polys[k].distance(g) > 1.5 * r.spacing:
+            if da > max_angle or polys[k].distance(g) > reach * r.spacing:
                 continue
             o = _offsets([l], r.angle)[0] - _offsets([Line(r.base, r.base)], r.angle)[0]
             res = abs(o / r.spacing - round(o / r.spacing))
@@ -324,6 +330,216 @@ def _adopt_rest(regions: List[HatchRegion], lines: List[Line], tol: float = 0.3)
         r.outline = [tuple(map(float, c)) for c in list(grown.exterior.coords)[:-1]]
         r.holes = [[tuple(map(float, c)) for c in list(h.coords)[:-1]] for h in grown.interiors]
         r.members.append(l)
+
+def _fit_to_edges(regions: List[HatchRegion], ents: list, lines: List[Line]) -> None:
+    """Schraffierte Wände ganz erfassen: Fläche auf das Wandband zwischen den Kanten legen.
+
+    Im Scan zerfällt die Schraffur einer Wand oft in kleine Flächen und viele lose Reste
+    (zerrissene oder verrauschte Striche). Liegt eine Fläche zwischen zwei langen, parallelen
+    Kanten (Linien anderer Layer) im passenden Abstand – die Breite ergibt sich aus Länge und
+    Winkel der Schraffurstriche –, wird sie auf das Band zwischen diesen Kanten ausgedehnt,
+    soweit dort Schraffurstriche liegen (Lücken > 3 Rasterabstände, z. B. Türen, beenden das
+    Band). Alle Schraffurlinien im Band gehören dann zur Fläche; weitere Flächen im selben
+    Band mit gleichem Raster werden angeschlossen."""
+    if not regions:
+        return
+    from shapely.geometry import LineString, Polygon
+    from shapely.strtree import STRtree
+
+    hatch_ids = {id(l) for l in lines}
+    edges = [e for e in ents if isinstance(e, Line) and id(e) not in hatch_ids
+             and e.layer != LAYER_HATCH and math.dist(e.p1, e.p2) > 1e-6]
+    if not edges:
+        return
+    etree = STRtree([LineString([e.p1, e.p2]) for e in edges])
+
+    def inner_cand(poly):
+        return [edges[int(i)] for i in etree.query(poly)]
+    mids = np.array([((l.p1[0] + l.p2[0]) / 2, (l.p1[1] + l.p2[1]) / 2) for l in lines])
+    owner = {}
+    for k, r in enumerate(regions):
+        for m in r.members:
+            owner[id(m)] = k
+    order = sorted(range(len(regions)), key=lambda k: -len(regions[k].members))
+    dead = set()
+    for k in order:
+        if k in dead:
+            continue
+        r = regions[k]
+        P = Polygon(r.outline, r.holes)
+        if not P.is_valid:
+            P = P.buffer(0)
+        lm = float(np.median([math.dist(m.p1, m.p2) for m in r.members]))
+        cx, cy = P.centroid.x, P.centroid.y
+        cand = [edges[int(i)] for i in etree.query(P.buffer(1.5 * lm))]
+        cand = [e for e in cand if math.dist(e.p1, e.p2) >= 2.5 * lm]
+        best = None
+        for e1 in cand:
+            a1 = math.atan2(e1.p2[1] - e1.p1[1], e1.p2[0] - e1.p1[0])
+            ux, uy = math.cos(a1), math.sin(a1)
+            nx, ny = -uy, ux
+            rel = abs((r.angle - math.degrees(a1) % 180.0 + 90.0) % 180.0 - 90.0)
+            if rel < 15.0:
+                continue                    # Schraffur parallel zur Kante: keine Wand
+            width = lm * math.sin(math.radians(rel))    # erwartete Wandbreite
+            d1 = (e1.p1[0] - cx) * nx + (e1.p1[1] - cy) * ny
+            for e2 in cand:
+                if e2 is e1:
+                    continue
+                a2 = math.atan2(e2.p2[1] - e2.p1[1], e2.p2[0] - e2.p1[0])
+                if abs((math.degrees(a2 - a1) + 90.0) % 180.0 - 90.0) > 3.0:
+                    continue
+                d2 = (e2.p1[0] - cx) * nx + (e2.p1[1] - cy) * ny
+                w = abs(d1 - d2)
+                # Striche im Scan oft zerrissen: Breite großzügig, dafür muss die
+                # Fläche fast ganz zwischen den Kanten liegen
+                if d1 * d2 >= 0 or not (0.6 * width <= w <= 3.0 * width):
+                    continue
+                # beide Kanten müssen auf Höhe der Fläche verlaufen
+                t1 = sorted(((e1.p1[0] - cx) * ux + (e1.p1[1] - cy) * uy,
+                             (e1.p2[0] - cx) * ux + (e1.p2[1] - cy) * uy))
+                t2 = sorted(((e2.p1[0] - cx) * ux + (e2.p1[1] - cy) * uy,
+                             (e2.p2[0] - cx) * ux + (e2.p2[1] - cy) * uy))
+                lo, hi = max(t1[0], t2[0]), min(t1[1], t2[1])
+                if lo > 0 or hi < 0:
+                    continue
+                if best is not None and w >= best[0]:
+                    continue
+                lo_d, hi_d = min(d1, d2), max(d1, d2)
+                strip = Polygon([(cx + t * ux + d * nx, cy + t * uy + d * ny)
+                                 for t, d in ((-1e5, lo_d), (1e5, lo_d), (1e5, hi_d),
+                                              (-1e5, hi_d))])
+                if P.intersection(strip).area < 0.8 * P.area:
+                    continue
+                if best is None or w < best[0]:
+                    best = (w, ux, uy, nx, ny, min(d1, d2), max(d1, d2), lo, hi)
+        if best is None:
+            continue
+        w, ux, uy, nx, ny, dlo, dhi, lo, hi = best
+        # Kanten sind im Scan oft zerstückelt (Abzweige, Lücken): kollineare Stücke beider
+        # Seiten zu Ketten verbinden, das Band reicht so weit wie beide Ketten
+        reach = 60.0 * lm
+
+        def chain(dside):
+            q = Polygon([(cx + t * ux + d * nx, cy + t * uy + d * ny)
+                         for t, d in ((-reach, dside - 2), (reach, dside - 2),
+                                      (reach, dside + 2), (-reach, dside + 2))])
+            iv = []
+            for e in inner_cand(q):
+                ds = [(p_[0] - cx) * nx + (p_[1] - cy) * ny for p_ in (e.p1, e.p2)]
+                if max(abs(x - dside) for x in ds) > 2.0:
+                    continue
+                t_ = sorted((p_[0] - cx) * ux + (p_[1] - cy) * uy for p_ in (e.p1, e.p2))
+                iv.append(t_)
+            iv.sort()
+            c_lo = c_hi = None
+            for a_, b_ in iv:
+                if c_lo is None:
+                    c_lo, c_hi = a_, b_
+                elif a_ <= c_hi + 2.0 * r.spacing:
+                    c_hi = max(c_hi, b_)
+                elif c_hi >= 0:
+                    break
+                else:
+                    c_lo, c_hi = a_, b_
+            return (c_lo, c_hi) if c_lo is not None and c_lo <= 0 <= c_hi else None
+        ca, cb = chain(dlo), chain(dhi)
+        if ca and cb:
+            lo, hi = max(ca[0], cb[0]), min(ca[1], cb[1])
+        # Schraffurstriche im Band (quer zwischen den Kanten, längs innerhalb der Kanten)
+        rx, ry = mids[:, 0] - cx, mids[:, 1] - cy
+        tt = rx * ux + ry * uy
+        dd = rx * nx + ry * ny
+        inside = (dd > dlo) & (dd < dhi) & (tt >= lo) & (tt <= hi)
+        idx = np.nonzero(inside)[0]
+        if len(idx) == 0:
+            continue
+
+        def pt(t, d):
+            return (cx + t * ux + d * nx, cy + t * uy + d * ny)
+        # Bruchstücke der Schraffur auf anderen Layern (Zickzack aus verschmolzenen
+        # Strichen): ganz im Band (Enden bis an die Kanten), nicht längs der Wand und nicht
+        # quer über die ganze Wandbreite (das kann eine Materialgrenze sein). Sie belegen
+        # wie die Schraffurstriche, dass die Wand hier weiter schraffiert ist.
+        wdir = math.degrees(math.atan2(uy, ux))
+        frags = []
+        for e in inner_cand(Polygon([pt(lo, dlo), pt(hi, dlo), pt(hi, dhi), pt(lo, dhi)])):
+            if id(e) in owner:
+                continue
+            ts_ = []
+            for q in (e.p1, e.p2):
+                qx, qy = q[0] - cx, q[1] - cy
+                t_, d_ = qx * ux + qy * uy, qx * nx + qy * ny
+                if not (lo <= t_ <= hi and dlo - 1.5 < d_ < dhi + 1.5):
+                    break
+                ts_.append(t_)
+            if len(ts_) < 2:
+                continue
+            ea = math.degrees(math.atan2(e.p2[1] - e.p1[1], e.p2[0] - e.p1[0]))
+            if abs((ea - wdir + 90.0) % 180.0 - 90.0) < 10.0:
+                continue                         # Linie längs der Wand (z. B. Dämmung)
+            if abs((ea - wdir) % 180.0 - 90.0) < 15.0 and                     math.dist(e.p1, e.p2) >= 0.8 * (dhi - dlo):
+                continue
+            frags.append((e, (ts_[0] + ts_[1]) / 2))
+        ts = np.sort(np.concatenate([tt[idx], np.array([f[1] for f in frags], float)]))
+        gap = max(3.0 * r.spacing, lm)
+        # zusammenhängendes Stück um die Fläche (t = 0 ist ihr Schwerpunkt)
+        seg_lo = seg_hi = 0.0
+        pos = int(np.searchsorted(ts, 0.0))
+        j = pos
+        while j < len(ts) and ts[j] - seg_hi <= gap:
+            seg_hi = max(seg_hi, ts[j])
+            j += 1
+        j = pos - 1
+        while j >= 0 and seg_lo - ts[j] <= gap:
+            seg_lo = min(seg_lo, ts[j])
+            j -= 1
+        pad = 0.5 * r.spacing
+        ta, tb = max(lo, seg_lo - pad), min(hi, seg_hi + pad)
+        band = Polygon([pt(ta, dlo), pt(tb, dlo), pt(tb, dhi), pt(ta, dhi)])
+        new = P.union(band)
+        sel = [int(i) for i in idx if ta <= tt[i] <= tb]
+        for i in sel:
+            l = lines[i]
+            o = owner.get(id(l))
+            if o is None:
+                r.members.append(l)
+                owner[id(l)] = k
+            elif o != k and o not in dead:
+                q = regions[o]
+                da = abs((q.angle - r.angle + 90.0) % 180.0 - 90.0)
+                if da <= 5.0 and abs(q.spacing - r.spacing) <= 0.15 * r.spacing:
+                    new = new.union(Polygon(q.outline, q.holes).buffer(0))
+                    for m in q.members:
+                        owner[id(m)] = k
+                    r.members += q.members
+                    q.members = []
+                    dead.add(o)
+        for e, t_ in frags:
+            if ta <= t_ <= tb and id(e) not in owner:
+                r.members.append(e)
+                owner[id(e)] = k
+        new = _pieces(new.buffer(0))
+        if not new:
+            continue
+        new = max(new, key=lambda g: g.area).simplify(0.5, preserve_topology=True)
+        r.outline = [tuple(map(float, c)) for c in list(new.exterior.coords)[:-1]]
+        r.holes = [[tuple(map(float, c)) for c in list(h.coords)[:-1]] for h in new.interiors]
+    regions[:] = [r for k, r in enumerate(regions) if k not in dead]
+    # Überlappungen an Wandecken: kleinere Fläche weicht der größeren
+    polys = [Polygon(r.outline, r.holes).buffer(0) for r in regions]
+    for i in sorted(range(len(regions)), key=lambda k: -polys[k].area):
+        for j in range(len(regions)):
+            if j == i or polys[j].area >= polys[i].area or not polys[j].intersects(polys[i]):
+                continue
+            rest = _pieces(polys[j].difference(polys[i]))
+            if rest:
+                g = max(rest, key=lambda x: x.area)
+                polys[j] = g
+                regions[j].outline = [tuple(map(float, c)) for c in list(g.exterior.coords)[:-1]]
+                regions[j].holes = [[tuple(map(float, c)) for c in list(h.coords)[:-1]]
+                                    for h in g.interiors]
+
 
 def pattern_lines(reg: HatchRegion) -> List[Tuple[Point, Point]]:
     """Die Linien, die das Muster im Umriss erzeugt (für Prüfung und Vorschau)."""

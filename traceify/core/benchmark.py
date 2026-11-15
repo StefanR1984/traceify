@@ -196,7 +196,7 @@ def run_file(path: str, settings=None, page: int = 0, reference: Optional[str] =
     mine = measure("Traceify", d.expanded(), ink, mm_px, res.text_boxes, dt,
                    export_ents=d.export_view().expanded())
     out = {"datei": path, "bild": [int(ink.shape[1]), int(ink.shape[0])],
-           "mm_pro_px": mm_px, "traceify": mine, "schraffur": hatch_stats(d)}
+           "mm_pro_px": mm_px, "traceify": mine, "schraffur": hatch_stats(d, ink)}
     if reference:
         ents, (s, dx, dy) = fit_to_image(read_dxf(reference), ink)
         ref = measure(ref_name, ents, ink, mm_px)
@@ -206,14 +206,31 @@ def run_file(path: str, settings=None, page: int = 0, reference: Optional[str] =
     return out
 
 
-def hatch_stats(d) -> dict:
-    """Schraffurlinien und wie viele davon in Flächen (HATCH) aufgehen."""
-    from .hatch import find_regions
+def hatch_stats(d, ink=None) -> dict:
+    """Schraffurlinien und wie viele davon in Flächen (HATCH) aufgehen; mit ``ink`` (Binärbild)
+    zusätzlich der Anteil der Musterlinien, der auf Tinte liegt (±1 px)."""
+    import cv2
+    import numpy as np
+    from .hatch import find_regions, pattern_lines
     from .model import LAYER_HATCH, Line
     n = sum(1 for e in d.entities if isinstance(e, Line) and e.layer == LAYER_HATCH)
     regs = find_regions(d.entities)
-    used = sum(len(r.members) for r in regs)
-    return {"linien": n, "flaechen": len(regs), "einzeln": n - used}
+    used = sum(1 for r in regs for m in r.members if m.layer == LAYER_HATCH)
+    out = {"linien": n, "flaechen": len(regs), "einzeln": n - used,
+           "reste": sum(len(r.members) for r in regs) - used}   # Bruchstücke anderer Layer
+    if ink is not None and regs:
+        m = cv2.dilate((ink > 0).astype(np.uint8), np.ones((3, 3), np.uint8))
+        H, W = m.shape
+        hit = tot = 0
+        for r in regs:
+            for a, b in pattern_lines(r):
+                k = max(2, int(math.dist(a, b)) + 1)
+                xs = np.clip(np.round(np.linspace(a[0], b[0], k)).astype(int), 0, W - 1)
+                ys = np.clip(np.round(np.linspace(a[1], b[1], k)).astype(int), 0, H - 1)
+                hit += int(m[ys, xs].sum())
+                tot += k
+        out["muster_tinte"] = round(hit / max(1, tot), 3)
+    return out
 
 
 def _pp():
