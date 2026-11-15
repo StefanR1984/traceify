@@ -132,3 +132,31 @@ def test_schraffurenden_bis_zur_wandkante():
     # nicht weiter, als die Linie lang ist
     kurz = Line((30, 4), (31, 3), LAYER_HATCH)
     assert extend_hatch_ends([kante[0], kurz] + hatch, 5.0, 40.0, LAYER_HATCH) == 0
+
+
+def test_mauerwerk_lange_und_kurze_striche():
+    """Mauerwerks-Schraffur: lange Striche, dazwischen kurze – beide sind Schraffur; ein
+    gedrehtes Möbelstück aus langen Parallelen und einem kurzen Strich nicht."""
+    from traceify.core.style import detect_hatch
+    mm = 0.17
+    ppm = 1 / mm
+    ents = []
+    for k in range(14):                       # Wand 6 mm breit, Schraffur 45°
+        o = k * 1.6 * ppm
+        L = 6 * ppm if k % 2 == 0 else 1.8 * ppm
+        cx, cy = 100 + o, 100 + o * 0.3
+        d = L / 2 / 1.414
+        ents.append(Line((cx - d, cy + d), (cx + d, cy - d), "LINIEN"))
+    kurze = ents[1::2]
+    sessel = [Line((500, 500), (500 + 15 * ppm / 1.414, 500 - 15 * ppm / 1.414), "LINIEN")
+              for _ in range(1)]
+    for k in range(1, 4):
+        o = k * 1.2 * ppm
+        sessel.append(Line((500 + o, 500 + o), (500 + o + 15 * ppm / 1.414,
+                                                500 + o - 15 * ppm / 1.414), "LINIEN"))
+    sessel.append(Line((505 + 2 * ppm, 503 + 2 * ppm), (505 + 2.7 * ppm, 503 + 1.3 * ppm),
+                       "LINIEN"))
+    detect_hatch(ents + sessel, mm)
+    assert all(e.layer == LAYER_HATCH for e in kurze)
+    assert sum(e.layer == LAYER_HATCH for e in ents) >= 12
+    assert not any(e.layer == LAYER_HATCH for e in sessel)

@@ -199,13 +199,23 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    eine Linie ≤ ~0,3 mm verschiebt (`second_shift`), denn der Flügel ist im Scan um ±1,2° verzogen
    (ohne Grenze: Abdeckung 98,0 → 97,1 %). 59 % statt 54 % der Länge auf einer Bauachse.
    Bei image-4 bleiben Schraffur und kurze Striche – die H/V-Messung ändert sich nicht.
-5. **Schraffur**: Handschraffur (image-4) und viele Kleinstgruppen (image-27/-37) bleiben
-   Einzellinien; viele Handschraffur-Striche erkennt schon `detect_hatch` nicht. HATCH auch in
-   GUI und SVG zeigen.
+5. **Schraffur**: **0.32.0** Flächen auch in Zeichenfläche (`canvas.HatchItem`, steht für `members`,
+   Einzellinien verborgen; Schalter Ansicht → Schraffur als Fläche = `hatch.META_KEY` in `d.meta`) und
+   SVG (`<pattern>`). `find_regions` 0,2–0,4 s je `set_entities`. Prüfstand-Spalten Schraffur/Einzellinien
+   (`benchmark.hatch_stats`). **0.33.0** zweiter `detect_hatch`-Durchgang nach `close_gaps` (fertige
+   Geometrie; nicht bei Farb-Layern) + Mauerwerk (langer/kurzer Strich, kurzer ganz daneben,
+   ≥ 0,2 × lang, lang ≤ 10 mm). Linien in Flächen image-4 405→589, -27 781→868, -37 213→269.
+   Offen: Einzellinien-Anteil steigt (mehr erkannte Reste in verrauschten Wänden, image-27 51 %);
+   Handschrift-Großbuchstaben (N, M, A) werden teils Schraffur (image-17 35 Striche, keine Fläche);
+   Mauerwerk wird als HATCH mit halbem Abstand durchgezogen (kurze Striche = volle Linien);
+   an der Wandkante abknickende Strichenden (anderer Winkel) bleiben eigene Linien.
 6. **Offene Enden** (image-11: 1554 gegen 1330): Seit 0.17 schließt `close_gaps` bis 2,5 × Reichweite,
    wenn `cad.ink_checker` Tinte auf der ganzen Lücke sieht. Übrig sind vor allem kurze, echte Striche
    (Möbeldetails, Fliesenmarken, Schriftreste) – pauschal 2 mm verbinden wäre falsch (Strichlinien,
-   Maßhilfslinien, Buchstaben). Enden von Schraffurlinien auf die Wandkante ziehen ist noch offen.
+   Maßhilfslinien, Buchstaben). **0.32.0** `cad.extend_hatch_ends`: Schraffurende bis 2,5 mm zur Kante,
+   wenn ≥ 2 Nachbarenden (8 mm) auf derselben Kante bzw. deren Verlängerung enden (Lücke ist meist
+   weißes Papier – Tintenprüfung allein greift nicht). image-89 140→98, -94 114→96 offene Enden.
+   4 mm Reichweite brachte kaum mehr (+4–7 Enden).
 7. **Bemaßungen** (Maßketten): **0.25.0** Längenprüfung `dimensions.check_lengths` (Maßstab px/m aus
    sicheren Lesungen, richtige Maße ±1 %; Rettung unsicherer Lesungen ab 1 m Segment, ±1 %), **0.26.0**
    DIMENSION im DXF (`Text.dim`, relativ in Texthöhen). Gemessen: EG 111→112, Wörter echt 116→117, sonst

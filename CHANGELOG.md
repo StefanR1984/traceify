@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.0 – 15.11.2026
+### Mehr Schraffur erkannt
+- **Zweiter Erkennungsdurchgang:** Die Schraffur-Erkennung lief bisher nur auf den rohen Strichen, bevor Linien ausgerichtet, Fransen entfernt und Lücken geschlossen werden. Gerade bei verrauschten Scans waren Schraffurlinien da noch zerrissen und fielen durch. Jetzt prüft Traceify die fertige Geometrie ein zweites Mal.
+- **Mauerwerks-Schraffur:** Lange Striche mit kurzen Strichen dazwischen (handgezeichnetes Mauerwerk) wurden nicht erkannt, weil Nachbarlinien ähnlich lang sein mussten. Jetzt zählt auch ein kurzer Strich, der ganz neben einem langen liegt (mindestens ein Fünftel so lang, langer Strich höchstens 10 mm) – gedrehte Möbel aus langen Parallelen bleiben normale Linien.
+- **Gemessen** (Linien in Schraffur-Flächen): Kellerplan image-4 589 statt 405, image-27 868 statt 781, image-37 269 statt 213, image-89/-94/-99 gleich. Mehr Linien landen auf SCHRAFFUR (image-4 1177 statt 780), ein Teil davon bleibt Einzellinie (Schraffurreste in verrauschten Wänden). Wenige Fehltreffer in nicht gelesener Handschrift (image-17: 35 statt 14 Striche auf SCHRAFFUR, keine Fläche). Objekte, Abdeckung, offene Enden gleich oder besser.
+
 ## 0.32.0 – 15.11.2026
 ### Schraffur-Flächen auch in der Zeichenfläche und im SVG
 - Regelmäßige Schraffuren erscheinen jetzt schon in der Zeichenfläche als **Fläche mit Linienmuster** – genau so, wie sie im DXF/DWG als HATCH ankommen (dieselben Flächen, derselbe Winkel und Abstand). Ein Klick wählt die ganze Schraffur, Entf löscht sie, Rückgängig holt sie zurück. Der Layer SCHRAFFUR blendet Flächen und übrige Einzellinien gemeinsam aus.

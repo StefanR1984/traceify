@@ -33,6 +33,11 @@ Schwächste Pläne bei Wörtern: PLAN1_UG 25 von 120, PLAN1_EG 24 von 94, PLAN2_
 
 Echte Scans 0.17.0 → 0.20.0: gleich viele Texte, Bögen −30 bis −60 %, offene Enden weniger, Abdeckung gleich oder besser.
 
+## Stand 15.11.2026 (abends) – Schraffur
+- **0.32.0** Schraffur-Flächen in Zeichenfläche und SVG, Schalter Ansicht → Schraffur als Fläche;
+  Schraffurenden bis zur Wandkante (`cad.extend_hatch_ends`). **0.33.0** zweiter Erkennungsdurchgang +
+  Mauerwerks-Schraffur. Messwerte und Offenes: CLAUDE.md, Offene Ideen 5 und 6.
+
 ## Stand 15.11.2026
 - **0.25.0** Längenprüfung der Maßzahlen (Maßstab aus den Maßen selbst, Rettung/Verwerfen), **0.26.0**
   Maßzahlen als DIMENSION im DXF. Messwerte und verworfene Varianten: CLAUDE.md, Offene Idee 7.

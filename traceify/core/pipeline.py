@@ -271,11 +271,15 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         # bis 0,8 mm immer; bis zum 2,5-Fachen nur, wo der Scan durchgehend Tinte zeigt
         close_gaps(ents, settings.style.close_gaps_mm / dpi_scale,
                    far=2.5 * settings.style.close_gaps_mm / dpi_scale, ink_ok=ink_ok)
-        if settings.style.hatch_layer:
-            from .cad import extend_hatch_ends
-            # Schraffur endet im Scan oft kurz vor der Wandkante: bis dorthin ziehen, wenn
-            # Nachbarlinien an derselben Kante enden
-            extend_hatch_ends(ents, 2.5 / dpi_scale, 8.0 / dpi_scale, LAYER_HATCH, ink_ok)
+    if settings.style.hatch_layer and not groups and settings.vectorize.mode == MODE_CENTERLINE:
+        from .cad import extend_hatch_ends, ink_checker
+        # zweiter Durchgang: nach Ausrichten, Fransen und Lückenschließen sind die Striche
+        # sauberer – vorher zerrissene Schraffurlinien werden jetzt erkannt
+        detect_hatch(ents, dpi_scale)
+        # Schraffur endet im Scan oft kurz vor der Wandkante: bis dorthin ziehen, wenn
+        # Nachbarlinien an derselben Kante enden
+        extend_hatch_ends(ents, 2.5 / dpi_scale, 8.0 / dpi_scale, LAYER_HATCH,
+                          None if ink_gray is None else ink_checker(ink_gray))
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + texts, source=source)

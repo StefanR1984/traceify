@@ -124,13 +124,19 @@ def detect_hatch(ents: list, mm_per_px: float, min_count: int = 5,
                     dA = (a2 - a + 90.0) % 180.0 - 90.0
                     # kurze Striche haben im Scan eine unsichere Richtung
                     tol = max(4.0, math.degrees(math.atan2(3.0, min(L1, L2))))
-                    if abs(dA) > min(tol, 16.0) or not (0.4 <= L1 / L2 <= 2.5):
+                    if abs(dA) > min(tol, 16.0):
                         continue
                     r = math.radians(a + dA / 2)          # gemeinsame Richtung
                     ux, uy = math.cos(r), math.sin(r)
                     vx, vy = mx2 - mx, my2 - my
                     d = abs(-vx * uy + vy * ux)            # Abstand quer zur Schraffur
                     along = abs(vx * ux + vy * uy)         # Versatz entlang der Schraffur
+                    # ähnlich lang – oder der kürzere Strich liegt ganz neben dem längeren
+                    # (Mauerwerk: lange Striche, dazwischen kurze)
+                    if not (0.4 <= L1 / L2 <= 2.5) and (
+                            along > (max(L1, L2) - min(L1, L2)) / 2 + 0.5 * ppm or
+                            min(L1, L2) < 0.2 * max(L1, L2) or max(L1, L2) > 10 * ppm):
+                        continue
                     # Schraffurlinien liegen dichter, als sie lang sind
                     if not (min_sp <= d <= min(max_sp, 1.2 * max(L1, L2))) or \
                             along > (L1 + L2) / 2 + ppm:
