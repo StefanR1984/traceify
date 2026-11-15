@@ -283,11 +283,15 @@ def test_tuermass_per_schablone():
     assert [round(x) for x, _ in ticks] == [100]         # der zweite Stern ist keiner
     hor = cv2.morphologyEx(img, cv2.MORPH_OPEN, np.ones((1, 30), np.uint8))
     got = dimensions.template_numbers(img, ticks, stars | hor, 10.0, tpl, [20], 100.0)
-    assert sorted(t for t, _, _, _ in got) == ["2.12", "88⁵"]
-    (x, y, w, h), = [b for t, b, _, _ in got if t == "88⁵"]
+    assert sorted(t for t, *_ in got) == ["2.12", "88⁵"]
+    assert len({g[4] for g in got}) == 1                 # Breite und Höhe: dasselbe Sternpaar
+    (x, y, w, h), = [b for t, b, *_ in got if t == "88⁵"]
     assert 100 < x and x + w < 215 and y + h <= 150
     # ohne Strich am anderen Ende passt die Breite zu nichts; Sternseite schon belegt → nichts
     assert dimensions.template_numbers(_tuer(tpl, False), ticks, stars | hor, 10.0, tpl, [20], 100.0) == []
     done = [(ticks[0][0], ticks[0][1], 1)]
     assert dimensions.template_numbers(img, ticks, stars | hor, 10.0, tpl, [20], 100.0, done) == []
     assert dimensions.template_numbers(img, ticks, stars | hor, 10.0, tpl, [20], 60.0) == []   # falscher Maßstab
+    # nur unsicherer Ausgangspunkt (von Ziffern überdeckter Stern) reicht ebenso
+    weak = dimensions.template_numbers(img, [], stars | hor, 10.0, tpl, [20], 100.0, extra=ticks)
+    assert sorted(t for t, *_ in weak) == ["2.12", "88⁵"]

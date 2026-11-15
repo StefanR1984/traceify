@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.29.0 – 15.11.2026
+### Türmaße auch ohne erkannten Stern
+- Laufen die Zahlen einer Tür über beide Maßbegrenzungen (UG: „1.01“ / „2.12⁵“ bis in die Wände), erkennt die Sternsuche oft keinen der beiden Sterne – der Schablonen-Leser hatte keinen Ausgangspunkt. Jetzt sucht Traceify auf den Zeilen bekannter Sterne auch nach von Ziffern überdeckten Sternen (Schrägstrich, waagrechter und senkrechter Strich durch einen Punkt) und nimmt sie als Ausgangspunkt. Kreuzungen in Schraffuren, die dabei mitgefunden werden, sortiert die Lage- und Längenprobe des Lesers aus.
+- Breite und Höhe derselben Tür dürfen sich überlappen (EG: „1.88⁵“ über „2.37⁵“); bisher blieb nur eine von beiden.
+- **Gemessen** (echte 300-dpi-Plots, je gedrucktem Text nach Lage): PLAN1_EG 140 statt 137, PLAN1_UG 96 statt 89 („1.01“, „2.12⁵“, „2.26“, „1.95⁵“). Wörter echt 129 statt 125 von 208, falsch 37 statt 35 (EG „40“ und „1.11“ ohne Hochziffer). Simuliert 536 / 199 statt 533 / 198, neun Testscans unverändert.
+- Untersucht und verworfen: Ziffernhöhe ±1 px absuchen – EG +2/−1 und neue Fehllesung „86⁵“, UG unverändert, dreifache Zeit. Höhe unter der Linie über einen Plan-Wortschatz – „2.12⁵“ kommt im EG nirgends sicher gelesen vor.
+
 ## 0.28.0 – 15.11.2026
 ### Türmaße per Ziffern-Schablone (mit Fable erarbeitet)
 - **„88⁵“ über einer Tür wird gelesen:** Breite (über der Linie) und Höhe (darunter) stehen eng zwischen zwei Sternen, überlappen sich und laufen über den rechten Stern – Tesseract scheitert daran. Traceify baut jetzt aus den sicher gelesenen Maßzahlen desselben Plans **Ziffern-Schablonen** (gleiche Schrift, gleiche Größe) und gleicht die Ziffern neben einem bekannten Stern damit ab; Stern- und Linientinte zählen nicht mit. Die gelesene Breite muss zur Lage passen (Zahl mittig zwischen Stern und der Stelle im Abstand Breite × Maßstab, dort ein Querstrich). Hochziffer nur „⁵“. Die Höhe darunter wird mit strengen Schwellen gelesen.

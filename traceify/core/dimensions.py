@@ -76,6 +76,48 @@ def _ticks(bw: np.ndarray, px_per_mm: float):
     return out, cv2.dilate(mask, np.ones((3, 3), np.uint8))
 
 
+def _weak_ticks(bw: np.ndarray, px_per_mm: float, ticks):
+    """Sterne, die von Ziffern überdeckt sind („88⁵“ / „2.12⁵“ an einer Tür laufen durch den
+    Stern) – die Formprüfung von _ticks scheitert dort am Zusammenhang mit den Ziffern. Gesucht
+    wird nur auf Zeilen bekannter Sterne: Schrägstrich, waagrechter und senkrechter Strich durch
+    denselben Punkt, Tinte beidseits auf der Diagonale. Findet auch Kreuzungen in Schraffuren –
+    sie dienen nur als Ausgangspunkt für template_numbers, dessen Lage- und Längenprobe solche
+    Fehlstellen aussortiert. Gibt eine Liste (cx, cy) zurück."""
+    import cv2
+    d = max(4, int(round(0.7 * px_per_mm)))
+    k = np.eye(d, dtype=np.uint8)
+    diag = cv2.morphologyEx(bw, cv2.MORPH_OPEN, k) | cv2.morphologyEx(bw, cv2.MORPH_OPEN, np.fliplr(k))
+    r = max(3, int(round(0.4 * px_per_mm)))
+    q = max(3, int(round(0.35 * px_per_mm)))
+    H, W = bw.shape
+    dg = cv2.dilate(diag, np.ones((3, 3), np.uint8)).astype(bool)
+    col = cv2.dilate(bw, np.ones((1, 3), np.uint8)).astype(bool)      # Spalten x-1 … x+1
+    blob = cv2.dilate(bw, np.ones((3, 3), np.uint8)).astype(bool)
+
+    def run(v):                                                       # v[x-r … x+r] alle wahr
+        c = np.concatenate([[0], np.cumsum(~v)])
+        o = np.zeros_like(v)
+        o[r:W - r] = (c[2 * r + 1:] - c[:W - 2 * r]) == 0
+        return o
+    out = []
+    for cy in sorted({int(round(cy)) for _, cy in ticks}):
+        if cy - max(r, q) < 2 or cy + max(r, q) + 3 > H:
+            continue
+        ok = dg[cy] & col[cy - r:cy + r + 1].all(axis=0) & run(bw[cy - 1:cy + 2].any(axis=0).astype(bool))
+        side = np.zeros(W, bool)
+        for sy in (-1, 1):
+            side[q:W - q] |= blob[cy - sy * q][:W - 2 * q] & blob[cy + sy * q][2 * q:]
+        xs = np.nonzero(ok & side)[0]
+        if not len(xs):
+            continue
+        for grp in np.split(xs, np.nonzero(np.diff(xs) > 2)[0] + 1):
+            cx = float(grp.mean())
+            if any(abs(cx - a) <= r and abs(cy - b) <= 3 for a, b in ticks):
+                continue
+            out.append((cx, float(cy)))
+    return out
+
+
 def _horizontal_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = None) -> List[Gap]:
     """Schrift in Lücken waagrechter Linien (Box der Schrift, Box der vollen Ziffern).
 
@@ -329,16 +371,21 @@ def _door_numbers(bw, px_per_mm, gaps, cand, keep, r, texts, boxes) -> None:
         # Seiten eines Sterns, an denen schon eine gelesene Maßzahl ihr Segment füllt
         done = [(sg[j], sg[0], dr) for (g, kk), c in zip(gaps, cand) for sg in [g[4]]
                 if kk == k and c[0] and sg is not None and g[3] == 0 for j, dr in ((1, 1), (2, -1))]
-        for t, (x, y, w, h), hs, sc in template_numbers(img, ticks, alien, px_per_mm, tpl, heights, r, done):
+        weak = _weak_ticks(img, px_per_mm, ticks)       # von Ziffern überdeckte Sterne
+        for t, (x, y, w, h), hs, sc, key in template_numbers(img, ticks, alien, px_per_mm, tpl, heights, r,
+                                                             done, weak):
             if k == 0:
-                found.append((sc, Text(t, (float(x), float(y + h)), float(hs), 0.0), (x, y, w, h)))
+                found.append((sc, Text(t, (float(x), float(y + h)), float(hs), 0.0), (x, y, w, h), (k, key)))
             else:                                    # zurückdrehen wie line_gaps
                 b = (y, H - (x + w), h, w)
-                found.append((sc, Text(t, (float(b[0] + b[2]), float(b[1] + b[3])), float(hs), 90.0), b))
-    for sc, t, b in sorted(found, key=lambda f: -f[0]):
-        if not any(_overlap(b, o) > 0.3 for o in boxes):
+                found.append((sc, Text(t, (float(b[0] + b[2]), float(b[1] + b[3])), float(hs), 90.0), b, (k, key)))
+    n0, keys = len(boxes), []
+    for sc, t, b, key in sorted(found, key=lambda f: -f[0]):
+        # Breite und Höhe derselben Tür überlappen sich oft – nur gegen Fremdes prüfen
+        if not any(_overlap(b, o) > 0.3 and (i < n0 or keys[i - n0] != key) for i, o in enumerate(boxes)):
             texts.append(t)
             boxes.append(b)
+            keys.append(key)
 
 
 TPL_H = 32          # Höhe der Ziffern-Schablonen
@@ -437,7 +484,7 @@ def _sup5(I, W, t5, hs, xe: int, top: int) -> float:
 
 
 def template_numbers(bw: np.ndarray, ticks, alien: np.ndarray, px_per_mm: float, tpl: dict,
-                     heights, r: float, done=()) -> list:
+                     heights, r: float, done=(), extra=()) -> list:
     """Türmaße an einer Maßbegrenzung per Schablonenabgleich lesen: Breite direkt über der
     Maßlinie („88⁵“, „1.01“), Höhe direkt darunter („2.12⁵“). Die Zahlen berühren sich, laufen
     über den zweiten Stern und in Wände – Tesseract liest dort nichts, und der zweite Stern wird
@@ -449,8 +496,10 @@ def template_numbers(bw: np.ndarray, ticks, alien: np.ndarray, px_per_mm: float,
     - dann die Höhe unter der Linie im Format „d.dd“; der vermutete zweite Stern zählt nicht mit.
 
     alien: bekannte Fremdtinte (Sterne, Linien); done: (x, Zeile, Seite ±1) – Sternseiten, die
-    schon ein gelesenes Maß haben und nicht abgesucht werden. Gibt (Text, Box x y w h, Ziffernhöhe, Wert)
-    zurück; nur deutliche Treffer (Überdeckung und Abstand zur zweitbesten Ziffer)."""
+    schon ein gelesenes Maß haben und nicht abgesucht werden; extra: zusätzliche, unsichere
+    Ausgangspunkte (_weak_ticks), zählen nicht als „Stern dazwischen“. Gibt (Text, Box x y w h, Ziffernhöhe, Wert)
+    und Schlüssel des Sternpaars – Breite und Höhe einer Tür dürfen sich überlappen) zurück;
+    nur deutliche Treffer (Überdeckung und Abstand zur zweitbesten Ziffer)."""
     import cv2
     H, Wd = bw.shape
     I = bw.astype(np.float32)
@@ -461,18 +510,18 @@ def template_numbers(bw: np.ndarray, ticks, alien: np.ndarray, px_per_mm: float,
     T = np.array(ticks, float).reshape(-1, 2)
     open_ = {}                                       # Stern → noch offene Seiten
     row = -9
-    for tx, cy in sorted(ticks, key=lambda t: t[1]):
+    for tx, cy in sorted(list(ticks) + list(extra), key=lambda t: t[1]):
         sides = [dr for dr in (1, -1) if not any(x == tx and abs(y - cy) <= 2.5 and q == dr for x, y, q in done)]
         if int(round(cy)) - row > 1:                 # Sterne einer Kette (±1 px) teilen sich die Zeile
             row = int(round(cy))
         if sides:
             open_[int(round(tx)), row] = sides
 
-    def emit(s, x0, top, w, hs, sc):
+    def emit(s, x0, top, w, hs, sc, key):
         if _sup5(I, Wt, tpl["5"], hs, x0 + w, top) >= 0.75:
-            out.append((s + "⁵", (x0, top - int(0.3 * hs), w + int(0.5 * hs), hs + int(0.3 * hs)), hs, sc))
+            out.append((s + "⁵", (x0, top - int(0.3 * hs), w + int(0.5 * hs), hs + int(0.3 * hs)), hs, sc, key))
         else:
-            out.append((s, (x0, top, w, hs), hs, sc))
+            out.append((s, (x0, top, w, hs), hs, sc, key))
     for hs in heights:
         tp = {ch: _scaled(t, hs) for ch, t in tpl.items()}
         pitch = DIGIT_W * hs
@@ -532,7 +581,7 @@ def template_numbers(bw: np.ndarray, ticks, alien: np.ndarray, px_per_mm: float,
                                 found[tx, cy] = (float(sc[y, x]), s, xa + int(x), ya + int(y), offs[-1] + cw, far)
         for (tx, cy), best in found.items():
             sc0, s, x0, top, w, far = best
-            emit(s, x0, top, w, hs, sc0)
+            emit(s, x0, top, w, hs, sc0, (tx, cy, hs))
             # Höhe unter der Linie; sie ragt bei kleiner Schrift bis über die Linie
             a, b = sorted((tx, int(round(far))))
             xa, xb = a - 2 * hs, b + 4 * hs
@@ -555,7 +604,8 @@ def template_numbers(bw: np.ndarray, ticks, alien: np.ndarray, px_per_mm: float,
             y, x = np.unravel_index(int(np.argmax(sc)), sc.shape)
             if sc[y, x] >= 0.8 and mn[y, x] >= 0.7 and min(marg[y, x + o] for o in offs) >= 0.05:
                 s = "".join(str(int(arg[y, x + o])) for o in offs)
-                emit(s[0] + "." + s[1:], xa + int(x), ya + int(y), offs[-1] + cw, hs, float(sc[y, x]))
+                emit(s[0] + "." + s[1:], xa + int(x), ya + int(y), offs[-1] + cw, hs, float(sc[y, x]),
+                     (tx, cy, hs))
     return out
 
 
