@@ -1,6 +1,24 @@
-# Übergabe Traceify – Stand 14.11.2026
+# Übergabe Traceify – Stand 16.11.2026
 
 **Zuerst lesen:** `.claude/CLAUDE.md` (Regeln, Aufbau, Stolpersteine, Befunde des Wahrheits-Prüfstands mit Messwerten). Danach `git pull`, `git log --oneline -8`.
+
+## Aktuell (16.11.2026) – hier anfangen
+- Version **0.34.1** auf main (Commit ef03c40: Fix „invalid literal for int()“ in `dimensions._variants`, Randpunkte
+  „2.45.“). **Lokal geprüft 16.11.:** pyflakes sauber, 230 Tests grün (mit Tesseract), der auslösende Plan
+  `Testdaten Traceify/PDF/PLAN2_EG.pdf` konvertiert ohne Fehler (67 s, 477 Texte, Maßstab 1:100 aus Maßketten).
+  Offen aus der Prüfliste unten: Punkte 2–5 (Prüfstände gegen 0.34.0, Nebenwirkung `check_lengths`, weitere
+  `int()`/`float()` auf Rohlesungen, Windows-Probe-Build für 0.34.1).
+- **Neue Testdaten (16.11.):** echte Allplan-Plots jetzt für **alle** Pläne in `Testdaten Traceify/PDF/`
+  (PLAN2_Dach/EG/OG1–3, PLAN3_DG/EG/OG1–4/UG1–3, dazu PLAN1_EG/OG1/UG wie bisher). Maßstab/Auflösung je Plan
+  erst feststellen (PLAN2_EG: 1:100, nicht 1:200 wie PLAN1). `tools/wahrheit.py … --scans "Testdaten
+  Traceify/PDF" --massstab N` nimmt nur einen Maßstab – ggf. je Maßstab getrennt laufen lassen oder den
+  Maßstab je Plan erkennen lassen. Ziel: echter Prüfstand über alle 17 Pläne als neue Messbasis.
+  `Konvertiert mit Traceify/` enthält Ergebnisse des Nutzers zu diesen Plänen, `Fehler/` den Screenshot zum Fix.
+- Schraffur 0.32–0.34 fertig (Details CLAUDE.md, Ideen 5/6). **Nächstes Thema: Kiesmuster auf Dachplänen**
+  (Analyse fertig, CLAUDE.md unter „Dach“): Punkte Ø 0,3 mm gehen im Entflecken und im Skelett verloren;
+  Idee „Punkt → kleiner Kreis“ vor dem Entflecken, Rauschen über Dichte ausschließen, ggf. als Kies-Fläche.
+  Mit dem echten Plot `PDF/PLAN2_Dach.pdf` jetzt auch am echten Scan prüfbar.
+
 
 ## Stand
 - Aktuelle Version: **0.24.0** (kurze Maße zwischen Sternen „✳74✳“, Maßpaare über/unter der Linie, Hochziffer angehängt), davor 0.23.0 (Maßzahlen in der Lücke der Maßlinie, `core/dimensions.py`), davor 0.22.0 (Ampel-Hinweis „300 dpi empfohlen“ bei viel Schrift < 2 mm unter 200 dpi, `quality.small_text_hint`), davor 0.21.0, Branch `main` (Dateien aufs Programmsymbol, Hochziffern, Wörterbuch-Fix, DXF-Import für Allplan-MTEXT, echte Plots im Wahrheits-Prüfstand).
