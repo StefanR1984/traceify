@@ -94,6 +94,10 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - QThread: `finished` kommt, bevor der Thread wirklich endet – vor dem Loslassen `w.wait()`,
   sonst Absturz beim Beenden („Destroyed while thread is still running“, v. a. unter Windows).
 - Neue Exporte/Ansichten: `Drawing.export_view()` verwenden (dreht die Schräglage heraus).
+- Tesseract-Rohlesungen in `core/dimensions.py` nie ungeprüft in `int()`/`float()` geben: die Whitelist
+  `0123456789.,` liefert auch Randpunkte („2.45.“, „.245“) von Maßlinie/Pfeilspitze. 0.34.1 behebt den
+  Abbruch „invalid literal for int() with base 10: '.'“ (`_variants`, Befund 16.11.2026, Konvertierung
+  fehlgeschlagen). Neue Lesart-/Prüf-Funktionen dort mit solchen Randfällen testen (`test_massketten.py`).
 
 ## Offene Ideen
 Gemessen mit `tools/pruefstand.py` an 9 echten Bauplan-Scans (96–150 dpi) und DXF-Dateien eines kommerziellen Vergleichsprogramms für

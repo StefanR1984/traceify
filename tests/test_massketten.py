@@ -169,6 +169,11 @@ def test_meter_und_lesarten():
     assert dimensions.metres("9295") is None
     assert dimensions._variants("875") == ["875", "87⁵", "8.75"]
     assert dimensions._variants("2885") == ["28.85", "2.88⁵"]
+    # Punkt am Rand (Rest von Maßlinie/Pfeilspitze) darf keinen ValueError auslösen
+    assert dimensions._variants("2.45.") == dimensions._variants("2.45")
+    assert dimensions._variants("1.87.") == dimensions._variants("1.87")
+    assert dimensions._variants(".245") == dimensions._variants("245")
+    assert dimensions._variants("..") == []
 
 
 def test_masslinie_am_text_und_als_dimension(tmp_path):

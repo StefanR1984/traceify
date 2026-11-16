@@ -661,6 +661,7 @@ def _variants(raw: str) -> List[str]:
     """Lesarten einer unsicheren Ziffernfolge: wie gelesen, Hochziffer als volle Ziffer gelesen
     („875“ → „87⁵“), Punkt verloren („245“ → „2.45“)."""
     sup = SUP
+    raw = raw.strip(".")                        # Punkt am Rand = Rest von Maßlinie/Pfeilspitze („2.45.“)
     out = [raw]
     d = raw.replace(".", "")
     if d.isdigit() and 3 <= len(d) <= 5:

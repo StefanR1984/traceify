@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.34.1 – 16.11.2026
+### Fehlerbehebung
+- **„Konvertierung fehlgeschlagen: invalid literal for int() with base 10: '.'“** (`dimensions._variants`): Liest Tesseract in der Lücke einer Maßlinie eine unsichere Zahl mit Punkt am Rand (z. B. „2.45.“ – Rest von Maßlinie oder Pfeilspitze), wurde der Punkt als letzte Ziffer gelesen und die Konvertierung brach ab. Punkte am Rand der Rohlesung werden jetzt vor dem Bilden der Lesarten entfernt. Neuer Test in `test_massketten.py`.
+
 ## 0.34.0 – 15.11.2026
 ### Schraffierte Wände als Ganzes
 - **Wandband:** Im Scan zerfällt die Schraffur einer Wand oft in kleine Flächen, dazwischen liegen lose Striche und Zickzack-Bruchstücke. Liegt eine Schraffurfläche zwischen zwei langen, parallelen Wandkanten, legt Traceify die Fläche jetzt auf das ganze Band zwischen diesen Kanten – so weit dort Schraffurstriche oder Bruchstücke liegen (Türöffnungen beenden das Band). Zerstückelte Kanten werden dafür zu einer Kette verbunden. Flächen mit gleichem Raster in derselben Wand werden eine Fläche, lose Striche und Bruchstücke im Band gehören dazu und verschwinden im DXF/SVG unter dem Muster. Linien längs der Wand (z. B. Dämmung) und Linien quer über die ganze Wandbreite bleiben. An Wandecken weicht die kleinere Fläche der größeren.
