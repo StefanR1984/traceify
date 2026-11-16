@@ -195,8 +195,13 @@ def align_scan(cad: list, ink: np.ndarray, px_per_unit: float) -> list:
     Versatz grob über die Ausdehnung, dann per Kreuzkorrelation (Viertelauflösung), zuletzt
     pixelgenau. Das Original enthält oft mehr als gedruckt (ausgeblendete Layer), die
     Ausdehnung allein trifft dann nicht."""
+    s, dx, dy = _align([e for e in cad if not isinstance(e, Text)], ink, px_per_unit)
+    return [transform(e, s, dx, dy) for e in cad]
+
+
+def _align(geo: list, ink: np.ndarray, px_per_unit: float) -> Tuple[float, float, float]:
+    """Abbildung (s, dx, dy) für `align_scan`: x' = s·x + dx, y' = dy − s·y."""
     from .dxf_import import fit_to_image
-    geo = [e for e in cad if not isinstance(e, Text)]
     _, (s, dx, dy) = fit_to_image(geo, ink, px_per_unit)
     H, W = ink.shape
     P, Q = W // 2, H // 2
@@ -220,7 +225,7 @@ def align_scan(cad: list, ink: np.ndarray, px_per_unit: float) -> list:
             v = float((dist[P[:, 1], P[:, 0]] <= 1.5).mean()) if len(P) else 0.0
             if v > best[0]:
                 best = (v, ox, oy)
-    return [transform(e, s, dx + best[1], dy + best[2]) for e in cad]
+    return s, dx + best[1], dy + best[2]
 
 
 def _points(e, step: float = 1.0) -> np.ndarray:
@@ -272,8 +277,43 @@ def printed(truth: list, ink: np.ndarray, share: float = 0.6) -> list:
     return out
 
 
-def run_real(dxf: str, scan: str, scale_n: float, settings=None, progress=None) -> dict:
-    """Echter Scan/Plot eines Original-CAD-Plans → Traceify → Messung gegen das Original."""
+def scan_scale(cad: list, unit: float, ink: np.ndarray, mm_per_px: float) -> Tuple[float, float]:
+    """Plotmaßstab N (1:N) eines echten Plots: Schätzung aus der Ausdehnung (±30 %, ausgeblendete
+    Layer und Plankopf verfälschen sie), dann alle üblichen Maßstäbe und Vielfache von 25 in diesem
+    Bereich ausprobieren. Bewertet wird, wie gut Original und Tinte gegenseitig aufeinander liegen
+    (harmonisches Mittel); der richtige Maßstab ist ein scharfes Maximum (PLAN3: 1:350 → 0,8,
+    ±1,5 % daneben schon < 0,45). Gibt (N, Bewertung 0–1)."""
+    from .dxf_import import fit_to_image
+    from .scale_detect import COMMON
+    geo = [e for e in cad if not isinstance(e, Text)]
+    _, (s, _, _) = fit_to_image(geo, ink)
+    n0 = unit / (mm_per_px * s)
+    cands = sorted({n for n in set(COMMON) | set(range(25, 2001, 25)) if 0.7 * n0 <= n <= 1.4 * n0})
+    dist = cv2.distanceTransform((ink == 0).astype(np.uint8), cv2.DIST_L2, 3)
+    H, W = ink.shape
+    sub = geo[::max(1, len(geo) // 3000)]       # Ausrichten: ~3000 Objekte genügen (Tempo)
+    C = np.vstack([_points(e, 2.0 * mm_per_px * n0 / unit) for e in geo])   # alle, CAD-Einheiten
+    best = (-1.0, n0)
+    for n in cands:
+        s, dx, dy = _align(sub, ink, unit / mm_per_px / n)
+        P = np.column_stack([s * C[:, 0] + dx, dy - s * C[:, 1]])
+        P = P[(P[:, 0] >= 0) & (P[:, 1] >= 0) & (P[:, 0] < W) & (P[:, 1] < H)].astype(int)
+        if not len(P):
+            continue
+        a = float((dist[P[:, 1], P[:, 0]] <= 1.5).mean())          # Original auf Tinte
+        m = np.zeros(ink.shape, np.uint8)
+        m[P[:, 1], P[:, 0]] = 1
+        m = cv2.dilate(m, np.ones((5, 5), np.uint8))
+        c = float(((m > 0) & (ink > 0)).sum() / max(1, int((ink > 0).sum())))  # Tinte am Original
+        v = 2 * a * c / (a + c) if a + c else 0.0
+        if v > best[0]:
+            best = (v, float(n))
+    return best[1], max(best[0], 0.0)
+
+
+def run_real(dxf: str, scan: str, scale_n: float = 0, settings=None, progress=None) -> dict:
+    """Echter Scan/Plot eines Original-CAD-Plans → Traceify → Messung gegen das Original.
+    scale_n ≤ 0: Plotmaßstab je Plan erkennen (`scan_scale`)."""
     import time
 
     from ..api import open_file
@@ -281,11 +321,15 @@ def run_real(dxf: str, scan: str, scale_n: float, settings=None, progress=None) 
     cad, unit = load_cad(dxf)
     gray, mm_per_px = loader.load(scan)
     ink = ((gray < 160) * 255).astype(np.uint8)
+    fit = None
+    if not scale_n or scale_n <= 0:
+        scale_n, fit = scan_scale(cad, unit, ink, mm_per_px)
     truth = printed(align_scan(cad, ink, unit / mm_per_px / scale_n), ink)
     t0 = time.time()
     res = open_file(scan, 0, settings, progress=progress)
     r = compare(truth, res.drawing.expanded(), gray.shape, mm_per_px)
     r.update({"datei": dxf, "scan": scan, "bild": [int(gray.shape[1]), int(gray.shape[0])],
+              "massstab": float(scale_n), "passung": None if fit is None else round(fit, 3),
               "sekunden": round(time.time() - t0, 1)})
     return r
 

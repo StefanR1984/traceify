@@ -4,7 +4,7 @@ import pytest
 from ezdxf import units
 
 from traceify.core.model import Line, Text
-from traceify.core.truth import _self_check, compare, load_cad, render_scan
+from traceify.core.truth import _self_check, compare, load_cad, render_scan, scan_scale
 
 
 def test_selbstprobe():
@@ -44,3 +44,14 @@ def test_versatz_wird_gemessen():
     assert r["genauigkeit"] < 0.2
     r0 = compare(sc.truth, sc.truth, sc.gray.shape, sc.mm_per_px)
     assert r0["trefferquote"] == r0["genauigkeit"] == 1.0
+
+
+@pytest.mark.parametrize("n", [100, 350])
+def test_plotmassstab_wird_erkannt(n):
+    # Grundriss in Metern mit ungleichen Räumen; Plot ohne Maßstabsangabe → Maßstab je Plan finden
+    cad = [Line((0, 0), (14, 0)), Line((14, 0), (14, 9)), Line((14, 9), (0, 9)), Line((0, 9), (0, 0)),
+           Line((5, 0), (5, 9)), Line((5, 4), (14, 4)), Line((9.5, 4), (9.5, 9)), Line((0, 6.2), (5, 6.2))]
+    sc = render_scan(cad, scale_n=n, dpi=300, unit_mm=1000.0, noise=0, blur=0)
+    ink = ((sc.gray < 160) * 255).astype("uint8")
+    found, fit = scan_scale(cad, 1000.0, ink, sc.mm_per_px)
+    assert found == n and fit > 0.7

@@ -60,9 +60,12 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
   bekannt, keine Lage-Schätzung. Noch ohne Füllflächen (SOLID) und ohne Schräglage.
   Geometrie in Textbereichen des Originals zählt nicht (Schrift → Wörter-Spalte).
   Aufruf: `python tools/wahrheit.py "Testdaten Traceify/dxf/dxf" --jobs 4 --bilder <tmp>` (~4 min, 17 Pläne).
-  **Echte Plots:** `Testdaten Traceify/PDF/PLAN1_EG|OG1|UG.pdf` = Allplan-Rasterplots (300 dpi, 1:200) derselben
-  Pläne → `--scans "Testdaten Traceify/PDF" --massstab 200` (`truth.run_real`: Lage per Kreuzkorrelation,
-  nur gedruckte Objekte zählen – das DXF enthält ausgeblendete Layer). DXF-Import liest Allplan-MTEXT mit
+  **Echte Plots (alle 17):** `Testdaten Traceify/PDF/PLAN*.pdf` = Allplan-Rasterplots, A3 quer, 300 dpi; PLAN1 1:200,
+  PLAN2 1:100, PLAN3 1:350. `--scans "Testdaten Traceify/PDF" --jobs 4` (~6 min) erkennt den Maßstab je Plan
+  (`truth.scan_scale`: Schätzung aus der Ausdehnung ±30 %, dann übliche Maßstäbe + Vielfache von 25, bestes
+  harmonisches Mittel aus „Original auf Tinte“ und „Tinte am Original“ = Spalte „Passung“, scharfes Maximum);
+  `--massstab N` erzwingt einen. `truth.run_real`: Lage per Kreuzkorrelation,
+  nur gedruckte Objekte zählen – das DXF enthält ausgeblendete Layer. DXF-Import liest Allplan-MTEXT mit
   Drehung (Richtungsvektor), Ausrichtung und Hochziffern (`2.38\S5^ ;` → „2.38⁵“, `words` zählt 2.385).
 - `export/` – dxf, dwg (ODA File Converter), svg, gcode (`plan()` = gemeinsame Basis für
   G-Code, Vorschau, Zeit; Radiuskorrektur, Haltestege).
@@ -118,6 +121,33 @@ Stand 0.17.0 (Traceify / Vergleichsprogramm):
 Achtung: Auch das Vergleichsprogramm liest viel Unsinn („sightwal“, „poe“) – die
 Wort-Übereinstimmung ist kein Wahrheitsmaßstab. Schraffur als HATCH: Einzellinien übrig
 image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert).
+
+**Messbasis echte Plots, Stand 0.34.2** (16.11., alle 17 Allplan-Plots, 300 dpi, mit Tesseract, `--jobs 4`):
+| Plan (1:N) | Treffer | Genauigk. | Lage 95 % mm | Objekte (Orig.) | Bögen (Orig.) | Ortho (Orig.) | Wörter richtig/falsch |
+|---|---|---|---|---|---|---|---|
+| PLAN1_EG (200) | 97,5 % | 99,0 % | 0,16 | 2924 (20859) | 86 (191) | 79 (89) % | 64 von 91 / 15 |
+| PLAN1_OG1 (200) | 93,8 % | 98,5 % | 0,16 | 677 (2940) | 16 (10) | 52 (81) % | 2 von 3 / 2 |
+| PLAN1_UG (200) | 94,8 % | 99,1 % | 0,24 | 2630 (12742) | 120 (88) | 79 (87) % | 63 von 114 / 20 |
+| PLAN2_Dach (100) | 98,4 % | 80,1 %* | 16,2* | 2260 (4110) | 32 (2092) | 82 (88) % | 0 von 0 / 36* |
+| PLAN2_EG (100) | 97,2 % | 78,1 %* | 42,0* | 6272 (8324) | 324 (90) | 76 (82) % | 45 von 55 / 200* |
+| PLAN2_OG1 (100) | 97,8 % | 82,3 %* | 34,3* | 5510 (8986) | 183 (93) | 75 (83) % | 39 von 44 / 155* |
+| PLAN2_OG2 (100) | 93,7 % | 82,5 %* | 36,3* | 5424 (8594) | 204 (99) | 72 (82) % | 30 von 40 / 163* |
+| PLAN2_OG3 (100) | 96,2 % | 75,9 %* | 40,3* | 4018 (6234) | 171 (621) | 83 (90) % | 26 von 31 / 131* |
+| PLAN3_DG (350) | 48,5 % | 87,1 % | 0,36 | 57 (256) | 2 (0) | 97 (53) % | 2 von 6 / 1 |
+| PLAN3_EG (350) | 88,5 % | 84,2 %* | 9,1* | 4469 (84018) | 315 (4195) | 53 (76) % | 60 von 112 / 40* |
+| PLAN3_OG1 (350) | 90,6 % | 75,9 %* | 13,7* | 3961 (60869) | 201 (4110) | 57 (71) % | 55 von 99 / 25* |
+| PLAN3_OG2 (350) | 90,7 % | 78,0 %* | 12,1* | 3469 (57296) | 179 (4069) | 58 (76) % | 35 von 71 / 24* |
+| PLAN3_OG3 (350) | 95,3 % | 72,2 %* | 12,8* | 2213 (62617) | 30 (979) | 73 (87) % | 14 von 26 / 2* |
+| PLAN3_OG4 (350) | 99,6 % | 100,0 % | 0,12 | 315 (938) | 22 (19) | 90 (98) % | 15 von 19 / 5 |
+| PLAN3_UG1 (350) | 90,2 % | 64,6 %* | 15,8* | 7459 (52268) | 535 (4401) | 58 (73) % | 60 von 127 / 57* |
+| PLAN3_UG2 (350) | 100,0 % | 99,7 % | 0,16 | 171 (367) | 6 (6) | 98 (100) % | 10 von 15 / 5 |
+| PLAN3_UG3 (350) | 100,0 % | 100,0 % | 0,16 | 47 (72) | 0 (0) | 99 (100) % | 3 von 5 / 2 |
+
+\* **Vorlage-Artefakt:** Die PLAN2-/PLAN3-DXF enthalten **keine DIMENSION** (PLAN1: 223), die Plots aber alle
+Maßketten. Deren Linien und Zahlen zählen als „falsch“ – Genauigkeit, Lage 95 % und falsche Wörter sind dort
+nicht aussagekräftig, Trefferquote schon. 1:350 heißt winzige Schrift (PLAN3_DG Treffer 48,5 %: nur 57 Objekte,
+Schraffur/Kleinteile). Kies auf PLAN2_Dach/OG3: im Plot hellgraue Ringe (Ø ~4 px, Grau ~170), fallen schon durch die
+Otsu-Schwelle (144) – Bögen 32 von 2092.
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

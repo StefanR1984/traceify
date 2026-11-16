@@ -4,11 +4,12 @@ Aufruf:
     python tools/wahrheit.py DXF_ORDNER_ODER_DATEI [--massstab 100] [--dpi 150] [--stift 0.25]
                              [--bilder ORDNER] [--bericht bericht.md] [--json roh.json]
                              [--einstellungen gui.json] [--jobs 4]
-                             [--scans ORDNER --massstab 200]
+                             [--scans ORDNER [--massstab 200]]
 
 Für jede DXF wird ein Scanbild (PNG) erzeugt, mit Traceify vektorisiert und gegen die
 Originalgeometrie gemessen. Mit --scans werden statt der Simulation echte Scans/Plots
-derselben Pläne gemessen (gleicher Dateiname, .pdf/.png/.tif; --massstab = Planmaßstab);
+derselben Pläne gemessen (gleicher Dateiname, .pdf/.png/.tif). Ohne --massstab wird der
+Plotmaßstab je Plan erkannt (`truth.scan_scale`, Spalte Datei zeigt ihn mit Passung);
 gezählt wird nur, was auf dem Scan auch zu sehen ist. Die Originale und Bilder gehören
 nicht ins Repo (Datenschutz).
 """
@@ -42,6 +43,13 @@ def zeile(name: str, r: dict) -> str:
             f"{r['woerter_falsch']} |")
 
 
+def _name(r: dict) -> str:
+    name = os.path.splitext(os.path.basename(r["datei"]))[0]
+    if r.get("passung") is not None:
+        name += f" (1:{r['massstab']:g}, Passung {r['passung']:.2f})"
+    return name
+
+
 def _scan_for(dxf: str, folder: str):
     base = os.path.splitext(os.path.basename(dxf))[0].lower()
     for f in sorted(os.listdir(folder)):
@@ -56,15 +64,16 @@ def _one(job):
     s = load_settings(a.einstellungen) if a.einstellungen else None
     print(f"{os.path.basename(f)} …", file=sys.stderr, flush=True)
     if scan:
-        return run_real(f, scan, a.massstab, s)
+        return run_real(f, scan, a.massstab or 0, s)
     base = os.path.splitext(os.path.basename(f))[0]
-    return run(f, os.path.join(out_dir, base + ".png"), s, a.massstab, a.dpi, a.stift)
+    return run(f, os.path.join(out_dir, base + ".png"), s, a.massstab or 100.0, a.dpi, a.stift)
 
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("quelle", help="DXF-Datei oder Ordner mit DXF-Dateien")
-    p.add_argument("--massstab", type=float, default=100.0, help="Planmaßstab 1:N")
+    p.add_argument("--massstab", type=float,
+                   help="Planmaßstab 1:N (Simulation: 100; echte Scans: sonst je Plan erkannt)")
     p.add_argument("--dpi", type=float, default=150.0)
     p.add_argument("--stift", type=float, default=0.25, help="Strichbreite auf dem Papier in mm")
     p.add_argument("--bilder", help="Ordner für die erzeugten Scanbilder (sonst temporär)")
@@ -89,9 +98,10 @@ def main(argv=None) -> int:
             raw = list(ex.map(_one, jobs))
     else:
         raw = [_one(j) for j in jobs]
-    rows = [KOPF] + [zeile(os.path.splitext(os.path.basename(r["datei"]))[0], r) for r in raw]
-    kopf = (f"Echte Scans aus {a.scans}, Maßstab 1:{a.massstab:g}" if a.scans else
-            f"Maßstab 1:{a.massstab:g}, {a.dpi:g} dpi, Strich {a.stift:g} mm")
+    rows = [KOPF] + [zeile(_name(r), r) for r in raw]
+    mst = f"Maßstab 1:{a.massstab:g}" if a.massstab else "Maßstab je Plan erkannt"
+    kopf = (f"Echte Scans aus {a.scans}, {mst}" if a.scans else
+            f"Maßstab 1:{a.massstab or 100:g}, {a.dpi:g} dpi, Strich {a.stift:g} mm")
     text = kopf + "\n\n" + "\n".join(rows)
     print(text)
     if a.bericht:
