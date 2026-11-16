@@ -311,6 +311,17 @@ def scan_scale(cad: list, unit: float, ink: np.ndarray, mm_per_px: float) -> Tup
     return best[1], max(best[0], 0.0)
 
 
+def _printed_ink(gray: np.ndarray, mm_per_px: float) -> np.ndarray:
+    """Tinte für „gedruckt?“: dunkel (< 160) und kleine hellgraue Teile bis 1 mm (Allplan plottet Kies
+    als graue Ringe, Grau ~170). Große graue Flächen zählen nicht – darunter liegen sonst ausgeblendete
+    Objekte (PLAN1: Trefferquote 97 → 50 %)."""
+    ink = gray < 160
+    n, lab, st, _ = cv2.connectedComponentsWithStats((gray < 210).astype(np.uint8), connectivity=8)
+    small = np.maximum(st[:, 2], st[:, 3]) <= 1.0 / mm_per_px
+    small[0] = False
+    return ((ink | small[lab]) * 255).astype(np.uint8)
+
+
 def run_real(dxf: str, scan: str, scale_n: float = 0, settings=None, progress=None) -> dict:
     """Echter Scan/Plot eines Original-CAD-Plans → Traceify → Messung gegen das Original.
     scale_n ≤ 0: Plotmaßstab je Plan erkennen (`scan_scale`)."""
@@ -324,7 +335,7 @@ def run_real(dxf: str, scan: str, scale_n: float = 0, settings=None, progress=No
     fit = None
     if not scale_n or scale_n <= 0:
         scale_n, fit = scan_scale(cad, unit, ink, mm_per_px)
-    truth = printed(align_scan(cad, ink, unit / mm_per_px / scale_n), ink)
+    truth = printed(align_scan(cad, ink, unit / mm_per_px / scale_n), _printed_ink(gray, mm_per_px))
     t0 = time.time()
     res = open_file(scan, 0, settings, progress=progress)
     r = compare(truth, res.drawing.expanded(), gray.shape, mm_per_px)

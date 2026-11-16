@@ -46,7 +46,7 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
   `lexicon.py` (Wörterbuch für Planbegriffe, OCR-Verwechslungen; Zahlen nie ändern),
   `straighten.py` (Schräglage, Meta `schraeglage`; Export dreht über `Drawing.export_view`),
   `pdf_vector.py` (Vektor-PDF direkt), `scale_detect.py` (M 1:N), `symbols.py` (Blöcke),
-  `quality.py` (Ampel), `dimensions.py` (Maßzahlen gezielt lesen: Lücke der Maßlinie, zwischen Sternen, Paar über/unter der Linie; `merge` ersetzt verlesene Zahlen), `edit.py` (Ecke, Ausrichten inkl. Polylinien `align_axes`, Lücken, Knoten),
+  `quality.py` (Ampel), `dots.py` (Kies/Punktfelder → Kreise auf KIES), `dimensions.py` (Maßzahlen gezielt lesen: Lücke der Maßlinie, zwischen Sternen, Paar über/unter der Linie; `merge` ersetzt verlesene Zahlen), `edit.py` (Ecke, Ausrichten inkl. Polylinien `align_axes`, Lücken, Knoten),
   `hatch.py` (Schraffur-Flächen für den DXF-Export: Rasternummern per Nachbarschaft,
   Ausgleichsgerade, Reste anhängen), `cad.py` (Fang, Schnittpunkte, Stutzen, Dehnen, SnapIndex,
   `close_gaps`, `remove_spurs`).
@@ -122,17 +122,19 @@ Achtung: Auch das Vergleichsprogramm liest viel Unsinn („sightwal“, „poe�
 Wort-Übereinstimmung ist kein Wahrheitsmaßstab. Schraffur als HATCH: Einzellinien übrig
 image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert).
 
-**Messbasis echte Plots, Stand 0.34.2** (16.11., alle 17 Allplan-Plots, 300 dpi, mit Tesseract, `--jobs 4`):
+**Messbasis echte Plots, Stand 0.34.2 → 0.35.0 (Kies)** (16.11., alle 17 Allplan-Plots, 300 dpi, mit Tesseract,
+`--jobs 4`; „gedruckt“ = Tinte < 160 plus kleine hellgraue Teile ≤ 1 mm (`truth._printed_ink`) – nur < 210 überall
+ließ PLAN1 auf 50 % fallen, graue Füllflächen decken ausgeblendete Objekte):
 | Plan (1:N) | Treffer | Genauigk. | Lage 95 % mm | Objekte (Orig.) | Bögen (Orig.) | Ortho (Orig.) | Wörter richtig/falsch |
 |---|---|---|---|---|---|---|---|
-| PLAN1_EG (200) | 97,5 % | 99,0 % | 0,16 | 2924 (20859) | 86 (191) | 79 (89) % | 64 von 91 / 15 |
-| PLAN1_OG1 (200) | 93,8 % | 98,5 % | 0,16 | 677 (2940) | 16 (10) | 52 (81) % | 2 von 3 / 2 |
-| PLAN1_UG (200) | 94,8 % | 99,1 % | 0,24 | 2630 (12742) | 120 (88) | 79 (87) % | 63 von 114 / 20 |
-| PLAN2_Dach (100) | 98,4 % | 80,1 %* | 16,2* | 2260 (4110) | 32 (2092) | 82 (88) % | 0 von 0 / 36* |
+| PLAN1_EG (200) | 97,3 % | 99,0 % | 0,16 | 2924 (20956) | 86 (196) | 79 (89) % | 64 von 91 / 15 |
+| PLAN1_OG1 (200) | 93,8 % | 98,8 % | 0,16 | 677 (2941) | 16 (10) | 52 (81) % | 2 von 3 / 2 |
+| PLAN1_UG (200) | 93,8 % | 99,1 % | 0,24 | 2630 (13026) | 120 (94) | 79 (87) % | 63 von 114 / 20 |
+| PLAN2_Dach (100) | 73,6 → **93,0** % | 80,2 → 83,4 %* | 16,2* | 2260 → 7350 (10052) | 32 (8034) | 82 (88) % | 0 von 0 / 36* |
 | PLAN2_EG (100) | 97,2 % | 78,1 %* | 42,0* | 6272 (8324) | 324 (90) | 76 (82) % | 45 von 55 / 200* |
 | PLAN2_OG1 (100) | 97,8 % | 82,3 %* | 34,3* | 5510 (8986) | 183 (93) | 75 (83) % | 39 von 44 / 155* |
 | PLAN2_OG2 (100) | 93,7 % | 82,5 %* | 36,3* | 5424 (8594) | 204 (99) | 72 (82) % | 30 von 40 / 163* |
-| PLAN2_OG3 (100) | 96,2 % | 75,9 %* | 40,3* | 4018 (6234) | 171 (621) | 83 (90) % | 26 von 31 / 131* |
+| PLAN2_OG3 (100) | 90,5 → **94,9** % | 76,0 → 76,8 %* | 40,3* | 4018 → 5659 (8336) | 171 (2723) | 83 (90) % | 26 von 31 / 131* |
 | PLAN3_DG (350) | 48,5 % | 87,1 % | 0,36 | 57 (256) | 2 (0) | 97 (53) % | 2 von 6 / 1 |
 | PLAN3_EG (350) | 88,5 % | 84,2 %* | 9,1* | 4469 (84018) | 315 (4195) | 53 (76) % | 60 von 112 / 40* |
 | PLAN3_OG1 (350) | 90,6 % | 75,9 %* | 13,7* | 3961 (60869) | 201 (4110) | 57 (71) % | 55 von 99 / 25* |
@@ -147,7 +149,7 @@ image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert)
 Maßketten. Deren Linien und Zahlen zählen als „falsch“ – Genauigkeit, Lage 95 % und falsche Wörter sind dort
 nicht aussagekräftig, Trefferquote schon. 1:350 heißt winzige Schrift (PLAN3_DG Treffer 48,5 %: nur 57 Objekte,
 Schraffur/Kleinteile). Kies auf PLAN2_Dach/OG3: im Plot hellgraue Ringe (Ø ~4 px, Grau ~170), fallen schon durch die
-Otsu-Schwelle (144) – Bögen 32 von 2092.
+Otsu-Schwelle (144). **0.35.0** `core/dots.py` liest sie als Kreise auf Layer KIES (siehe Dach unten).
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler
@@ -162,7 +164,14 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   95,5/98,5; Dach 60,7/93,8 → 64,9/99,4; nur PLAN3_DG −0,4/−0,9). Echte Scans: offene Enden
   überall weniger (bis −28 %), Objekte +5–7 % auf 4 Plänen (kurze Verbindungsstege). Offen:
   Stege < 0,5 mm in die Nachbarlinie einrechnen, um die Objekte wieder zu senken.
-- **Dach:** Kies-/Punktmuster aus Kreisen r < 0,5 mm fehlen zu 95 %. **Analyse 15.11. (PLAN2_Dach):**
+- **Dach – 0.35.0 gelöst:** `dots.find_dots` auf dem Graubild vor dem Vektorisieren: Schwelle Mitte Otsu/Papier
+  (mind. 70 % Richtung Papier – Allplan-Ringe Grau ~170), kompakte Kleckse ≤ 0,9 mm, frei stehend (0,25 mm nur
+  andere Kleckse), nicht in Textboxen, ≥ 6 Nachbarn in 3 mm mit flächiger Streuung (kleinere Hauptachse ≥ 0,5 mm,
+  sonst Punktreihe/Strichpunktlinie wie in PLAN3_OG1), Gruppe ≥ 30. Kreis-Radius = halber Klecks − 0,5 px.
+  Simuliert Dach 65,5 → 87,6 %, OG3 85,5 → 89,4 % (Genauigkeit gleich/besser), echt Dach 73,6 → 93,0 %, OG3
+  90,5 → 94,9 %; alle anderen Pläne und alle 16 Scans unverändert (0 Kreise). Offen: Kies-Fläche (HATCH) statt
+  tausender Kreise; Punkte, die Linien berühren, fehlen (echt Dach 5092 von ~6400). Befund vorher:
+  Kies-/Punktmuster aus Kreisen r < 0,5 mm fehlen zu 95 %. **Analyse 15.11. (PLAN2_Dach):**
   6406 Kreise, alle r = 0,15 mm Papier (Ø 0,3 mm ≈ Strichbreite 0,25 mm) – im Scan gefüllte Punkte, nie
   Ringe. 150 dpi: Punkt = 5 px² (Ø ~1,8 px); `despeckle` (12 px²) löscht 87 %, ohne Entflecken sind alle
   6406 im Binärbild, aber das Skelett eines Kleckses ist ein Punkt → `min_length` 6 px verwirft ihn

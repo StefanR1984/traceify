@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35.0 – 16.11.2026
+### Kies und Punktmuster
+- **Kies, Splitt und andere Punktmuster** werden kleine Kreise auf dem neuen Layer KIES. Bisher gingen die Punkte (Ø ~0,3 mm) beim Entflecken und im Skelett verloren, in Allplan-Plots sind sie zudem hellgraue Ringe, die schon durch die Schwelle fielen. Traceify sucht sie jetzt im Graubild: kleine, kompakte, frei stehende Kleckse, die dicht und flächig beieinander liegen (mindestens 30). Einzelne Punkte, Rauschen, Schriftpunkte und Punktreihen (Strichpunktlinien) bleiben außen vor. Abschaltbar: Einstellungen → Punktmuster (Kies) als Kreise; Stapelregel `kies_punkte`.
+- **Gemessen:** Dachplan simuliert Trefferquote 65,5 % → 87,6 %, PLAN2_OG3 85,5 % → 89,4 %; echte Plots Dach 73,6 % → 93,0 %, OG3 90,5 % → 94,9 %. Alle anderen Pläne und alle echten Scans unverändert – kein einziger Rauschkreis.
+### Prüfstand
+- Wahrheits-Prüfstand misst die echten Allplan-Plots aller 17 Pläne in einem Lauf und erkennt den Plotmaßstab je Plan (`tools/wahrheit.py --scans …` ohne `--massstab`). Hellgraue Kleinteile (Kies-Ringe) zählen als gedruckt.
+
 ## 0.34.2 – 16.11.2026
 ### Fehlerbehebung
 - **Maßzahl mit Randpunkt** (`dimensions.read_gap_numbers`): Las Tesseract „4.17.“ in einer Lücke mit Hochziffer-Kandidat, wurde der Punkt als Hochziffer angehängt und der Text „4.17.“ ausgegeben; eine sichere Lesung „2.45.“ fiel ganz durch. Punkte am Rand werden jetzt schon beim Rohtext entfernt. Weitere `int()`/`float()` auf Rohlesungen in `dimensions.py`, `ocr.py`, `textlines.py` und `scale_detect.py` geprüft: abgesichert (Regex/Ziffernprüfung vorher). Prüfstände unverändert gegenüber 0.34.0/0.34.1 (Wörter simuliert 536, echte PLAN1-Plots 129).

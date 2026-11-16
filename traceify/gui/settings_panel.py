@@ -161,6 +161,12 @@ class SettingsPanel(QScrollArea):
         self.hatch_areas.setChecked(True)
         self.hatch.toggled.connect(self.hatch_areas.setEnabled)
         f.addRow(self.hatch_areas)
+        self.dots = QCheckBox("Punktmuster (Kies) als Kreise (Layer KIES)")
+        self.dots.setToolTip("Dichte Felder kleiner Punkte (Kies, Splitt, Beton) werden kleine Kreise auf "
+                             "Layer KIES – sonst gehen die Punkte beim Entflecken verloren. Einzelne "
+                             "Punkte, Rauschen und Punktreihen bleiben außen vor")
+        self.dots.setChecked(True)
+        f.addRow(self.dots)
         self.color_layers = QCheckBox("Farben auf eigene Layer trennen")
         self.color_layers.setToolTip("Farbige Pläne: jede Farbe wird ein Layer (FARBE_ROT, …)")
         f.addRow(self.color_layers)
@@ -357,6 +363,7 @@ class SettingsPanel(QScrollArea):
         st.walls_outline = self.walls_outline.isChecked()
         st.hatch_layer = self.hatch.isChecked()
         st.hatch_areas = self.hatch_areas.isChecked()
+        st.dots = self.dots.isChecked()
         st.straighten = self.straighten.isChecked()
         st.close_gaps_mm = self.close_gaps.value()
         st.spurs_mm = self.spurs.value()
@@ -405,6 +412,7 @@ class SettingsPanel(QScrollArea):
         self.walls_outline.setChecked(s.style.walls_outline)
         self.hatch.setChecked(s.style.hatch_layer)
         self.hatch_areas.setChecked(s.style.hatch_areas)
+        self.dots.setChecked(s.style.dots)
         self.straighten.setChecked(s.style.straighten)
         self.close_gaps.setValue(s.style.close_gaps_mm)
         self.spurs.setValue(s.style.spurs_mm)
@@ -461,7 +469,7 @@ class SettingsPanel(QScrollArea):
                   "ocr": self.ocr, "strichlinien": self.dashed, "strichstaerken": self.widths,
                   "dicke_linien_layer": self.thick, "farben_trennen": self.color_layers,
                   "waende_umriss": self.walls_outline, "schraffur_layer": self.hatch,
-                  "schraffur_flaeche": self.hatch_areas,
+                  "schraffur_flaeche": self.hatch_areas, "kies_punkte": self.dots,
                   "schraege_texte": self.ocr_free, "zahlen_nachlesen": self.ocr_numbers,
                   "woerterbuch": self.ocr_dict, "gerade_ausrichten": self.straighten,
                   "massstab_aus_plan": self.auto_scale, "pdf_vektoren": self.pdf_vectors,

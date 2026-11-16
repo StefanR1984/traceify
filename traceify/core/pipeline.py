@@ -211,6 +211,15 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         main = bw_vec.copy()
         for r in special:
             main[r.slices(main.shape)] = 0
+    gravel = []
+    if settings.style.dots and not settings.preprocess.deskew:
+        # Punktmuster (Kies) vor dem Vektorisieren: Entflecken und Skelett verlieren die Punkte
+        from .dots import find_dots
+        gravel, dot_mask = find_dots(gray, 1.0 / dpi_scale, boxes, settings.preprocess.invert)
+        gravel = [c for c in gravel if not any(r.mode == REGION_IGNORE and r.contains(c.center)
+                                               for r in regions)]
+        if gravel:
+            main = np.where(dot_mask > 0, 0, main).astype(main.dtype)
     groups = []
     if settings.style.color_layers and color is not None and color.shape[:2] == gray.shape[:2]:
         from .colors import is_colorful, separate
@@ -286,7 +295,7 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         drop_loose_hatch(ents, find_regions(ents), 3.0 / dpi_scale, 10.0 / dpi_scale)
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
-                entities=ents + texts, source=source)
+                entities=ents + gravel + texts, source=source)
     if settings.style.hatch_layer and settings.style.hatch_areas:
         from .hatch import META_KEY as HATCH_KEY
         d.meta[HATCH_KEY] = "1"     # beim DXF-Export Schraffur als Fläche ausgeben
