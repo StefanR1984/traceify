@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.34.2 – 16.11.2026
+### Fehlerbehebung
+- **Maßzahl mit Randpunkt** (`dimensions.read_gap_numbers`): Las Tesseract „4.17.“ in einer Lücke mit Hochziffer-Kandidat, wurde der Punkt als Hochziffer angehängt und der Text „4.17.“ ausgegeben; eine sichere Lesung „2.45.“ fiel ganz durch. Punkte am Rand werden jetzt schon beim Rohtext entfernt. Weitere `int()`/`float()` auf Rohlesungen in `dimensions.py`, `ocr.py`, `textlines.py` und `scale_detect.py` geprüft: abgesichert (Regex/Ziffernprüfung vorher). Prüfstände unverändert gegenüber 0.34.0/0.34.1 (Wörter simuliert 536, echte PLAN1-Plots 129).
+
 ## 0.34.1 – 16.11.2026
 ### Fehlerbehebung
 - **„Konvertierung fehlgeschlagen: invalid literal for int() with base 10: '.'“** (`dimensions._variants`): Liest Tesseract in der Lücke einer Maßlinie eine unsichere Zahl mit Punkt am Rand (z. B. „2.45.“ – Rest von Maßlinie oder Pfeilspitze), wurde der Punkt als letzte Ziffer gelesen und die Konvertierung brach ab. Punkte am Rand der Rohlesung werden jetzt vor dem Bilden der Lesarten entfernt. Neuer Test in `test_massketten.py`.

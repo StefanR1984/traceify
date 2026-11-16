@@ -115,7 +115,8 @@ def test_hochziffer_wird_angehaengt():
     g = dimensions.line_gaps(img, 10.0)
     assert len(g) == 1 and g[0][0][2] is not None
     gray = (255 - img * 255).astype(np.uint8)
-    for read, want in (("4.175", "4.17⁵"), ("4.17", "4.17")):   # zweiter Fall: war keine Hochziffer
+    # zweiter/dritter Fall: war keine Hochziffer; Randpunkt („4.17.“) ist nie eine Hochziffer
+    for read, want in (("4.175", "4.17⁵"), ("4.17", "4.17"), ("4.17.", "4.17")):
         tt, bb = dimensions.read_gap_numbers(img, gray, 10.0, OcrSettings(),
                                              run_lines=lambda c, s, x, r=read: [(r, 90.0)] * len(c))
         assert [t.text for t in tt] == [want]

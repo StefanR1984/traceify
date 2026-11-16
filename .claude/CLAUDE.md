@@ -97,7 +97,8 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 - Tesseract-Rohlesungen in `core/dimensions.py` nie ungeprüft in `int()`/`float()` geben: die Whitelist
   `0123456789.,` liefert auch Randpunkte („2.45.“, „.245“) von Maßlinie/Pfeilspitze. 0.34.1 behebt den
   Abbruch „invalid literal for int() with base 10: '.'“ (`_variants`, Befund 16.11.2026, Konvertierung
-  fehlgeschlagen). Neue Lesart-/Prüf-Funktionen dort mit solchen Randfällen testen (`test_massketten.py`).
+  fehlgeschlagen); 0.34.2 entfernt Randpunkte schon beim Rohtext in `read_gap_numbers` (sonst „4.17.“ mit Punkt
+  als Hochziffer); übrige `int()`/`float()` in `ocr.py`/`textlines.py`/`scale_detect.py` geprüft. Neue Lesart-/Prüf-Funktionen dort mit solchen Randfällen testen (`test_massketten.py`).
 
 ## Offene Ideen
 Gemessen mit `tools/pruefstand.py` an 9 echten Bauplan-Scans (96–150 dpi) und DXF-Dateien eines kommerziellen Vergleichsprogramms für

@@ -319,7 +319,8 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
     res = (run_lines or textlines._tesseract_lines)(crops, s, NUM_WHITELIST)
     cand = []                       # (Text oder None, Rohlesung, Konfidenz) je Lücke
     for ((b, fb, sup, _, sg), k), (t, conf) in zip(gaps, res):
-        raw = t = (t or "").replace(" ", "").replace(",", ".")
+        # Punkt am Rand = Rest von Maßlinie/Pfeilspitze („2.45.“), nie Hochziffer oder Teil der Zahl
+        raw = t = (t or "").replace(" ", "").replace(",", ".").strip(".")
         high = ""
         if sup is not None and NUMBER.match(t[:-1]):      # letzte Ziffer ist die Hochziffer
             t, high = t[:-1], t[-1].translate(SUPERSCRIPT)
