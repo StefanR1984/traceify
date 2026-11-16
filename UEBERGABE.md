@@ -79,3 +79,19 @@ Messstand 0.24.0: simuliert 528 von 887 Wörtern richtig (200 falsch); echte PLA
 - Workflow „Integration (echt)“ nicht ungefragt starten.
 - Nicht gewünscht: signierte EXE, winget, englische Übersetzung.
 - Ablauf pro Feature: Kernlogik und Tests, GUI anbinden (README, `show_help`, Changelog, Tooltip in `gui/tips.py`), Version erhöhen, pyflakes und Tests grün, committen, pushen, Windows-Probe-Build (`gh workflow run release.yml --ref main`, `gh run watch <id> --exit-status`), danach alte Actions-Läufe löschen (nur die zum aktuellen Commit behalten).
+
+## Zu prüfen durch Claude Code (Stand 16.11.2026, Fix 0.34.1, Commit ef03c40)
+Der Fix für „Konvertierung fehlgeschlagen: invalid literal for int() with base 10: '.'“ wurde in einer Cloud-Sitzung
+ohne Tesseract und ohne Testpläne gebaut und nur mit Unit-Tests geprüft (231 grün). Bitte hier lokal prüfen:
+1. `git pull`, dann `pyflakes` + alle Tests mit Tesseract im PATH (siehe Umgebung oben).
+2. **Den Plan, der den Fehler ausgelöst hat,** erneut konvertieren (Nutzer nennt Datei): läuft durch, Maßzahlen
+   plausibel? Danach `tools/pruefstand.py` auf den echten Scans und `tools/wahrheit.py` auf den Allplan-Plänen:
+   Zahlen mit 0.34.0 vergleichen (Wörter 451/887, Genauigkeit, Objekte) – erwartet unverändert.
+3. **Nebenwirkung prüfen:** `_variants` entfernt jetzt Randpunkte. `check_lengths` bekommt dadurch bei
+   Lesungen wie „2.45.“ erstmals Lesarten (vorher fielen sie durch). Gibt das falsche Zahlen auf Maßketten
+   (`tests/test_massketten.py`, Maßketten-Pläne)? Falls ja: Randpunkt stattdessen schon in
+   `read_gap_numbers` beim `raw` entfernen und `_variants` nur absichern.
+4. Weitere `int()`/`float()` auf Rohlesungen in `core/dimensions.py` und `core/ocr.py` auf Randfälle
+   (Punkt/Komma am Rand, leere Lesung) durchsehen; Tests ergänzen.
+5. Windows-Probe-Build: `gh workflow run release.yml --ref main`, `gh run watch <id> --exit-status`
+   (EXE-Selbsttest), danach alte Actions-Läufe löschen. **Kein Tag/Release** – das macht der Nutzer.
