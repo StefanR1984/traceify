@@ -317,3 +317,45 @@ def test_massstab_aus_massketten():
     apply_auto_scale(d, ConvertSettings())
     assert d.scale == pytest.approx(mm * 200)
     assert d.meta["massstab"] == "1:200" and "Plan nennt 1:100" in d.meta["massstab_quelle"]
+
+
+def test_fette_schrift_ausduennen():
+    """Fette Schablonenschrift (Strich ~ ¼ der Höhe) wird ausgedünnt, normale bleibt (0.38)."""
+    import cv2
+    import numpy as np
+    from traceify.core.ocr import thin_bold
+
+    def glyphs(t):                                         # 30 „H“, 40 px hoch, Strich t px
+        img = np.zeros((100, 1600), np.uint8)
+        for i in range(30):
+            x = 20 + 50 * i
+            cv2.line(img, (x, 30), (x, 70), 255, t)
+            cv2.line(img, (x + 24, 30), (x + 24, 70), 255, t)
+            cv2.line(img, (x, 50), (x + 24, 50), 255, t)
+        return img
+    ppm = 11.8                                             # 300 dpi
+    bold, thin = glyphs(11), glyphs(4)
+    out = thin_bold(bold, ppm)
+    assert 0 < (out > 0).sum() < 0.7 * (bold > 0).sum()    # dünner, aber nicht weg
+    assert np.array_equal(thin_bold(thin, ppm), thin)       # normale Schrift unverändert
+
+
+def test_gui_schalter_fette_schrift():
+    """Häkchen „Fette Schrift ausdünnen“ per Mausklick → OcrSettings.thin_bold."""
+    import os
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    QtWidgets = pytest.importorskip("PySide6.QtWidgets")
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    from traceify.gui.main_window import MainWindow
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    w = MainWindow()
+    w.show()
+    cb = w.panel.ocr_bold
+    w.panel.ensureWidgetVisible(cb)
+    app.processEvents()
+    assert cb.isChecked() and w.panel.settings().ocr.thin_bold
+    QTest.mouseClick(cb, Qt.LeftButton, Qt.NoModifier, QPoint(8, cb.height() // 2))
+    app.processEvents()
+    assert not cb.isChecked() and not w.panel.settings().ocr.thin_bold
+    w.close()

@@ -227,6 +227,9 @@ class SettingsPanel(QScrollArea):
         self.ocr_dict = QCheckBox("Wörterbuch für Planbegriffe")
         self.ocr_dict.setChecked(True)
         f.addRow(self.ocr_dict)
+        self.ocr_bold = QCheckBox("Fette Schrift ausdünnen")
+        self.ocr_bold.setChecked(True)
+        f.addRow(self.ocr_bold)
         if not tesseract_available():
             self.ocr.setChecked(False)
             self.ocr.setEnabled(False)
@@ -366,6 +369,7 @@ class SettingsPanel(QScrollArea):
         o.free_angles = self.ocr_free.isChecked()
         o.fix_numbers = self.ocr_numbers.isChecked()
         o.dictionary = self.ocr_dict.isChecked()
+        o.thin_bold = self.ocr_bold.isChecked()
         s.scale = None if self.scale_auto.isChecked() else self.mmpx.value()
         s.auto_scale = self.auto_scale.isChecked()
         st = s.style
@@ -418,6 +422,7 @@ class SettingsPanel(QScrollArea):
         self.ocr_free.setChecked(o.free_angles)
         self.ocr_numbers.setChecked(o.fix_numbers)
         self.ocr_dict.setChecked(o.dictionary)
+        self.ocr_bold.setChecked(o.thin_bold)
         self.scale_auto.setChecked(s.scale is None)
         self.auto_scale.setChecked(s.auto_scale)
         self.dashed.setChecked(s.style.detect_dashed)
@@ -489,7 +494,8 @@ class SettingsPanel(QScrollArea):
                   "schraffur_flaeche": self.hatch_areas, "kies_punkte": self.dots,
                   "linien_durchziehen": self.join_lines, "scanpunkte_layer": self.specks_layer,
                   "schraege_texte": self.ocr_free, "zahlen_nachlesen": self.ocr_numbers,
-                  "woerterbuch": self.ocr_dict, "gerade_ausrichten": self.straighten,
+                  "woerterbuch": self.ocr_dict, "fette_schrift": self.ocr_bold,
+                  "gerade_ausrichten": self.straighten,
                   "massstab_aus_plan": self.auto_scale, "pdf_vektoren": self.pdf_vectors,
                   "symbole_automatisch": self.symbols_auto}
         if n in checks:

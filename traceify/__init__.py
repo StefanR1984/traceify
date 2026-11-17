@@ -1,5 +1,5 @@
 """Traceify – Raster- und PDF-Zeichnungen in CAD- und CNC-Dateien umwandeln."""
-__version__ = "0.37.3"
+__version__ = "0.38.0"
 
 from .api import (BatchItem, ai_settings, batch_convert, convert_file, load_settings,
                   open_file, save_settings)

@@ -321,7 +321,7 @@ ACTIONS_DOC = """Verfügbare Aktionen (nur verwenden, wenn der Nutzer etwas ver�
          strichlinien (bool), strichstaerken (bool), dicke_linien_layer (bool),
          waende_umriss (bool), schraffur_layer (bool), schraffur_flaeche (bool), kies_punkte (bool), linien_durchziehen (bool), scanpunkte_layer (bool),
          schraege_texte (bool),
-         zahlen_nachlesen (bool), woerterbuch (bool),
+         zahlen_nachlesen (bool), woerterbuch (bool), fette_schrift (bool),
          gerade_ausrichten (bool), luecken_mm (0–5 mm, 0=aus), fransen_mm (0–5 mm, 0=aus),
          farben_trennen (bool), anzahl_farben (0=auto), massstab_aus_plan (bool), pdf_vektoren (bool),
          vorschub (mm/min), fraestiefe (mm), zustellung (mm), maschine ("fraese"|"laser"),

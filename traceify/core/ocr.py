@@ -32,6 +32,7 @@ class OcrSettings:
                                    # bei den Linien, damit Dezimalpunkte und Kommas erhalten bleiben
     erase_padding: int = 2
     fix_numbers: bool = True       # Maßzahlen nachlesen: fehlende/falsche Kommas ergänzen
+    thin_bold: bool = True         # fette Schrift vor der Erkennung ausdünnen
     dictionary: bool = True        # verstümmelte Wörter mit dem Wörterbuch für Planbegriffe
                                    # korrigieren (Zahlen bleiben unverändert)
 
@@ -521,6 +522,37 @@ def text_layer(ink: np.ndarray, px_per_mm: float, max_char_mm: float) -> np.ndar
     return np.where(keep[lab], 255, 0).astype(np.uint8)
 
 
+BOLD_RATIO = 0.22      # Strichbreite / Höhe ab hier gilt ein Zeichen als fett
+BOLD_TARGET = 0.10     # auf diesen Anteil der Höhe wird der Strich ausgedünnt
+
+
+def thin_bold(ink: np.ndarray, px_per_mm: float) -> np.ndarray:
+    """Fette Schrift für Tesseract ausdünnen (ink: 255 = Tinte).
+
+    Fette Plotter-/Schablonenschrift (Strich ~ ¼ der Höhe) verläuft zu Klecksen – Tesseract
+    liest dort fast nichts. Strichbreite = 2 × größter Randabstand je Bauteil; ist der Median
+    über die buchstabengroßen Bauteile (1,2–8 mm hoch) fett, wird um einen einheitlichen
+    Radius erodiert („Randabstand > r“)."""
+    import cv2
+    b = (ink > 0).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(b, connectivity=8)
+    if n <= 1:
+        return ink
+    dt = cv2.distanceTransform(b, cv2.DIST_L2, 5)
+    mx = np.zeros(n, np.float32)
+    np.maximum.at(mx, lab.ravel(), dt.ravel())
+    sw, h = 2 * mx, st[:, 3].astype(np.float32)
+    letter = (h >= 1.2 * px_per_mm) & (h <= 8 * px_per_mm) & (st[:, 4] >= 20)
+    letter[0] = False
+    if letter.sum() < 20 or np.median(sw[letter] / h[letter]) < BOLD_RATIO:
+        return ink
+    r = (np.median(sw[letter]) - max(3.0, BOLD_TARGET * np.median(h[letter]))) / 2
+    if r < 1:
+        return ink
+    # einheitlich: dabei verschwinden auch Staub und dünne Linienreste, die Tesseract stören
+    return np.where(dt > r, 255, 0).astype(np.uint8)
+
+
 def ocr_zoom(px_per_mm: float) -> int:
     """Vergrößerung für grobe Scans (unter ~130 dpi), damit Tesseract etwa 300 dpi sieht."""
     return max(2, int(round(11.8 / px_per_mm))) if 0 < px_per_mm < 5 else 1
@@ -542,6 +574,12 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
     src = gray
     if px_per_mm > 0:
         src = 255 - text_layer(255 - gray, px_per_mm, s.max_char_mm)
+    srcs = [src]
+    if s.thin_bold and px_per_mm > 0:
+        # fette Schrift: zusätzlich ausgedünnt lesen, je Stelle gewinnt die sicherere Lesung
+        thin = thin_bold(255 - src, px_per_mm)
+        if thin is not None and thin.shape == src.shape and not np.array_equal(thin, 255 - src):
+            srcs.append(255 - thin)
     H, W = src.shape
     # Drehungen im Uhrzeigersinn: k=0 waagrecht, k=1 von unten nach oben laufender Text,
     # k=2 auf dem Kopf, k=3 von oben nach unten
@@ -552,13 +590,13 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
     with ThreadPoolExecutor(max_workers=len(ks)) as ex:
         if detail is not None and detail.shape != src.shape:
             detail = None
-        futs = {k: ex.submit(_run, np.ascontiguousarray(np.rot90(src, -k)), s, None,
-                             None if detail is None
-                             else np.ascontiguousarray(np.rot90(detail, -k)))
-                for k in ks}
-        found = {k: f.result() for k, f in futs.items()}
+        futs = {(k, i): ex.submit(_run, np.ascontiguousarray(np.rot90(im, -k)), s, None,
+                                  None if detail is None
+                                  else np.ascontiguousarray(np.rot90(detail, -k)))
+                for i, im in enumerate(srcs) for k in ks}
+        found = {key: f.result() for key, f in futs.items()}
     cands = []
-    for k, items in found.items():
+    for (k, _), items in found.items():
         for x, y, w, h, txt, score in items:
             # Box zurück ins Originalbild drehen
             if k == 0:

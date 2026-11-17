@@ -266,6 +266,12 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   Schrift < 2 mm (+5/+7). **Mit 300 dpi ohne Änderung: PLAN2_EG 13 → 45 von 55, PLAN2_OG1 18 → 33 von 46**
   – kleine Schrift ist eine Frage der Scanauflösung.
 
+0. **Fette Schrift (0.38.0):** `ocr.thin_bold` – Median Strich/Höhe der buchstabengroßen Teile ≥ 0,22 → zusätzlich
+   ausgedünnt lesen (Randabstand > r, Strich → ~10 % der Höhe), je Stelle gewinnt die sicherere Lesung (beide
+   Fassungen in `recognize`). Nur eine Fassung oder Ausdünnen je Bauteil war schlechter (image-11/-136 verloren
+   Texte). Testplan „Testdaten Traceify/Punkte weg/03-Bestand“ (Scan als Pixel-Striche im PDF, 0.37.3): 138 → 209
+   Texte; Plots/Simulation lösen es nicht aus. Offen: Buchstaben, die eine lange Linie berühren, verschwinden in
+   `text_layer` mit der Linie („BETRIEBSTE|CHNISCHE“).
 1. **Kleine, fette Schrift** (image-11: „Pos 13 Labor“, „Pos 11 Vorräte“, ca. 11 px hoch, schräg):
    Untersucht in 0.17 – sie klebt meist **nicht** an Linien, sondern steht frei; die Buchstaben
    verschmelzen zu Klecksen. Von 147 Mini-Bögen (r < 1 mm) bei image-11 stammen 51 aus solcher

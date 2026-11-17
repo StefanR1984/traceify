@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.38.0 – 17.11.2026
+### OCR
+- **Fette Schrift:** Schablonen- und Plotterschrift mit sehr dickem Strich (Strich ≥ 22 % der Höhe, Median über alle buchstabengroßen Teile) verläuft im Scan zu Klecksen; Tesseract las dort nur Bruchstücke („ODUKTION“). Solche Pläne werden zusätzlich mit ausgedünnter Schrift gelesen (Strich auf ~10 % der Höhe), je Stelle gewinnt die sicherere Lesung. Schalter „Fette Schrift ausdünnen“ (Stapelregel `fette_schrift`).
+- **Gemessen:** Bestandsplan „03-Bestand“ 138 → 209 Texte (LUFTRAUM, PRODUKTION, INSTALLATION, HOCHREGALLAGER, VERWALTUNG …), Scans image-27 13 → 29, image-136 +9, image-17 +6, image-4 +3, image-11 +2. Allplan-Plots (normale Schrift) unverändert.
+
 ## 0.37.3 – 17.11.2026
 ### PDF
 - **Scan als Strich-PDF:** Manche Scanner speichern den Scan nicht als Bild, sondern als Hunderttausende winzige senkrechte Striche (je Bildspalte ein Strich pro schwarzem Lauf). Traceify hielt das für ein CAD-Vektor-PDF und übernahm jeden Strich – Ergebnis: Scanpunkte überall und Linien aus lauter kurzen Stücken. Solche Seiten (≥ 5000 Striche, ≥ 95 % gleich gerichtet, Median < 0,7 mm) werden jetzt wie ein Scan vektorisiert; Scanpunkte kommen auf SCANPUNKTE, Linien werden durchgezogen. Dichte Punktwolken gelten dort als Scanstaub, nicht als Kies.

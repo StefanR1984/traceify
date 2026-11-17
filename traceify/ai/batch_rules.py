@@ -122,6 +122,7 @@ def apply_named(s: ConvertSettings, g: GcodeSettings, name: str, value) -> str:
              "schraege_texte": (s.ocr, "free_angles"),
              "zahlen_nachlesen": (s.ocr, "fix_numbers"),
              "woerterbuch": (s.ocr, "dictionary"),
+             "fette_schrift": (s.ocr, "thin_bold"),
              "gerade_ausrichten": (s.style, "straighten"),
              "farben_trennen": (s.style, "color_layers"),
              "massstab_aus_plan": (s, "auto_scale"), "symbole_automatisch": (s, "symbols_auto"),

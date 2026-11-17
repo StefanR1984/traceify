@@ -2101,7 +2101,7 @@ class MainWindow(QMainWindow):
             "und gegen die Länge ihrer Maßlinie geprüft, auch kleine Maße über zwei engen "
             "Maßbegrenzungen („24“ über „✳✳“) und Türmaße („88⁵“), fehlende Kommas "
             "ergänzt, verlesene Planbegriffe "
-            "per Wörterbuch korrigiert („Kuche“ → „Küche“). "
+            "per Wörterbuch korrigiert („Kuche“ → „Küche“), fette Schrift zusätzlich ausgedünnt gelesen. "
             "Handschrift liest die KI (KI → Unerkannte Schrift mit KI lesen).<br>"
             "<b>KI-Server</b> – im KI-Panel über ⚙: Ollama oder vLLM / OpenAI-kompatibel.<br>"
             "<b>Schräglage</b> des Scans wird erkannt, Linien werden ausgerichtet und beim "

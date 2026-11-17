@@ -63,6 +63,9 @@ SETTINGS = {
     "ocr_dict": "Verlesene Wörter mit einer Liste typischer Planbegriffe und mit sicher gelesenen "
                 "Wörtern desselben Plans abgleichen („Schiafen“ → „Schlafen“, „Kuche“ → „Küche“). "
                 "Zahlen werden nie verändert.",
+    "ocr_bold": "Fette Schablonen- oder Plotterschrift verläuft im Scan zu Klecksen. Ist die Schrift "
+                "eines Plans fett, wird sie zusätzlich ausgedünnt gelesen; je Stelle zählt die "
+                "sicherere Lesung. Normale Schrift bleibt unverändert.",
     # Maßstab
     "scale_auto": "Maßstab aus der Auflösung des Bildes (DPI) berechnen – richtig, wenn der Scan "
                   "in Originalgröße vorliegt.",
