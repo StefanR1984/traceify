@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.36.0 – 17.11.2026
+### Kies als Fläche
+- **Kies-Fläche statt tausender Kreise:** Im DXF/DWG wird jedes Kiesfeld eine Schraffur-Fläche (HATCH) mit Punktmuster auf dem Layer KIES – Umriss knapp hinter den äußeren Punkten, Punktabstand wie im Scan gemessen. Im CAD lässt sich der Kies als Ganzes auswählen, ändern oder löschen. Der SVG-Export zeigt dieselbe Fläche mit Punktmuster. Kleine Gruppen und abgerissene Randpunkte bleiben Kreise. Schalter: „Schraffur und Kies als Fläche“ (Einstellungen) bzw. Ansicht → Schraffur als Fläche; die Zeichenfläche zeigt weiterhin die Kreise.
+- **Gemessen** (echte Allplan-Plots): Dachplan 7267 → 2814 Objekte (35 Kies-Flächen), PLAN2_OG3 5126 → 3648; Trefferquote gleich bzw. +0,1 Punkte.
+### Prüfstand
+- Wahrheits-Prüfstand wertet Kies-Flächen: Original-Kies in einer Fläche gilt als getroffen, neue Spalte „Kies-Fl.“ mit dem Anteil der Fläche an Original-Kies.
+- Neue Allplan-DXF mit Maßketten (als Linien und Texte) als Vorlage: Genauigkeit der PLAN2/PLAN3-Pläne jetzt aussagekräftig (≥ 97,8 %, vorher wegen fehlender Maßketten 64–84 %).
+
 ## 0.35.0 – 16.11.2026
 ### Kies und Punktmuster
 - **Kies, Splitt und andere Punktmuster** werden kleine Kreise auf dem neuen Layer KIES. Bisher gingen die Punkte (Ø ~0,3 mm) beim Entflecken und im Skelett verloren, in Allplan-Plots sind sie zudem hellgraue Ringe, die schon durch die Schwelle fielen. Traceify sucht sie jetzt im Graubild: kleine, kompakte, frei stehende Kleckse, die dicht und flächig beieinander liegen (mindestens 30). Einzelne Punkte, Rauschen, Schriftpunkte und Punktreihen (Strichpunktlinien) bleiben außen vor. Abschaltbar: Einstellungen → Punktmuster (Kies) als Kreise; Stapelregel `kies_punkte`.

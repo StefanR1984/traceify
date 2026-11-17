@@ -154,10 +154,11 @@ class SettingsPanel(QScrollArea):
                               "Layer und lassen sich im CAD mit einem Klick ausblenden")
         self.hatch.setChecked(True)
         f.addRow(self.hatch)
-        self.hatch_areas = QCheckBox("Schraffur als Fläche (DXF-HATCH, SVG, Ansicht)")
+        self.hatch_areas = QCheckBox("Schraffur und Kies als Fläche (DXF-HATCH, SVG, Ansicht)")
         self.hatch_areas.setToolTip("Regelmäßige Schraffuren kommen im DXF/DWG/SVG und in der Zeichenfläche als eine "
                                     "Schraffur-Fläche mit Winkel und Abstand statt als viele "
-                                    "Einzellinien – im CAD als Ganzes änderbar")
+                                    "Einzellinien – im CAD als Ganzes änderbar. Kies wird im DXF/DWG/SVG eine "
+                                    "Fläche mit Punktmuster statt tausender Kreise")
         self.hatch_areas.setChecked(True)
         self.hatch.toggled.connect(self.hatch_areas.setEnabled)
         f.addRow(self.hatch_areas)

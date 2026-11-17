@@ -8,7 +8,10 @@ liegen verstreut, Strichpunkt-Linien in einer Reihe – beides fällt über Dich
 """
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import List, Sequence, Tuple
+
+import math
 
 import cv2
 import numpy as np
@@ -88,6 +91,60 @@ def find_dots(gray: np.ndarray, px_per_mm: float, boxes: Sequence[Tuple[int, int
     return out, mask
 
 
+@dataclass
+class GravelRegion:
+    """Kies-Fläche: Umriss (mit Löchern) und Punktabstand; ersetzt die Kreise in `members`."""
+    outline: List[Tuple[float, float]]
+    holes: List[List[Tuple[float, float]]] = field(default_factory=list)
+    spacing: float = 10.0                    # px, mittlerer Abstand benachbarter Punkte
+    radius: float = 1.0                      # px, mittlerer Punktradius
+    members: list = field(default_factory=list)
+
+
+def find_areas(ents: list, min_count: int = MIN_GROUP) -> List[GravelRegion]:
+    """Kreise auf Layer KIES zu Flächen zusammenfassen (fürs CAD eine HATCH statt tausender Kreise).
+
+    Umriss = Vereinigung der Punkte, so weit gewachsen, dass Nachbarn verschmelzen (0,75 × 90 %-Wert
+    des Nachbarabstands), dann wieder geschrumpft und geglättet – die Fläche endet einen halben
+    Punktabstand hinter den äußeren Punkten. Kleine Gruppen (< min_count) und Randpunkte, die beim
+    Schrumpfen abreißen, bleiben Kreise."""
+    from scipy.spatial import cKDTree
+    from shapely.geometry import Point, Polygon
+    from shapely.ops import unary_union
+
+    circ = [e for e in ents if isinstance(e, Circle) and e.layer == LAYER_GRAVEL]
+    if len(circ) < min_count:
+        return []
+    C = np.array([c.center for c in circ], float)
+    nn = cKDTree(C).query(C, k=2)[0][:, 1]
+    sp = float(np.median(nn))
+    if sp <= 0:
+        return []
+    g = 0.75 * float(np.percentile(nn, 90))       # füllt auch Diagonal-Lücken (0,71 Abstände)
+    area = unary_union([Point(p).buffer(g, 8) for p in C]).buffer(-g + 0.5 * sp, 8)
+    polys = list(getattr(area, "geoms", [area]))
+    tree = cKDTree(C)
+    out = []
+    for poly in polys:
+        if poly.is_empty:
+            continue
+        poly = poly.simplify(0.15 * sp)
+        near = poly.buffer(0.3 * sp)                  # Vereinfachen darf Randpunkte streifen
+        x0, y0, x1, y1 = poly.bounds
+        idx = [i for i in tree.query_ball_point(((x0 + x1) / 2, (y0 + y1) / 2),
+                                                math.hypot(x1 - x0, y1 - y0) / 2 + 1)
+               if near.covers(Point(C[i]))]
+        if len(idx) < min_count:
+            continue
+        mem = [circ[i] for i in idx]
+        # Löcher erst ab 4 × 4 fehlenden Punkten, kleinere Lücken gehören zum Zufallsraster
+        out.append(GravelRegion([tuple(map(float, p)) for p in poly.exterior.coords[:-1]],
+                                [[tuple(map(float, p)) for p in h.coords[:-1]]
+                                 for h in poly.interiors if Polygon(h).area > 16 * sp * sp],
+                                sp, float(np.mean([c.radius for c in mem])), mem))
+    return out
+
+
 def _self_check() -> None:
     rng = np.random.default_rng(1)
     img = np.full((400, 600), 255, np.uint8)
@@ -99,6 +156,8 @@ def _self_check() -> None:
         cv2.circle(img, (420 + 0 * k, 10 + 9 * k), 1, 0, -1)
     circ, _ = find_dots(img, 10.0)
     assert len(circ) > 100 and all(c.center[0] < 300 for c in circ)
+    reg = find_areas(circ)
+    assert len(reg) == 1 and len(reg[0].members) == len(circ) and 10 <= reg[0].spacing <= 20
 
 
 if __name__ == "__main__":

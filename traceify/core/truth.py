@@ -120,8 +120,26 @@ def render_scan(cad: list, scale_n: float = 100.0, dpi: float = 150.0, pen_mm: f
     return Scan(np.clip(gray, 0, 255).astype(np.uint8), truth, 25.4 / dpi)
 
 
-def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.3) -> dict:
-    """Misst Traceify-Objekte (Bildpixel) gegen die Originalgeometrie (Bildpixel)."""
+KIES_MM = 0.5          # Originalkreise bis zu diesem Radius (Papier) gelten als Kies-/Punktmuster
+
+
+def _area_mask(areas, shape) -> np.ndarray:
+    A = np.zeros(shape[:2], np.uint8)
+    for a in areas:
+        cv2.fillPoly(A, [np.round(np.array(a.outline)).astype(np.int32)], 1)
+        for h in a.holes:
+            cv2.fillPoly(A, [np.round(np.array(h)).astype(np.int32)], 0)
+    return A > 0
+
+
+def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.3,
+            areas: list = ()) -> dict:
+    """Misst Traceify-Objekte (Bildpixel) gegen die Originalgeometrie (Bildpixel).
+
+    areas: Kies-Flächen (`dots.GravelRegion`, ihre Kreise schon aus ents entfernt). Die Punkte im
+    Muster liegen nicht da, wo die Originalpunkte lagen – deshalb gilt Original-Kies (kleine
+    Kreise) in einer Fläche als getroffen, und die Fläche wird eigens gewertet: Anteil ihrer
+    Fläche höchstens 1 mm neben Original-Kies (`kies_genau`)."""
     tg = [e for e in truth if not isinstance(e, (Text, Insert))]
     mg = [e for e in ents if not isinstance(e, (Text, Insert))]
     T = render_entities(tg, shape, width_px=1, texts=False)
@@ -129,6 +147,14 @@ def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.
     tol = max(1.0, tol_mm / mm_per_px)
     dT = cv2.distanceTransform((T == 0).astype(np.uint8), cv2.DIST_L2, 3)
     dM = cv2.distanceTransform((M == 0).astype(np.uint8), cv2.DIST_L2, 3)
+    kies_genau = None
+    if areas:
+        A = _area_mask(areas, shape)
+        K = render_entities([e for e in tg if isinstance(e, Circle)
+                             and e.radius * mm_per_px <= KIES_MM], shape, width_px=1, texts=False)
+        dM[A & (K > 0)] = 0.0
+        dK = cv2.distanceTransform((K == 0).astype(np.uint8), cv2.DIST_L2, 3)
+        kies_genau = round(float((dK[A] * mm_per_px <= 1.0).mean()), 4) if A.any() else 0.0
     # Schrift wird über die Wörter gemessen: Geometrie in Textbereichen des Originals zählt
     # nicht (sonst verfälschen ungelesene, als Linien vektorisierte Buchstaben die Werte)
     tx = np.zeros(shape[:2], np.uint8)
@@ -161,13 +187,24 @@ def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.
         "genauigkeit": round(float((dT[m_px] <= tol).mean()) if m_px.any() else 0.0, 4),
         "lage_median_mm": round(float(np.median(off)), 3) if off.size else None,
         "lage_p95_mm": round(float(np.percentile(off, 95)), 3) if off.size else None,
-        "objekte": len(mg), "objekte_original": len(tg),
+        "objekte": len(mg) + len(areas), "objekte_original": len(tg),
+        "kies_flaechen": len(areas), "kies_genau": kies_genau,
         "boegen": sum(isinstance(e, Arc) for e in mg),
         "boegen_original": sum(isinstance(e, (Arc, Circle)) for e in tg),
         "ortho": round(ortho_share(mg), 4), "ortho_original": round(ortho_share(tg), 4),
         "woerter": len(wt & wm), "woerter_original": len(wt),
         "woerter_falsch": len(wm - wt),
     }
+
+
+def _with_areas(d) -> Tuple[list, list]:
+    """Objekte wie im DXF-Export: Kies als Fläche (Schalter „als Fläche“), deren Kreise entfallen."""
+    from .dots import find_areas
+    from .hatch import wants_areas
+    ents = d.expanded()
+    areas = find_areas(ents) if wants_areas(d) else []
+    skip = {id(m) for a in areas for m in a.members}
+    return [e for e in ents if id(e) not in skip], areas
 
 
 def run(path: str, out_png: str, settings=None, scale_n: float = 100.0, dpi: float = 150.0,
@@ -183,7 +220,8 @@ def run(path: str, out_png: str, settings=None, scale_n: float = 100.0, dpi: flo
     Image.fromarray(sc.gray).save(out_png, dpi=(dpi, dpi))
     t0 = time.time()
     res = open_file(out_png, 0, settings, progress=progress)
-    r = compare(sc.truth, res.drawing.expanded(), sc.gray.shape, sc.mm_per_px)
+    ents, areas = _with_areas(res.drawing)
+    r = compare(sc.truth, ents, sc.gray.shape, sc.mm_per_px, areas=areas)
     r.update({"datei": path, "bild": [int(sc.gray.shape[1]), int(sc.gray.shape[0])],
               "sekunden": round(time.time() - t0, 1)})
     return r
@@ -338,7 +376,8 @@ def run_real(dxf: str, scan: str, scale_n: float = 0, settings=None, progress=No
     truth = printed(align_scan(cad, ink, unit / mm_per_px / scale_n), _printed_ink(gray, mm_per_px))
     t0 = time.time()
     res = open_file(scan, 0, settings, progress=progress)
-    r = compare(truth, res.drawing.expanded(), gray.shape, mm_per_px)
+    ents, areas = _with_areas(res.drawing)
+    r = compare(truth, ents, gray.shape, mm_per_px, areas=areas)
     r.update({"datei": dxf, "scan": scan, "bild": [int(gray.shape[1]), int(gray.shape[0])],
               "massstab": float(scale_n), "passung": None if fit is None else round(fit, 3),
               "sekunden": round(time.time() - t0, 1)})

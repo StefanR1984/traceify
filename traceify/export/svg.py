@@ -4,8 +4,9 @@ from __future__ import annotations
 import math
 from xml.sax.saxutils import escape
 
+from ..core.dots import find_areas as find_gravel
 from ..core.hatch import find_regions, wants_areas
-from ..core.model import Arc, Circle, Drawing, LAYER_HATCH, Line, Polyline, Text, layer_color
+from ..core.model import Arc, Circle, Drawing, LAYER_GRAVEL, LAYER_HATCH, Line, Polyline, Text, layer_color
 
 _DASH = {"DASHED": "3 1.5", "HIDDEN": "1.5 0.75", "DOT": "0.3 1", "DASHDOT": "4 1 0.5 1",
          "CENTER": "6 1 1.5 1"}
@@ -53,6 +54,23 @@ def _hatch_svg(regions, s: float, col: str) -> list:
     return ["<defs>"] + defs + ["</defs>"] + body
 
 
+def _gravel_svg(regions, s: float, col: str) -> list:
+    """Kies-Flächen: Umriss gefüllt mit einem Punktmuster (versetzte Reihen im Punktabstand)."""
+    defs, body = [], []
+    for i, reg in enumerate(regions):
+        sp, r = reg.spacing * s, max(reg.radius * s, 0.05)
+        h = sp * 3 ** 0.5
+        defs.append(f'<pattern id="kies{i}" patternUnits="userSpaceOnUse" width="{sp:.4f}" '
+                    f'height="{h:.4f}"><circle cx="0" cy="0" r="{r:.4f}"/>'
+                    f'<circle cx="{sp:.4f}" cy="0" r="{r:.4f}"/><circle cx="0" cy="{h:.4f}" r="{r:.4f}"/>'
+                    f'<circle cx="{sp:.4f}" cy="{h:.4f}" r="{r:.4f}"/>'
+                    f'<circle cx="{sp / 2:.4f}" cy="{h / 2:.4f}" r="{r:.4f}"/></pattern>')
+        d = " ".join("M" + " L".join(f"{x * s:.3f},{y * s:.3f}" for x, y in ring) + " Z"
+                     for ring in [reg.outline] + reg.holes)
+        body.append(f'<path d="{d}" fill="url(#kies{i})" fill-rule="evenodd" stroke="none"/>')
+    return [f'<defs fill="none" stroke="{col}" stroke-width="0.1">'] + defs + ["</defs>"] + body
+
+
 def export_svg(d: Drawing, path: str, visible_layers=None) -> None:
     d = d.export_view()          # Schräglage des Scans herausdrehen
     s = d.scale
@@ -63,6 +81,10 @@ def export_svg(d: Drawing, path: str, visible_layers=None) -> None:
     if wants_areas(d) and (visible_layers is None or LAYER_HATCH in visible_layers):
         regions = find_regions(d.entities)
         skip = {id(m) for r in regions for m in r.members}
+    gravel = []
+    if wants_areas(d) and (visible_layers is None or LAYER_GRAVEL in visible_layers):
+        gravel = find_gravel(d.entities)
+        skip |= {id(m) for r in gravel for m in r.members}
     by_layer = {}
     for e in d.expanded():
         if id(e) in skip:
@@ -76,6 +98,9 @@ def export_svg(d: Drawing, path: str, visible_layers=None) -> None:
         if layer == LAYER_HATCH and regions:
             out += _hatch_svg(regions, s, col)
             regions = []
+        if layer == LAYER_GRAVEL and gravel:
+            out += _gravel_svg(gravel, s, col)
+            gravel = []
         for e in ents:
             if isinstance(e, Line):
                 out.append(f'<line x1="{e.p1[0]*s:.3f}" y1="{e.p1[1]*s:.3f}" '
@@ -100,6 +125,11 @@ def export_svg(d: Drawing, path: str, visible_layers=None) -> None:
         col = "#%02x%02x%02x" % layer_color(LAYER_HATCH)[1]
         out.append(f'<g id="{LAYER_HATCH}" fill="none">')
         out += _hatch_svg(regions, s, col)
+        out.append("</g>")
+    if gravel:                   # alle Kies-Kreise sind in Flächen aufgegangen
+        col = "#%02x%02x%02x" % layer_color(LAYER_GRAVEL)[1]
+        out.append(f'<g id="{LAYER_GRAVEL}">')
+        out += _gravel_svg(gravel, s, col)
         out.append("</g>")
     out.append("</svg>")
     with open(path, "w", encoding="utf-8") as f:

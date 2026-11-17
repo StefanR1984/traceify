@@ -34,10 +34,15 @@ KOPF = ("| Datei | Bild px | Zeit s | Trefferquote | Genauigkeit | Lage Median m
 SCAN_EXT = (".pdf", ".png", ".tif", ".tiff", ".jpg", ".jpeg", ".bmp")
 
 
+def _kies(r: dict) -> str:
+    n = r.get("kies_flaechen") or 0
+    return f", davon {n} Kies-Fl. ({r['kies_genau'] * 100:.0f} % an Kies)" if n else ""
+
+
 def zeile(name: str, r: dict) -> str:
     return (f"| {name} | {r['bild'][0]}×{r['bild'][1]} | {r['sekunden']} | "
             f"{r['trefferquote'] * 100:.1f} % | {r['genauigkeit'] * 100:.1f} % | "
-            f"{r['lage_median_mm']} | {r['lage_p95_mm']} | {r['objekte']} ({r['objekte_original']}) | "
+            f"{r['lage_median_mm']} | {r['lage_p95_mm']} | {r['objekte']} ({r['objekte_original']}){_kies(r)} | "
             f"{r['boegen']} ({r['boegen_original']}) | {r['ortho'] * 100:.0f} % "
             f"({r['ortho_original'] * 100:.0f} %) | {r['woerter']} von {r['woerter_original']} | "
             f"{r['woerter_falsch']} |")

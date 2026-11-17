@@ -296,9 +296,9 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + gravel + texts, source=source)
-    if settings.style.hatch_layer and settings.style.hatch_areas:
+    if (settings.style.hatch_layer or gravel) and settings.style.hatch_areas:
         from .hatch import META_KEY as HATCH_KEY
-        d.meta[HATCH_KEY] = "1"     # beim DXF-Export Schraffur als Fläche ausgeben
+        d.meta[HATCH_KEY] = "1"     # beim DXF-Export Schraffur und Kies als Fläche ausgeben
     if skew is not None and abs(skew) >= 0.05:
         d.meta["schraeglage"] = repr(float(skew))   # volle Genauigkeit für den Export
     if settings.symbols_auto:

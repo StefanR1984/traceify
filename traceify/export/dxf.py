@@ -12,8 +12,9 @@ from ezdxf import colors as ezcolors
 from ezdxf.lldxf import const
 from ezdxf import units
 
+from ..core.dots import find_areas as find_gravel
 from ..core.hatch import HatchRegion, find_regions, wants_areas
-from ..core.model import (Arc, Circle, Drawing, Insert, LAYER_HATCH, Line, Polyline, Text,
+from ..core.model import (Arc, Circle, Drawing, Insert, LAYER_GRAVEL, LAYER_HATCH, Line, Polyline, Text,
                           layer_color)
 
 DXF_VERSIONS = {"R12": "R12", "R2000": "R2000", "R2007": "R2007", "R2010": "R2010",
@@ -114,6 +115,19 @@ def _add_hatch(layout, reg: HatchRegion, d: Drawing) -> None:
                        definition=[[0.0, base0, (0.0, reg.spacing * s), []]])
 
 
+def _add_gravel(layout, reg, d: Drawing) -> None:
+    """Kies-Fläche als HATCH mit Punktmuster (Dreiecksraster im mittleren Punktabstand)."""
+    sp = reg.spacing * d.scale
+    h = layout.add_hatch(color=256, dxfattribs={"layer": LAYER_GRAVEL})
+    h.paths.add_polyline_path([d.to_mm(p) for p in reg.outline], is_closed=True,
+                              flags=const.BOUNDARY_PATH_EXTERNAL | const.BOUNDARY_PATH_OUTERMOST)
+    for hole in reg.holes:
+        h.paths.add_polyline_path([d.to_mm(p) for p in hole], is_closed=True, flags=0)
+    # Strichlänge 0 = Punkt; Folgereihe um halben Abstand versetzt
+    h.set_pattern_fill("TRACEIFY_KIES", color=256, angle=0.0, scale=1.0, style=1, pattern_type=0,
+                       definition=[[0.0, (0.0, 0.0), (sp / 2, sp * math.sqrt(3) / 2), [0.0, -sp]]])
+
+
 def export_dxf(d: Drawing, path: str, version: str = "R2010",
                visible_layers=None) -> None:
     d = d.export_view()          # Schräglage des Scans herausdrehen
@@ -148,6 +162,10 @@ def export_dxf(d: Drawing, path: str, version: str = "R2010",
             (visible_layers is None or LAYER_HATCH in visible_layers):
         for reg in find_regions(d.entities):
             _add_hatch(msp, reg, d)
+            skip.update(id(m) for m in reg.members)
+    if version != "R12" and wants_areas(d) and             (visible_layers is None or LAYER_GRAVEL in visible_layers):
+        for reg in find_gravel(d.entities):
+            _add_gravel(msp, reg, d)
             skip.update(id(m) for m in reg.members)
     for e in d.entities:
         if visible_layers is not None and e.layer not in visible_layers:
