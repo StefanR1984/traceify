@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.37.2 – 17.11.2026
+### Maßzahlen
+- **Türmaß-Paare:** Steht eine dreistellige Zahl direkt über oder unter einem Maß „d.dd“ und ergibt das Paar eine Tür (Breite 0,55–1,5 m, Höhe 1,9–3,0 m), fehlt ihr der Punkt: „101“ über „2.40“ wird „1.01“. Andere dreistellige Zahlen bleiben.
+- **„2 75°“** (Punkt als Lücke, Hochziffer als Gradzeichen) wird „2.75⁵“.
+- **Gemessen:** echte Allplan-Plots 14 Texte mehr richtig, 6 falsche Wörter weniger; Simulation und Scans unverändert.
+
 ## 0.37.1 – 17.11.2026
 ### Maßzahlen
 - **Verlorener Dezimalpunkt:** „141⁵“ wird „1.41⁵“ – Allplan schreibt Maße ab 1 m immer mit Punkt, darunter in cm („88⁵“); drei Ziffern mit Hochziffer sind also ein Maß, dessen kleiner Punkt im Scan verloren ging. Echte Winkel („135°“) bleiben.

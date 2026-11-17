@@ -134,3 +134,16 @@ def test_allplan_mass_punkt_und_prozent():
            ((1, 1, 5), 280, 10, 40, 18, "88⁵", 90.0)]
     out = fix_superscripts(g, raw, OcrSettings(), lambda c, s, e="": [])
     assert [r[5] for r in out] == ["1.41⁵", "2.41⁵", "135°", "2%", "88⁵"]
+
+
+def test_tuermass_paar_und_leerzeichen():
+    """„101“ über „2.40“ (Tür) → „1.01“; „200“ über „2.35“ und „150“ unter „6.70“ bleiben (0.37.2)."""
+    from traceify.core.dimensions import tidy_numbers
+    from traceify.core.model import Text
+    t = [Text("101", (100, 100), 15.0), Text("2.40", (100, 122), 15.0),          # waagrecht, Höhe darunter
+         Text("240", (300, 300), 15.0, 90.0), Text("1.01", (278, 300), 15.0, 90.0),  # senkrecht, Breite links
+         Text("200", (500, 100), 15.0), Text("2.35", (500, 122), 15.0),          # keine Tür (2,00 breit)
+         Text("150", (700, 100), 15.0), Text("6.70", (700, 78), 15.0),           # keine Tür (6,70 hoch)
+         Text("2 75°", (900, 100), 15.0), Text("101", (100, 500), 15.0)]         # allein: Raumnummer?
+    assert tidy_numbers(t) == 3
+    assert [x.text for x in t] == ["1.01", "2.40", "2.40", "1.01", "200", "2.35", "150", "6.70", "2.75⁵", "101"]

@@ -169,7 +169,11 @@ scheitert (an der Maßlinie angeschnitten) → **0.36.1** `ocr._DIM2`: Maß d.dd
 kleine Komponente gefunden wurde und kein Loch hat (`ocr._has_hole`; „°“ ist ein Ring, „30°“ bleibt): echt 1688 → 1729
 Texte (nur PLAN2), Simulation +5, Scans gleich. **0.37.1** `ocr._allplan_dims`: „141⁵“ → „1.41⁵“ (Allplan:
 ab 1 m immer d.dd, nur nach ⁵, nicht nach „°“ – „135°“ ist ein echter Winkel), „d.dd%“ → „d.dd⁵“: echt 1729 → 1753
-Texte, falsch 394 → 372; Sim +43/−34. Einstellige „2⁵“: Tesseract liefert dort meist gar nichts (24 von 38). Offen: „N°“ ohne gefundene Komponente (14 auf PLAN2_EG, Hochziffer
+Texte, falsch 394 → 372; Sim +43/−34. Einstellige „2⁵“: Tesseract liefert dort meist gar nichts (24 von 38). **0.37.2**
+`dimensions.tidy_numbers`: Türmaß-Paar „101“/„2.40“ → „1.01“ (Paar muss Tür ergeben: 0,55–1,5 × 1,9–3,0 m – PLAN1_UG hat
+echte „200“, „150“ neben Maßen), „2 75°“ → „2.75⁵“: echt 1753 → 1767. Länge der Maßlinie trennt „101“/„1.01“ und
+⁵ nicht (gleiche Länge bzw. < 1 px). Stand PLAN2 je Maß: 705 richtig, Rest in vielen kleinen Gruppen (1↔4,
+Hochziffer nicht gesehen, Teil gelesen). Offen: „N°“ ohne gefundene Komponente (14 auf PLAN2_EG, Hochziffer
 an Linie verschmolzen), einstellige cm-Maße „2⁵“ (fast nie gelesen – Filter Kurztexte < 85 % Sicherheit), „275°“
 (Punkt fehlt), reine Zahlen (cm-Maße „25“, „30“)
 nur 14–40 % richtig, Maße auf PLAN2 noch ~25 % verlesen; Raumstempel („0.27 Druckerpool“) oft nur teilweise.

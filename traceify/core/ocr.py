@@ -622,6 +622,7 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
             t.position = (t.position[0] / zoom, t.position[1] / zoom)
             t.height /= zoom
         dimensions.merge(texts, boxes, tt, bb)
+        dimensions.tidy_numbers(texts)
     if zoom != 1:
         boxes = [(x // zoom, y // zoom, -(-w // zoom), -(-h // zoom)) for x, y, w, h in boxes]
     return texts, boxes

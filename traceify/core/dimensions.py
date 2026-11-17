@@ -724,6 +724,51 @@ def check_lengths(cand: list, gaps: list, ks: list) -> Optional[float]:
     return r
 
 
+_SPACED = re.compile(r"^(\d) (\d\d)[°⁵]$")         # „2 75°“: Punkt als Lücke, Hochziffer als „°“
+_DIM_M = re.compile(r"^\d{1,2}\.\d{2}[⁰¹²³⁴⁵⁶⁷⁸⁹]?$")
+
+
+def _stacked(t: Text, o: Text) -> bool:
+    """o steht direkt über oder unter t (gleiche Richtung, fast gleicher Anfang)."""
+    import math
+    if abs((t.angle - o.angle + 180) % 360 - 180) > 2:
+        return False
+    a = math.radians(t.angle)
+    dx, dy = o.position[0] - t.position[0], o.position[1] - t.position[1]
+    x = (dx * math.cos(a) - dy * math.sin(a)) / t.height
+    y = (-dx * math.sin(a) - dy * math.cos(a)) / t.height
+    return abs(x) <= 1.5 and 0.8 <= abs(y) <= 2.0
+
+
+def tidy_numbers(texts: list) -> int:
+    """Allplan-Maße, deren Dezimalpunkt im Scan verloren ging (texts wird geändert).
+
+    - „2 75°“ → „2.75⁵“ (Punkt als Lücke gelesen, Hochziffer als Gradzeichen);
+    - Türmaß-Paar „1.01“ über „2.40“ (Breite/Höhe der Öffnung): eine dreistellige Zahl direkt
+      über/unter einem Maß „d.dd“ wird „d.dd“, wenn das Paar eine Tür ergibt – Breite 0,55–1,5 m,
+      Höhe 1,9–3,0 m. Andere dreistellige Zahlen (Höhen, Nummern) bleiben.
+    Gibt die Zahl der Änderungen zurück."""
+    n = 0
+    for t in texts:
+        m = _SPACED.match(t.text)
+        if m:
+            t.text = f"{m.group(1)}.{m.group(2)}⁵"
+            n += 1
+    for t in texts:
+        if not re.fullmatch(r"\d{3}", t.text):
+            continue
+        v = int(t.text) / 100
+        for o in texts:
+            if o is t or not _DIM_M.match(o.text) or not _stacked(t, o):
+                continue
+            w = metres(o.text)
+            if w is not None and (0.55 <= v <= 1.5 and 1.9 <= w <= 3.0 or 0.55 <= w <= 1.5 and 1.9 <= v <= 3.0):
+                t.text = f"{t.text[0]}.{t.text[1:]}"
+                n += 1
+                break
+    return n
+
+
 _NUMLIKE = re.compile(r"^[0-9.,:;°\"'’”⁰¹²³⁴⁵⁶⁷⁸⁹ ]+$")
 
 
