@@ -174,3 +174,45 @@ def test_pdf_load_with_float_dpi(vector_pdf):
     assert gray.shape == (int(595 * 150 / 72 + 0.5), int(842 * 150 / 72 + 0.5)) or gray.size > 0
     d = pv.import_page(vector_pdf, 0, dpi=150.0)
     assert d.width > 0
+
+
+def test_scan_als_striche_wird_rasterisiert(tmp_path):
+    """Scan, als senkrechte Pixel-Striche im PDF gespeichert → nicht als Vektor-PDF übernehmen (0.38)."""
+    import numpy as np
+    import pymupdf
+    from traceify.core.pipeline import ConvertSettings, convert_source
+    from traceify.core.loader import load
+    img = np.full((300, 400), 255, np.uint8)
+    img[50:53, 20:380] = 0                                  # waagrechte Wand
+    img[50:250, 20:23] = 0                                  # senkrechte Wand
+    rng = np.random.default_rng(3)
+    for x, y in rng.uniform((100, 100), (380, 240), (120, 2)).astype(int):
+        img[y:y + 2, x:x + 2] = 0                           # Staubwolke (sähe aus wie Kies)
+    doc = pymupdf.open()
+    p = doc.new_page(width=400 * 0.24, height=300 * 0.24)  # 300 dpi: 0,24 pt je Pixel
+    sh = p.new_shape()
+    for x in range(400):
+        col = img[:, x] == 0
+        y = 0
+        while y < 300:
+            if col[y]:
+                y0 = y
+                while y < 300 and col[y]:
+                    y += 1
+                sh.draw_line((x * 0.24, y0 * 0.24), (x * 0.24, y * 0.24))
+            y += 1
+    for _ in range(14):                                     # Rauschen auffüllen (≥ 5000 Striche)
+        for x in range(400):
+            sh.draw_line((x * 0.24, 280 * 0.24), (x * 0.24, 280.3 * 0.24))
+    sh.finish(color=(0, 0, 0), width=0.71)
+    sh.commit()
+    path = str(tmp_path / "scan.pdf")
+    doc.save(path)
+    assert not pv.has_vectors(path, 0)
+    gray, sc = load(path, 0, 300)
+    s = ConvertSettings()
+    s.ocr.enabled = False
+    d = convert_source(path, 0, s, gray, sc).drawing
+    from traceify.core.model import LAYER_GRAVEL
+    assert len(d.entities) < 200                            # nicht Tausende Einzelstriche
+    assert not any(getattr(e, "layer", "") == LAYER_GRAVEL for e in d.entities)

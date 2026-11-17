@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.37.3 – 17.11.2026
+### PDF
+- **Scan als Strich-PDF:** Manche Scanner speichern den Scan nicht als Bild, sondern als Hunderttausende winzige senkrechte Striche (je Bildspalte ein Strich pro schwarzem Lauf). Traceify hielt das für ein CAD-Vektor-PDF und übernahm jeden Strich – Ergebnis: Scanpunkte überall und Linien aus lauter kurzen Stücken. Solche Seiten (≥ 5000 Striche, ≥ 95 % gleich gerichtet, Median < 0,7 mm) werden jetzt wie ein Scan vektorisiert; Scanpunkte kommen auf SCANPUNKTE, Linien werden durchgezogen. Dichte Punktwolken gelten dort als Scanstaub, nicht als Kies.
+
 ## 0.37.2 – 17.11.2026
 ### Maßzahlen
 - **Türmaß-Paare:** Steht eine dreistellige Zahl direkt über oder unter einem Maß „d.dd“ und ergibt das Paar eine Tür (Breite 0,55–1,5 m, Höhe 1,9–3,0 m), fehlt ihr der Punkt: „101“ über „2.40“ wird „1.01“. Andere dreistellige Zahlen bleiben.

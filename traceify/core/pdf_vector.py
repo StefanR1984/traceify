@@ -130,12 +130,46 @@ def page_vector_count(path: str, page: int = 0) -> int:
         return sum(len(d.get("items", [])) for d in pg.get_drawings())
 
 
+def scan_as_strokes(items: list) -> bool:
+    """Gerastertes Bild als Vektoren: lauter kurze, gleich gerichtete Striche (Pixel-Läufe).
+
+    Manche Scanner/Plotter speichern den Scan als Hunderttausende senkrechte Striche je
+    Bildspalte. Direkt übernommen ergäbe das Scanpunkte und zerstückelte Linien – solche
+    Seiten werden wie ein Rasterbild vektorisiert."""
+    lines = [it for it in items if it[0] == "l"]
+    if len(lines) < 5000 or len(lines) < 0.9 * len(items):
+        return False
+    vert = sum(abs(a.x - b.x) < 1e-3 for _, a, b in lines)
+    horz = sum(abs(a.y - b.y) < 1e-3 for _, a, b in lines)
+    if max(vert, horz) < 0.95 * len(lines):
+        return False
+    lens = sorted(abs(a.x - b.x) + abs(a.y - b.y) for _, a, b in lines)
+    return lens[len(lens) // 2] < 2.0              # Median < 2 pt (0,7 mm)
+
+
 def has_vectors(path: str, page: int = 0, settings: Optional[PdfVectorSettings] = None) -> bool:
     s = settings or PdfVectorSettings()
     if not path.lower().endswith(".pdf") or not s.enabled:
         return False
     try:
-        return page_vector_count(path, page) >= s.min_items
+        items = _page_items(path, page)
+        return len(items) >= s.min_items and not scan_as_strokes(items)
+    except Exception:
+        return False
+
+
+def _page_items(path: str, page: int) -> list:
+    import pymupdf
+    with pymupdf.open(path) as doc:
+        return [it for d in doc.load_page(page).get_drawings() for it in d.get("items", [])]
+
+
+def is_stroke_scan(path: str, page: int = 0) -> bool:
+    """PDF-Seite ist ein als Pixel-Striche gespeicherter Scan (siehe `scan_as_strokes`)."""
+    if not path.lower().endswith(".pdf"):
+        return False
+    try:
+        return scan_as_strokes(_page_items(path, page))
     except Exception:
         return False
 

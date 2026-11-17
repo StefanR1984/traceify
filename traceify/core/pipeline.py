@@ -8,7 +8,7 @@ import numpy as np
 
 from . import ocr as ocr_mod
 from .model import LAYER_DASHED, LAYER_HATCH, Drawing, Text
-from .pdf_vector import PdfVectorSettings, has_vectors, import_page
+from .pdf_vector import PdfVectorSettings, has_vectors, import_page, is_stroke_scan
 from .preprocess import PreprocessSettings, to_binary
 from .scale_detect import find_scale, format_scale
 from .style import (StyleSettings, classify_thick, classify_thick_mm, cleanup, detect_dashed,
@@ -365,4 +365,9 @@ def convert_source(path: str, page: int, settings: ConvertSettings, gray: np.nda
         pdf_dpi = resolve_dpi(path, page, 0)
     if allow_vectors and path and has_vectors(path, page, settings.pdf):
         return convert_pdf_vectors(path, page, pdf_dpi, settings, gray, progress)
+    if settings.style.dots and path and is_stroke_scan(path, page):
+        # Scan als Pixel-Striche: dichte Punktwolken sind Scanstaub, kein Kies
+        import copy
+        settings = copy.deepcopy(settings)
+        settings.style.dots = False
     return convert(gray, settings, dpi_scale, source, progress, color=color)
