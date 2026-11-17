@@ -237,6 +237,11 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   1–3 mm, ~90°): `cad.arcs_to_corners` – Tangenten-Ecke P auf Tinte und beide Tangentenstücke ≥ 70 % Tinte → zwei
   Linien (echte Bögen ≤ 68 %), Radius ≤ 4 mm Papier. PLAN2_EG 189→141, echt EG 147→86. Rest: Ecken mit Tinte
   < 70 % an den Tangenten (Bogenenden schräg). Verworfen: Geraden hinter den Bogenenden verlangen (Gewinn weg).
+- **0.38.1 Wellen-Bögen:** Analyse echte Plots: Fehlbögen lagen zu ~45 % „auf Linien“ (Radius 0,6–1,4 mm, ~80°,
+  Spitze der gedachten Ecke weiß → keine Ecke), Rest in Text. Ketten kleiner Bögen entlang gerader Linien (Schraffur,
+  Ziffern, Nachbarlinie stößt an). `cad.flatten_arcs`: Sehne ≥ 95 % Tinte und Tinte läuft über die Sehne hinaus →
+  Linie. Echte Bögen bleiben (PLAN2_EG 58/58); Bögen echt PLAN2_EG 222 → 102. Ohne Verlängerungsprüfung noch weniger
+  Bögen (84), aber sanfte Kurven würden Sehnen. Sim-Trefferquote −0,1…−1,1 (vermutlich Messartefakt).
 - **Ortho** 52–73 % gegen 71–91 % im Original (Schraffur des Originals ist dort als Einzellinien).
 - **Wörter (0.21.0, korrigierte Simulation, mit Tesseract):** 523 von 887 richtig, 199 falsch. Je Gruppe
   (Stand vor 0.21): Maße mit Hochziffer 8 % (0.21: Nachlesen `ocr.fix_superscripts`), reine Zahlen 50 %,

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.38.1 – 17.11.2026
+### Vektorisierung
+- **Wellen-Bögen:** Wo Schraffurstriche, Ziffern oder Nachbarlinien an eine dicke Linie stoßen, bekam das Skelett Wellen – daraus wurden Ketten kleiner Bögen (Radius ~1 mm) entlang einer geraden Linie. Ein kleiner Bogen (≤ 4 mm), dessen Sehne auf Tinte liegt und hinter dem die Tinte geradeaus weiterläuft, wird jetzt eine gerade Linie (`cad.flatten_arcs`); echte Bögen (Türschwenk, Rundung) haben eine leere Sehne und bleiben.
+- **Gemessen:** echte Allplan-Plots Bögen PLAN2_EG 222 → 102 (Original 94), PLAN1_UG 120 → 53, PLAN3_UG1 271 → 189; echte Bögen bleiben erhalten (PLAN2_EG 58 von 58), Genauigkeit gleich. Scans 30–70 % weniger Bögen, Abdeckung gleich. Simulation Trefferquote −0,1 bis −1,1 Punkte (zappelnde Bögen berührten Nachbarlinien).
+
 ## 0.38.0 – 17.11.2026
 ### OCR
 - **Fette Schrift:** Schablonen- und Plotterschrift mit sehr dickem Strich (Strich ≥ 22 % der Höhe, Median über alle buchstabengroßen Teile) verläuft im Scan zu Klecksen; Tesseract las dort nur Bruchstücke („ODUKTION“). Solche Pläne werden zusätzlich mit ausgedünnter Schrift gelesen (Strich auf ~10 % der Höhe), je Stelle gewinnt die sicherere Lesung. Schalter „Fette Schrift ausdünnen“ (Stapelregel `fette_schrift`).

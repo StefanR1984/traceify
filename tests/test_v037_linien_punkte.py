@@ -147,3 +147,17 @@ def test_tuermass_paar_und_leerzeichen():
          Text("2 75°", (900, 100), 15.0), Text("101", (100, 500), 15.0)]         # allein: Raumnummer?
     assert tidy_numbers(t) == 3
     assert [x.text for x in t] == ["1.01", "2.40", "2.40", "1.01", "200", "2.35", "150", "6.70", "2.75⁵", "101"]
+
+
+def test_wellen_boegen_werden_gerade():
+    """Kleiner Bogen mit Sehne auf Tinte → Linie; Türschwenk (Sehne im Leeren) bleibt (0.38.1)."""
+    from traceify.core.model import Arc
+    g = np.full((200, 300), 255, np.uint8)
+    cv2.line(g, (10, 100), (290, 100), 0, 3)                # dicke Wandlinie
+    ents = [Arc((100, 107), 10, 225, 315),                   # Welle: Sehne y≈100 liegt auf der Linie
+            Arc((200, 150), 40, 180, 270)]                   # Türschwenk, Sehne quer durchs Leere
+    g2 = g.copy()
+    cv2.ellipse(g2, (200, 150), (40, 40), 0, 180, 270, 0, 2)
+    n = cad.flatten_arcs(ents, cad.ink_share(g2), max_radius=50)
+    assert n == 1 and isinstance(ents[0], Line) and ents[0].layer == LAYER_LINES
+    assert isinstance(ents[1], Arc)
