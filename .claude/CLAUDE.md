@@ -271,7 +271,10 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    Fassungen in `recognize`). Nur eine Fassung oder Ausdünnen je Bauteil war schlechter (image-11/-136 verloren
    Texte). Testplan „Testdaten Traceify/Punkte weg/03-Bestand“ (Scan als Pixel-Striche im PDF, 0.37.3): 138 → 209
    Texte; Plots/Simulation lösen es nicht aus. Offen: Buchstaben, die eine lange Linie berühren, verschwinden in
-   `text_layer` mit der Linie („BETRIEBSTE|CHNISCHE“).
+   `text_layer` mit der Linie („BETRIEBSTE|CHNISCHE“). **Verworfen (17.11.):** in der zweiten Lesung aus den
+   verworfenen Bauteilen H/V-Linien ≥ 5 mm per Öffnung abziehen und Reste in Schriftgröße zurückgeben (auch nur
+   ≤ 1,5 mm neben Schrift): Ausschnitt sehr gut („BETRIEBSTECHNISC“, „ANGABEN“), ganzer Plan 03 aber ~+10 echte
+   Wörter / ~+15 Unsinn („CNVMONVY“, „WA=“), Verluste (ÖLLAGER, DIREKT), Scans image-4/-27/-99 mehr Unsinn.
 1. **Kleine, fette Schrift** (image-11: „Pos 13 Labor“, „Pos 11 Vorräte“, ca. 11 px hoch, schräg):
    Untersucht in 0.17 – sie klebt meist **nicht** an Linien, sondern steht frei; die Buchstaben
    verschmelzen zu Klecksen. Von 147 Mini-Bögen (r < 1 mm) bei image-11 stammen 51 aus solcher
