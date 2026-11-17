@@ -1,6 +1,7 @@
 """Kies als Fläche (HATCH mit Punktmuster) statt tausender Kreise (0.36)."""
 import ezdxf
 import numpy as np
+import pytest
 
 from traceify.core import dots, truth
 from traceify.core.hatch import META_KEY
@@ -156,3 +157,23 @@ def test_wahrheit_texte_je_vorkommen():
     r = truth.compare(orig, mine, (300, 600), 0.1)
     assert r["texte_richtig"] == 1 and r["texte_original"] == 2
     assert r["woerter"] == 1 and r["woerter_falsch"] == 1
+
+
+@pytest.mark.parametrize("size", [18, 24, 40])
+def test_ganze_zahl_mit_grad_oder_hochziffer(size):
+    """„28⁵“ als „28°“ gelesen und Nachlesen scheitert → „28⁵“; ein echtes „30°“ (Ring) bleibt (0.37)."""
+    from PIL import Image, ImageDraw, ImageFont
+    from traceify.core.ocr import OcrSettings, fix_superscripts
+    try:
+        f = ImageFont.truetype("arial.ttf", size, layout_engine=ImageFont.Layout.BASIC)
+    except OSError:
+        pytest.skip("Arial fehlt")
+    for txt, soll in (("28⁵", "28⁵"), ("30°", "30°")):
+        im = Image.new("L", (200, 70), 255)
+        ImageDraw.Draw(im).text((10, 55), txt, fill=0, font=f, anchor="ls")
+        g = np.asarray(im).copy()
+        top = int(np.nonzero(g < 128)[0].min())
+        h = int(f.getbbox("3")[3] - f.getbbox("3")[1])
+        raw = [((1, 1, 1), 10, top, int(f.getlength(txt[:2])) + 6, h, txt[:2] + "°", 90.0)]
+        out = fix_superscripts(g, raw, OcrSettings(), lambda c, s, e="": [("", -1.0)] * len(c))
+        assert out[0][5] == soll

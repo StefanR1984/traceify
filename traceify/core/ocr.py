@@ -326,6 +326,15 @@ _NUM_TAIL = re.compile(r"^(\d+(?:[.,]\d+)?)([°\"'’”*^?]?)$")
 _DIM2 = re.compile(r"^\d{1,2}[.,]\d{2}$")
 
 
+def _has_hole(bw: np.ndarray) -> bool:
+    """Hat die Komponente (Ausschnitt, 1 = Tinte) ein umschlossenes Loch – wie „°“, „0“, „8“?"""
+    import cv2
+    n, _, st, _ = cv2.connectedComponentsWithStats((1 - bw).astype(np.uint8), connectivity=4)
+    H, W = bw.shape
+    return any(st[k, 0] > 0 and st[k, 1] > 0 and st[k, 0] + st[k, 2] < W and st[k, 1] + st[k, 3] < H
+               for k in range(1, n))
+
+
 def _superscript_box(bw: np.ndarray, box):
     """Sucht hinter einer Zahl (Box x, y, w, h) eine kleine, hochgestellte Ziffer.
 
@@ -405,9 +414,12 @@ def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
     for (i, main, (sx, sy, sw, sh)), (t, c) in zip(cands, res):
         t = (t or "").strip()
         if len(t) != 1 or not t.isdigit() or c < 50:
-            # Hochziffer an der Maßlinie angeschnitten, Nachlesen scheitert
+            # Nachlesen scheitert (Hochziffer an der Maßlinie angeschnitten o. Ä.): Tesseract las ein
+            # Zeichen dahinter – bei einem Maß d.dd ist das die Hochziffer, bei einer ganzen Zahl, wenn
+            # die kleine Komponente kein Loch hat (ein Gradzeichen ist ein Ring, „30°“ bleibt)
             m = _NUM_TAIL.match(raw[i][5])
-            if not (m.group(2) and _DIM2.match(main)):
+            if not m.group(2) or not (_DIM2.match(main) or (main.isdigit() and not _has_hole(
+                    bw[sy:sy + sh, sx:sx + sw]))):
                 continue
             t = "5"
         key, x, y, w, h, _, conf = raw[i]

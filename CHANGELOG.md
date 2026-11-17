@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.36.2 – 17.11.2026
+### Maßzahlen
+- **„28°“ statt „28⁵“** auch bei ganzen Zahlen (cm-Maße): Scheitert das Nachlesen der kleinen Hochziffer, prüft Traceify ihre Form – ein Gradzeichen ist ein Ring, die Hochziffer 5 nicht. So werden Maße zu „28⁵“, echte Winkel wie „30°“ bleiben. Echte Allplan-Plots: 41 Maße mehr richtig (PLAN2_EG +20), Scans unverändert.
+
 ## 0.36.1 – 17.11.2026
 ### Maßzahlen
 - **„2.75°“ statt „2.75⁵“:** Klebt die kleine Hochziffer an der Maßlinie, las Tesseract sie als Gradzeichen und das Nachlesen der einzelnen Ziffer scheiterte. Ein Maß mit zwei Nachkommastellen bekommt jetzt die Hochziffer ⁵ (Winkel wie „2.75°“ kommen in Plänen nicht vor; „30°“ bleibt). Echte Allplan-Plots: 28 Maße mehr richtig (PLAN2_EG +15), Scans unverändert.

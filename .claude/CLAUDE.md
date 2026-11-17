@@ -126,17 +126,17 @@ image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert)
 **Messbasis echte Plots, Stand 0.36.1** (17.11., `Testdaten Traceify/dxf neu/dxf neu`, alle 17 Allplan-Plots, 300 dpi,
 mit Tesseract, `--jobs 4`; „gedruckt“ = Tinte < 160 plus kleine hellgraue Teile ≤ 1 mm (`truth._printed_ink`) – nur < 210
 überall ließ PLAN1 auf 50 % fallen, graue Füllflächen decken ausgeblendete Objekte; Wörter/Texte ab 0.36.1 gezählt mit
-zusammengeführten Hochziffern und ohne Schrift < 0,6 mm, „Texte richtig“ = je gedrucktem Text, Pfeil = 0.36.0 → 0.36.1):
+zusammengeführten Hochziffern und ohne Schrift < 0,6 mm, „Texte richtig“ = je gedrucktem Text, Pfeil = 0.36.0 → 0.36.1 → 0.36.2):
 | Plan (1:N) | Treffer | Genauigk. | Lage 95 % mm | Objekte (Orig.) | Bögen (Orig.) | Ortho (Orig.) | Wörter richtig/falsch | Texte richtig |
 |---|---|---|---|---|---|---|---|---|
 | PLAN1_EG (200) | 97,3 % | 99,0 % | 0,162 | 2925 (20958) | 86 (198) | 79 (89) % | 64 von 87 / 15 | 146 von 245 |
 | PLAN1_OG1 (200) | 93,8 % | 98,8 % | 0,162 | 677 (2941) | 16 (10) | 52 (81) % | 2 von 3 / 2 | 2 von 3 |
 | PLAN1_UG (200) | 93,8 % | 99,1 % | 0,243 | 2630 (13026) | 120 (94) | 79 (87) % | 63 von 114 / 20 | 98 von 284 |
 | PLAN2_Dach (100) | 94,0 % | 100,0 % | 0,162 | 2814 (10699), 35 Kies-Fl. | 21 (8035) | 82 (89) % | 27 von 32 / 9 | 79 von 107 |
-| PLAN2_EG (100) | 95,3 % | 98,6 % | 0,243 | 5292 (11901) | 222 (94) | 76 (84) % | 193 von 258 / 50 | 356 → **371** von 637 |
-| PLAN2_OG1 (100) | 97,2 % | 99,3 % | 0,162 | 4821 (11734) | 125 (93) | 76 (84) % | 148 von 192 / 46 | 304 → **313** von 558 |
-| PLAN2_OG2 (100) | 96,8 % | 99,3 % | 0,162 | 4783 (11149) | 135 (99) | 73 (83) % | 135 von 185 / 57 | 281 → **285** von 509 |
-| PLAN2_OG3 (100) | 97,1 % | 98,1 % | 0,162 | 3648 (10638), 11 Kies-Fl. | 111 (2708) | 84 (91) % | 112 von 161 / 45 | 196 von 402 |
+| PLAN2_EG (100) | 95,3 % | 98,6 % | 0,243 | 5292 (11901) | 222 (94) | 76 (84) % | 197 von 258 / 47 | 356 → 371 → **391** von 637 |
+| PLAN2_OG1 (100) | 97,2 % | 99,3 % | 0,162 | 4821 (11734) | 125 (93) | 76 (84) % | 148 von 192 / 48 | 304 → 313 → **321** von 558 |
+| PLAN2_OG2 (100) | 96,8 % | 99,3 % | 0,162 | 4783 (11149) | 135 (99) | 73 (83) % | 136 von 185 / 59 | 281 → 285 → **289** von 509 |
+| PLAN2_OG3 (100) | 97,1 % | 98,1 % | 0,162 | 3648 (10638), 11 Kies-Fl. | 111 (2708) | 84 (91) % | 112 von 161 / 44 | 196 → **205** von 402 |
 | PLAN3_DG (350) | 48,5 % | 87,1 % | 0,359 | 57 (256) | 2 (0) | 97 (53) % | 2 von 6 / 1 | 0 von 2 |
 | PLAN3_EG (350) | 88,8 % | 98,3 % | 0,162 | 3613 (84511) | 234 (4195) | 56 (73) % | 61 von 165 / 39 | 55 von 305 |
 | PLAN3_OG1 (350) | 90,1 % | 97,8 % | 0,243 | 3437 (64112) | 195 (4108) | 58 (70) % | 55 von 99 / 25 | 35 von 108 |
@@ -164,7 +164,11 @@ PLAN2_EG 141 → 193, falsch 104 → 52. (2) PLAN3_OG1–3: Schrift 0,17–0,5 m
 (`MIN_TEXT_MM` 0,6). (3) PLAN3_UG1: die 1,5–2-mm-Texte sind übereinander gedruckte Maß-Knäuel (1133 Texte, 59 richtig),
 nicht lesbar. (4) Lesefehler „2.75°“ statt „2.75⁵“ (62 Stellen auf PLAN2): Hochziffer gefunden, Einzel-Nachlesen
 scheitert (an der Maßlinie angeschnitten) → **0.36.1** `ocr._DIM2`: Maß d.dd + Zeichen dahinter = ⁵. Echt Texte
-1660 → 1688, Simulation und 16 Scans unverändert. Offen: „275°“ (Punkt fehlt), reine Zahlen (cm-Maße „25“, „30“)
+1660 → 1688, Simulation und 16 Scans unverändert. **0.36.2** auch ganze Zahlen „28°“ → „28⁵“, wenn die
+kleine Komponente gefunden wurde und kein Loch hat (`ocr._has_hole`; „°“ ist ein Ring, „30°“ bleibt): echt 1688 → 1729
+Texte (nur PLAN2), Simulation +5, Scans gleich. Offen: „N°“ ohne gefundene Komponente (14 auf PLAN2_EG, Hochziffer
+an Linie verschmolzen), einstellige cm-Maße „2⁵“ (fast nie gelesen – Filter Kurztexte < 85 % Sicherheit), „275°“
+(Punkt fehlt), reine Zahlen (cm-Maße „25“, „30“)
 nur 14–40 % richtig, Maße auf PLAN2 noch ~25 % verlesen; Raumstempel („0.27 Druckerpool“) oft nur teilweise.
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
