@@ -1,0 +1,125 @@
+"""Zerstückelte Linien durchziehen, Scanpunkte auf eigenen Layer (0.37)."""
+import math
+import os
+import time
+
+import cv2
+import numpy as np
+import pytest
+
+from traceify.core import cad
+from traceify.core.model import LAYER_DASHED, LAYER_GRAVEL, LAYER_LINES, LAYER_SPECKS, Circle, Line
+from traceify.core.pipeline import ConvertSettings, convert
+
+
+def test_stuecke_an_kreuzungen_werden_eine_linie():
+    # waagrechte Linie, an zwei senkrechten Linien zerschnitten (Lücke 4 px um die Kreuzung)
+    ents = [Line((0, 100), (98, 100)), Line((102, 100.6), (198, 100.4)), Line((202, 100), (300, 100)),
+            Line((100, 0), (100, 200)), Line((200, 0), (200, 200))]
+    n = cad.join_collinear(ents, 10)
+    assert n == 2
+    h = [e for e in ents if isinstance(e, Line) and abs(e.p1[1] - e.p2[1]) < 2]
+    assert len(h) == 1 and len(ents) == 3
+    xs = sorted((h[0].p1[0], h[0].p2[0]))
+    assert xs[0] == pytest.approx(0, abs=0.5) and xs[1] == pytest.approx(300, abs=0.5)
+
+
+def test_weisse_luecke_strichlinie_und_versatz_bleiben():
+    ents = [Line((0, 0), (90, 0)), Line((96, 0), (200, 0)),                 # Lücke vor Maßzahl, nichts kreuzt
+            Line((0, 50), (20, 50), LAYER_DASHED), Line((24, 50), (44, 50), LAYER_DASHED),
+            Line((50, 52), (60, 50), LAYER_DASHED),
+            Line((0, 100), (90, 100)), Line((91, 104), (200, 104)),         # 4 px versetzt: zwei Linien
+            Line((0, 150), (90, 150)), Line((91, 150), (200, 150), "ANDERER_LAYER")]
+    before = [(e.p1, e.p2) for e in ents]
+    assert cad.join_collinear(ents, 10, skip_layers=(LAYER_DASHED,)) == 0
+    assert [(e.p1, e.p2) for e in ents] == before
+
+
+def test_beruehrende_stuecke_und_tinte():
+    ents = [Line((0, 0), (50, 0)), Line((50.5, 0), (100, 0))]                # berühren sich (< 1 px)
+    assert cad.join_collinear(ents, 10) == 1 and len(ents) == 1
+    ents = [Line((0, 0), (50, 0)), Line((56, 0), (100, 0))]
+    assert cad.join_collinear(ents, 10, ink_ok=lambda p, q: True) == 1 and len(ents) == 1
+    ents = [Line((0, 0), (50, 0)), Line((56, 0), (100, 0))]
+    assert cad.join_collinear(ents, 10, ink_ok=lambda p, q: False) == 0 and len(ents) == 2
+
+
+def test_scanpunkte_auf_eigenen_layer():
+    ents = [Line((0, 0), (200, 0)), Line((100, 100), (102, 101)),           # frei im Raum: Punkt
+            Line((50, 2), (51, 3)),                                         # klebt an der Wand: bleibt
+            Circle((300, 300), 1.0), Circle((150, 150), 1.0, LAYER_GRAVEL),
+            Line((400, 400), (430, 400))]                                   # lang: bleibt
+    n = cad.isolate_specks(ents, size=10, free=10, layer=LAYER_SPECKS)
+    assert n == 2
+    assert [e.layer for e in ents] == [LAYER_LINES, LAYER_SPECKS, LAYER_LINES, LAYER_SPECKS,
+                                       LAYER_GRAVEL, LAYER_LINES]
+
+
+def _raster():
+    """Raumplan mit Deckenraster (Linien kreuzen sich) und Scanpunkten, 10 px/mm."""
+    rng = np.random.default_rng(5)
+    img = np.full((600, 800), 255, np.uint8)
+    cv2.rectangle(img, (20, 20), (780, 580), 0, 3)
+    for x in range(100, 760, 80):
+        cv2.line(img, (x, 20), (x, 580), 0, 2)
+    for y in range(100, 560, 80):
+        cv2.line(img, (20, y), (780, y), 0, 2)
+    for px, py in rng.uniform((40, 40), (760, 560), (40, 2)):
+        if min((px - 100) % 80, (py - 100) % 80) > 15:
+            cv2.line(img, (int(px), int(py)), (int(px) + 8, int(py) + 3), 0, 2)   # Krümel 0,9 mm
+    return img
+
+
+def test_pipeline_raster_durchgehend_und_punkte():
+    s = ConvertSettings()
+    s.ocr.enabled = False
+    res = convert(_raster(), s, dpi_scale=0.1)
+    lines = [e for e in res.drawing.entities if isinstance(e, Line) and e.layer != LAYER_SPECKS]
+    long_h = [e for e in lines if abs(e.p1[1] - e.p2[1]) < 2 and math.dist(e.p1, e.p2) > 700]
+    long_v = [e for e in lines if abs(e.p1[0] - e.p2[0]) < 2 and math.dist(e.p1, e.p2) > 500]
+    assert len(long_h) >= 7 and len(long_v) >= 9          # Rasterlinien ganz durchgezogen
+    assert sum(getattr(e, "layer", "") == LAYER_SPECKS for e in res.drawing.entities) >= 15
+    s.style.specks_layer = False
+    res_aus = convert(_raster(), s, dpi_scale=0.1)
+    assert not any(getattr(e, "layer", "") == LAYER_SPECKS for e in res_aus.drawing.entities)
+
+
+def test_gui_schalter_linien_durchziehen(tmp_path):
+    """Häkchen per Mausklick aus/an, umwandeln – Scanpunkte folgen dem Schalter."""
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    QtWidgets = pytest.importorskip("PySide6.QtWidgets")
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    from traceify.gui.main_window import MainWindow
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    w = MainWindow()
+    w.show()
+    p = tmp_path / "raster.png"
+    cv2.imwrite(str(p), _raster())
+    w.panel.ocr.setChecked(False)
+    w.open_file(str(p))
+    n = {}
+    for an in (False, True):
+        for cb in (w.panel.join_lines, w.panel.specks_layer):
+            if cb.isChecked() != an:
+                QTest.mouseClick(cb, Qt.LeftButton, Qt.NoModifier, QPoint(8, cb.height() // 2))
+            assert cb.isChecked() == an
+        st = w.panel.settings().style
+        assert st.join_lines == an and st.specks_layer == an
+        w.drawing = None
+        w.run_convert()
+        end = time.time() + 60
+        while not (w.worker is None and w.drawing is not None):
+            assert time.time() < end
+            app.processEvents()
+            time.sleep(0.02)
+        n[an] = sum(getattr(e, "layer", "") == LAYER_SPECKS for e in w.drawing.entities)
+    assert n[False] == 0 and n[True] >= 15
+    w.close()
+
+
+def test_scanpunkt_neben_schraeger_linie():
+    """Eine schräge Linie hat ein riesiges Hüllrechteck – der Punkt liegt trotzdem frei."""
+    ents = [Line((0, 0), (500, 400)), Line((400, 50), (402, 51))]
+    assert cad.isolate_specks(ents, size=10, free=10, layer=LAYER_SPECKS) == 1
+    assert ents[1].layer == LAYER_SPECKS and ents[0].layer == LAYER_LINES

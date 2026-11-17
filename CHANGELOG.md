@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.37.0 – 17.11.2026
+### Saubere Linien
+- **Zerstückelte Linien werden durchgezogen:** Im Scan zerfällt eine Linie an jeder kreuzenden Linie (Deckenraster, Treppenstufen, Maßlinien) in Stücke, die knapp vor der Kreuzung enden. Liegen zwei Stücke gleicher Art in einer Flucht und wird die Lücke von einer anderen Linie gekreuzt oder ist sie voller Tinte, werden sie wieder eine durchgehende Linie. Lücken auf weißem Papier (vor Maßzahlen, Strichlinien) bleiben. Abschaltbar: Einstellungen → Zerstückelte Linien durchziehen; Stapelregel `linien_durchziehen`.
+- **Scanpunkte auf eigenem Layer:** Kleine, frei stehende Punkte vom Scannen (unter 1 mm, nichts in 1 mm Umkreis) kommen auf den neuen Layer SCANPUNKTE – im CAD mit einem Klick ausblenden oder löschen. Kies bleibt auf KIES. Abschaltbar: Einstellungen → Scanpunkte auf Layer SCANPUNKTE; Stapelregel `scanpunkte_layer`.
+- **Gemessen:** Objekte −2 bis −7 % auf allen 17 Allplan-Plots und 16 Scans, kollineare Stückpaare z. B. PLAN2_EG 670 → 376, PLAN1_EG 222 → 122; Trefferquote, Genauigkeit und Abdeckung unverändert (±0,1 Punkte).
+
 ## 0.36.2 – 17.11.2026
 ### Maßzahlen
 - **„28°“ statt „28⁵“** auch bei ganzen Zahlen (cm-Maße): Scheitert das Nachlesen der kleinen Hochziffer, prüft Traceify ihre Form – ein Gradzeichen ist ein Ring, die Hochziffer 5 nicht. So werden Maße zu „28⁵“, echte Winkel wie „30°“ bleiben. Echte Allplan-Plots: 41 Maße mehr richtig (PLAN2_EG +20), Scans unverändert.

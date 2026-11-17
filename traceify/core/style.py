@@ -40,6 +40,8 @@ class StyleSettings:
     straighten_tol: float = 3.0     # bis zu dieser Abweichung (Grad) wird ausgerichtet
     close_gaps_mm: float = 0.8      # Linienenden bis zu diesem Abstand ans nächste Objekt führen
     spurs_mm: float = 1.5           # kurze Seitenstummel (Fransen) bis zu dieser Länge entfernen
+    join_lines: bool = True         # zerstückelte Linien (an Kreuzungen) zu einer durchgehenden verbinden
+    specks_layer: bool = True       # frei stehende Scanpunkte auf Layer SCANPUNKTE (ausblendbar)
     color_count: int = 0            # 0 = automatisch, sonst feste Anzahl Farben
 
 

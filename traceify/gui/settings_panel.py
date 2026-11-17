@@ -168,6 +168,18 @@ class SettingsPanel(QScrollArea):
                              "Punkte, Rauschen und Punktreihen bleiben außen vor")
         self.dots.setChecked(True)
         f.addRow(self.dots)
+        self.join_lines = QCheckBox("Zerstückelte Linien durchziehen")
+        self.join_lines.setToolTip("Linien, die im Scan an jeder kreuzenden Linie in Stücke zerfallen, werden "
+                                   "wieder eine durchgehende Linie – nur wo die Lücke gekreuzt wird oder "
+                                   "voller Tinte ist. Lücken vor Maßzahlen und Strichlinien bleiben")
+        self.join_lines.setChecked(True)
+        f.addRow(self.join_lines)
+        self.specks_layer = QCheckBox("Scanpunkte auf Layer SCANPUNKTE")
+        self.specks_layer.setToolTip("Kleine, frei stehende Punkte vom Scannen (unter 1 mm, nichts in 1 mm "
+                                     "Umkreis) kommen auf den Layer SCANPUNKTE – im CAD mit einem Klick "
+                                     "ausblenden oder löschen")
+        self.specks_layer.setChecked(True)
+        f.addRow(self.specks_layer)
         self.color_layers = QCheckBox("Farben auf eigene Layer trennen")
         self.color_layers.setToolTip("Farbige Pläne: jede Farbe wird ein Layer (FARBE_ROT, …)")
         f.addRow(self.color_layers)
@@ -365,6 +377,8 @@ class SettingsPanel(QScrollArea):
         st.hatch_layer = self.hatch.isChecked()
         st.hatch_areas = self.hatch_areas.isChecked()
         st.dots = self.dots.isChecked()
+        st.join_lines = self.join_lines.isChecked()
+        st.specks_layer = self.specks_layer.isChecked()
         st.straighten = self.straighten.isChecked()
         st.close_gaps_mm = self.close_gaps.value()
         st.spurs_mm = self.spurs.value()
@@ -414,6 +428,8 @@ class SettingsPanel(QScrollArea):
         self.hatch.setChecked(s.style.hatch_layer)
         self.hatch_areas.setChecked(s.style.hatch_areas)
         self.dots.setChecked(s.style.dots)
+        self.join_lines.setChecked(s.style.join_lines)
+        self.specks_layer.setChecked(s.style.specks_layer)
         self.straighten.setChecked(s.style.straighten)
         self.close_gaps.setValue(s.style.close_gaps_mm)
         self.spurs.setValue(s.style.spurs_mm)
@@ -471,6 +487,7 @@ class SettingsPanel(QScrollArea):
                   "dicke_linien_layer": self.thick, "farben_trennen": self.color_layers,
                   "waende_umriss": self.walls_outline, "schraffur_layer": self.hatch,
                   "schraffur_flaeche": self.hatch_areas, "kies_punkte": self.dots,
+                  "linien_durchziehen": self.join_lines, "scanpunkte_layer": self.specks_layer,
                   "schraege_texte": self.ocr_free, "zahlen_nachlesen": self.ocr_numbers,
                   "woerterbuch": self.ocr_dict, "gerade_ausrichten": self.straighten,
                   "massstab_aus_plan": self.auto_scale, "pdf_vektoren": self.pdf_vectors,

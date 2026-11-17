@@ -827,3 +827,127 @@ def arcs_to_corners(ents: list, share, max_radius: float, min_sweep: float = 45.
         ents.append(Line(P, p1, **attrs))
         n += 1
     return n
+
+
+def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: float = 2.0,
+                   ink_ok=None, skip_layers=()) -> int:
+    """Zerstückelte Linien zu einer durchgehenden Linie verbinden.
+
+    Im Scan zerfällt eine Linie an jeder kreuzenden Linie (Raster, Stufen, Maßlinien) in Stücke,
+    die knapp vor der Kreuzung enden. Zwei Linien gleicher Art (Layer, Linientyp, Stärke, Farbe)
+    werden eins, wenn sie in einer Flucht liegen (Richtung ≤ angle_tol, quer ≤ lateral) und die
+    Lücke zwischen ihnen höchstens ``max_gap`` misst und berührt ist (≤ 1 px), von einem anderen
+    Objekt gekreuzt wird oder ``ink_ok`` dort Tinte sieht. Absichtliche weiße Lücken (vor
+    Maßzahlen, zwischen Strichen) bleiben offen. Gibt die Zahl der Verbindungen zurück."""
+    import numpy as np
+    from scipy.spatial import cKDTree
+    lines = [e for e in ents if isinstance(e, Line) and e.layer not in skip_layers
+             and math.dist(e.p1, e.p2) > 1e-6]
+    if len(lines) < 2:
+        return 0
+    idx = SnapIndex(ents)
+    P = np.array([p for l in lines for p in (l.p1, l.p2)], float)
+    parent = list(range(len(lines)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def kind(l):
+        return (l.layer, l.linetype, l.lineweight, l.color)
+
+    def crossed(p, q, a, b) -> bool:
+        c, r = ((p[0] + q[0]) / 2, (p[1] + q[1]) / 2), math.dist(p, q) / 2 + 2
+        for src in near_entities(idx.query(c, r), c, r):
+            if src is a or src is b:
+                continue
+            if any(intersections(Seg(p, q, None), pr) for pr in primitives(src)):
+                return True
+        return False
+    cos_tol = math.cos(math.radians(angle_tol))
+    n = 0
+    for i, j in sorted(cKDTree(P).query_pairs(max_gap), key=lambda t: math.dist(P[t[0]], P[t[1]])):
+        a, b = lines[i // 2], lines[j // 2]
+        if a is b or kind(a) != kind(b) or find(i // 2) == find(j // 2):
+            continue
+        ua = (a.p2[0] - a.p1[0], a.p2[1] - a.p1[1])
+        ub = (b.p2[0] - b.p1[0], b.p2[1] - b.p1[1])
+        na, nb = math.hypot(*ua), math.hypot(*ub)
+        if abs(ua[0] * ub[0] + ua[1] * ub[1]) < cos_tol * na * nb:
+            continue
+        nx, ny = -ua[1] / na, ua[0] / na
+        if any(abs((p[0] - a.p1[0]) * nx + (p[1] - a.p1[1]) * ny) > lateral for p in (b.p1, b.p2)):
+            continue
+        ux, uy = ua[0] / na, ua[1] / na
+        tb = sorted(((p[0] - a.p1[0]) * ux + (p[1] - a.p1[1]) * uy) for p in (b.p1, b.p2))
+        gap = max(tb[0] - na, -tb[1])
+        if gap < -lateral:                     # überlappen deutlich: keine Fortsetzung
+            continue
+        p, q = tuple(P[i]), tuple(P[j])
+        if gap > 1.0 and not crossed(p, q, a, b) and not (ink_ok is not None and ink_ok(p, q)):
+            continue
+        parent[find(j // 2)] = find(i // 2)
+        n += 1
+    if not n:
+        return 0
+    groups = {}
+    for k in range(len(lines)):
+        groups.setdefault(find(k), []).append(lines[k])
+    drop = set()
+    for grp in groups.values():
+        if len(grp) < 2:
+            continue
+        # gemeinsame Gerade: längengewichtete Richtung, Lage durch den gewichteten Schwerpunkt
+        ref = grp[0]
+        rx, ry = ref.p2[0] - ref.p1[0], ref.p2[1] - ref.p1[1]
+        sx = sy = cx = cy = W = 0.0
+        for l in grp:
+            dx, dy = l.p2[0] - l.p1[0], l.p2[1] - l.p1[1]
+            if dx * rx + dy * ry < 0:
+                dx, dy = -dx, -dy
+            L = math.hypot(dx, dy)
+            sx, sy, W = sx + dx, sy + dy, W + L
+            cx, cy = cx + L * (l.p1[0] + l.p2[0]) / 2, cy + L * (l.p1[1] + l.p2[1]) / 2
+        d = math.hypot(sx, sy)
+        ux, uy, cx, cy = sx / d, sy / d, cx / W, cy / W
+        ts = [((p[0] - cx) * ux + (p[1] - cy) * uy) for l in grp for p in (l.p1, l.p2)]
+        ref.p1 = (cx + min(ts) * ux, cy + min(ts) * uy)
+        ref.p2 = (cx + max(ts) * ux, cy + max(ts) * uy)
+        drop.update(id(l) for l in grp[1:])
+    ents[:] = [e for e in ents if id(e) not in drop]
+    return n
+
+
+def _dist_to(e, p: Point) -> float:
+    """Kleinster Abstand von p zum Objekt (Hüllrechtecke allein täuschen bei schrägen Linien)."""
+    d = math.inf
+    for pr in primitives(e):
+        q = closest_on_seg(pr.a, pr.b, p) if isinstance(pr, Seg) else closest_on_circ(pr, p)
+        d = min(d, math.dist(p, q))
+    return d
+
+
+def isolate_specks(ents: list, size: float, free: float, layer: str) -> int:
+    """Scanflecken: kleine Objekte (Ausdehnung < size), die frei stehen (kein anderes Objekt
+    näher als ``free``), kommen auf ``layer`` – im CAD mit einem Klick ausblendbar. Kies (eigener
+    Layer) und Texte bleiben. Gibt die Zahl der verschobenen Objekte zurück."""
+    from .model import LAYER_GRAVEL
+    geo = [e for e in ents if not isinstance(e, (Text, Insert)) and e.layer != LAYER_GRAVEL]
+
+    def extent(e):
+        b = _bbox(e)
+        return max(b[2] - b[0], b[3] - b[1])
+    idx = SnapIndex(geo)
+    n = 0
+    for e in geo:
+        if e.layer == layer or extent(e) >= size:
+            continue
+        x0, y0, x1, y1 = _bbox(e)
+        c, r = ((x0 + x1) / 2, (y0 + y1) / 2), extent(e) / 2 + free
+        if any(o is not e and _dist_to(o, c) <= r for o in near_entities(idx.query(c, r), c, r)):
+            continue
+        e.layer = layer
+        n += 1
+    return n

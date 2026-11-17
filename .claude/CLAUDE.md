@@ -49,7 +49,8 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
   `quality.py` (Ampel), `dots.py` (Kies/Punktfelder → Kreise auf KIES), `dimensions.py` (Maßzahlen gezielt lesen: Lücke der Maßlinie, zwischen Sternen, Paar über/unter der Linie; `merge` ersetzt verlesene Zahlen), `edit.py` (Ecke, Ausrichten inkl. Polylinien `align_axes`, Lücken, Knoten),
   `hatch.py` (Schraffur-Flächen für den DXF-Export: Rasternummern per Nachbarschaft,
   Ausgleichsgerade, Reste anhängen), `cad.py` (Fang, Schnittpunkte, Stutzen, Dehnen, SnapIndex,
-  `close_gaps`, `remove_spurs`).
+  `close_gaps`, `remove_spurs`, `join_collinear` = an Kreuzungen zerfallene Linien durchziehen,
+  `isolate_specks` = frei stehende Scanpunkte < 1 mm auf Layer SCANPUNKTE).
 - `core/benchmark.py` + `tools/pruefstand.py` – Prüfstand (Objekte, Splitter, Abdeckung,
   Texte), `core/dxf_import.py` liest fremde DXF (z. B. eines kommerziellen Vektorisierungsprogramms) und richtet sie aufs Bild aus.
   Echte Scans liegen **nicht** im Repo (Datenschutz) – der Nutzer liefert sie bei Bedarf.

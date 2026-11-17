@@ -319,7 +319,7 @@ ACTIONS_DOC = """Verfügbare Aktionen (nur verwenden, wenn der Nutzer etwas ver�
          boegen (bool), kreise (bool), nur_polylinien (bool), min_laenge (px), eckenwinkel (Grad),
          ocr (bool), ocr_sprache ("deu+eng" …), massstab_mm_pro_px (Zahl),
          strichlinien (bool), strichstaerken (bool), dicke_linien_layer (bool),
-         waende_umriss (bool), schraffur_layer (bool), schraffur_flaeche (bool), kies_punkte (bool),
+         waende_umriss (bool), schraffur_layer (bool), schraffur_flaeche (bool), kies_punkte (bool), linien_durchziehen (bool), scanpunkte_layer (bool),
          schraege_texte (bool),
          zahlen_nachlesen (bool), woerterbuch (bool),
          gerade_ausrichten (bool), luecken_mm (0–5 mm, 0=aus), fransen_mm (0–5 mm, 0=aus),

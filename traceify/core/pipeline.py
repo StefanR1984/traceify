@@ -280,6 +280,12 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         # bis 0,8 mm immer; bis zum 2,5-Fachen nur, wo der Scan durchgehend Tinte zeigt
         close_gaps(ents, settings.style.close_gaps_mm / dpi_scale,
                    far=2.5 * settings.style.close_gaps_mm / dpi_scale, ink_ok=ink_ok)
+    if settings.style.join_lines and settings.vectorize.mode == MODE_CENTERLINE:
+        from .cad import ink_checker, join_collinear
+        # an Kreuzungen zerfallene Linien wieder durchziehen (Lücke gekreuzt oder voller Tinte)
+        join_collinear(ents, 1.0 / dpi_scale, lateral=max(1.5, 0.15 / dpi_scale),
+                       ink_ok=None if ink_gray is None else ink_checker(ink_gray),
+                       skip_layers=(LAYER_DASHED,))
     if settings.style.hatch_layer and not groups and settings.vectorize.mode == MODE_CENTERLINE:
         from .cad import extend_hatch_ends, ink_checker
         # zweiter Durchgang: nach Ausrichten, Fransen und Lückenschließen sind die Striche
@@ -293,6 +299,10 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         from .style import drop_loose_hatch
         # lose Striche ohne Fläche und ohne Kanten (Handschrift, Möbel) sind keine Schraffur
         drop_loose_hatch(ents, find_regions(ents), 3.0 / dpi_scale, 10.0 / dpi_scale)
+    if settings.style.specks_layer:
+        from .cad import isolate_specks
+        from .model import LAYER_SPECKS
+        isolate_specks(ents, 1.0 / dpi_scale, 1.0 / dpi_scale, LAYER_SPECKS)
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + gravel + texts, source=source)
