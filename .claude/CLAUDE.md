@@ -54,12 +54,13 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
   Texte), `core/dxf_import.py` liest fremde DXF (z. B. eines kommerziellen Vektorisierungsprogramms) und richtet sie aufs Bild aus.
   Echte Scans liegen **nicht** im Repo (Datenschutz) – der Nutzer liefert sie bei Bedarf.
 - `core/truth.py` + `tools/wahrheit.py` – **Wahrheits-Prüfstand**: Original-CAD-DXF (Allplan,
-  `Testdaten Traceify/dxf/dxf/PLAN1–3_*.dxf`, Einheit m) → simulierter Scan (1:100, 150 dpi,
+  `Testdaten Traceify/dxf neu/dxf neu/PLAN1–3_*.dxf`, Einheit m; Standard seit 17.11., mit Maßketten als LINE/MTEXT
+  und PLAN1_Dach – die alten ohne Maßketten in `Testdaten Traceify/dxf/dxf/` bleiben als Vergleich) → simulierter Scan (1:100, 150 dpi,
   Strich 0,25 mm, Rauschen) → Traceify → Messung gegen die Originalgeometrie (Trefferquote,
   Genauigkeit, Lagefehler in Papier-mm, Objekte, Bögen, Ortho, Wörter). Abbildung ist exakt
   bekannt, keine Lage-Schätzung. Noch ohne Füllflächen (SOLID) und ohne Schräglage.
   Geometrie in Textbereichen des Originals zählt nicht (Schrift → Wörter-Spalte).
-  Aufruf: `python tools/wahrheit.py "Testdaten Traceify/dxf/dxf" --jobs 4 --bilder <tmp>` (~4 min, 17 Pläne).
+  Aufruf: `python tools/wahrheit.py "Testdaten Traceify/dxf neu/dxf neu" --jobs 4 --bilder <tmp>` (~6 min, 18 Pläne).
   **Echte Plots (alle 17):** `Testdaten Traceify/PDF/PLAN*.pdf` = Allplan-Rasterplots, A3 quer, 300 dpi; PLAN1 1:200,
   PLAN2 1:100, PLAN3 1:350. `--scans "Testdaten Traceify/PDF" --jobs 4` (~6 min) erkennt den Maßstab je Plan
   (`truth.scan_scale`: Schätzung aus der Ausdehnung ±30 %, dann übliche Maßstäbe + Vielfache von 25, bestes
@@ -122,28 +123,29 @@ Achtung: Auch das Vergleichsprogramm liest viel Unsinn („sightwal“, „poe�
 Wort-Übereinstimmung ist kein Wahrheitsmaßstab. Schraffur als HATCH: Einzellinien übrig
 image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert).
 
-**Messbasis echte Plots, Stand 0.35.0 / 0.36.0 (Kies-Fläche), neue DXF** (17.11., `Testdaten Traceify/dxf neu/dxf neu`,
-alle 17 Allplan-Plots, 300 dpi, mit Tesseract, `--jobs 4`; „gedruckt“ = Tinte < 160 plus kleine hellgraue Teile ≤ 1 mm
-(`truth._printed_ink`) – nur < 210 überall ließ PLAN1 auf 50 % fallen, graue Füllflächen decken ausgeblendete Objekte):
-| Plan (1:N) | Treffer | Genauigk. | Lage 95 % mm | Objekte (Orig.) | Bögen (Orig.) | Ortho (Orig.) | Wörter richtig/falsch |
-|---|---|---|---|---|---|---|---|
-| PLAN1_EG (200) | 97,3 % | 99,0 % | 0,162 | 2925 (20958) | 86 (198) | 79 (89) % | 64 von 91 / 15 |
-| PLAN1_OG1 (200) | 93,8 % | 98,8 % | 0,162 | 677 (2941) | 16 (10) | 52 (81) % | 2 von 3 / 2 |
-| PLAN1_UG (200) | 93,8 % | 99,1 % | 0,243 | 2630 (13026) | 120 (94) | 79 (87) % | 63 von 114 / 20 |
-| PLAN2_Dach (100) | 93,9 % | 100,0 % | 0,162 | 7267 → **2814** (10699), 35 Kies-Fl. | 21 (8035) | 82 (89) % | 19 von 32 / 17 |
-| PLAN2_EG (100) | 95,3 % | 98,6 % | 0,243 | 5292 (11901) | 222 (94) | 76 (84) % | 141 von 239 / 104 |
-| PLAN2_OG1 (100) | 97,2 % | 99,3 % | 0,162 | 4821 (11734) | 125 (93) | 76 (84) % | 106 von 168 / 88 |
-| PLAN2_OG2 (100) | 96,8 % | 99,3 % | 0,162 | 4781 (11149) | 135 (99) | 73 (83) % | 96 von 167 / 97 |
-| PLAN2_OG3 (100) | 97,1 % | 98,2 % | 0,162 | 5126 → **3648** (10638), 11 Kies-Fl. | 111 (2708) | 84 (91) % | 81 von 149 / 76 |
-| PLAN3_DG (350) | 48,5 % | 87,1 % | 0,359 | 57 (256) | 2 (0) | 97 (53) % | 2 von 6 / 1 |
-| PLAN3_EG (350) | 88,8 % | 98,3 % | 0,162 | 3613 (84511) | 234 (4195) | 56 (73) % | 61 von 162 / 39 |
-| PLAN3_OG1 (350) | 90,1 % | 97,8 % | 0,243 | 3437 (64112) | 195 (4108) | 58 (70) % | 57 von 280 / 23 |
-| PLAN3_OG2 (350) | 90,3 % | 98,8 % | 0,232 | 3049 (60343) | 173 (4069) | 59 (74) % | 38 von 237 / 21 |
-| PLAN3_OG3 (350) | 94,8 % | 99,6 % | 0,162 | 1963 (64363) | 27 (979) | 72 (88) % | 14 von 140 / 2 |
-| PLAN3_OG4 (350) | 99,6 % | 100,0 % | 0,116 | 315 (938) | 22 (19) | 90 (98) % | 15 von 19 / 5 |
-| PLAN3_UG1 (350) | 91,8 % | 98,1 % | 0,162 | 3442 (56418) | 271 (4401) | 66 (75) % | 70 von 363 / 47 |
-| PLAN3_UG2 (350) | 99,9 % | 99,7 % | 0,162 | 172 (367) | 8 (6) | 98 (100) % | 10 von 15 / 5 |
-| PLAN3_UG3 (350) | 100,0 % | 100,0 % | 0,162 | 47 (72) | 0 (0) | 99 (100) % | 3 von 5 / 2 |
+**Messbasis echte Plots, Stand 0.36.1** (17.11., `Testdaten Traceify/dxf neu/dxf neu`, alle 17 Allplan-Plots, 300 dpi,
+mit Tesseract, `--jobs 4`; „gedruckt“ = Tinte < 160 plus kleine hellgraue Teile ≤ 1 mm (`truth._printed_ink`) – nur < 210
+überall ließ PLAN1 auf 50 % fallen, graue Füllflächen decken ausgeblendete Objekte; Wörter/Texte ab 0.36.1 gezählt mit
+zusammengeführten Hochziffern und ohne Schrift < 0,6 mm, „Texte richtig“ = je gedrucktem Text, Pfeil = 0.36.0 → 0.36.1):
+| Plan (1:N) | Treffer | Genauigk. | Lage 95 % mm | Objekte (Orig.) | Bögen (Orig.) | Ortho (Orig.) | Wörter richtig/falsch | Texte richtig |
+|---|---|---|---|---|---|---|---|---|
+| PLAN1_EG (200) | 97,3 % | 99,0 % | 0,162 | 2925 (20958) | 86 (198) | 79 (89) % | 64 von 87 / 15 | 146 von 245 |
+| PLAN1_OG1 (200) | 93,8 % | 98,8 % | 0,162 | 677 (2941) | 16 (10) | 52 (81) % | 2 von 3 / 2 | 2 von 3 |
+| PLAN1_UG (200) | 93,8 % | 99,1 % | 0,243 | 2630 (13026) | 120 (94) | 79 (87) % | 63 von 114 / 20 | 98 von 284 |
+| PLAN2_Dach (100) | 94,0 % | 100,0 % | 0,162 | 2814 (10699), 35 Kies-Fl. | 21 (8035) | 82 (89) % | 27 von 32 / 9 | 79 von 107 |
+| PLAN2_EG (100) | 95,3 % | 98,6 % | 0,243 | 5292 (11901) | 222 (94) | 76 (84) % | 193 von 258 / 50 | 356 → **371** von 637 |
+| PLAN2_OG1 (100) | 97,2 % | 99,3 % | 0,162 | 4821 (11734) | 125 (93) | 76 (84) % | 148 von 192 / 46 | 304 → **313** von 558 |
+| PLAN2_OG2 (100) | 96,8 % | 99,3 % | 0,162 | 4783 (11149) | 135 (99) | 73 (83) % | 135 von 185 / 57 | 281 → **285** von 509 |
+| PLAN2_OG3 (100) | 97,1 % | 98,1 % | 0,162 | 3648 (10638), 11 Kies-Fl. | 111 (2708) | 84 (91) % | 112 von 161 / 45 | 196 von 402 |
+| PLAN3_DG (350) | 48,5 % | 87,1 % | 0,359 | 57 (256) | 2 (0) | 97 (53) % | 2 von 6 / 1 | 0 von 2 |
+| PLAN3_EG (350) | 88,8 % | 98,3 % | 0,162 | 3613 (84511) | 234 (4195) | 56 (73) % | 61 von 165 / 39 | 55 von 305 |
+| PLAN3_OG1 (350) | 90,1 % | 97,8 % | 0,243 | 3437 (64112) | 195 (4108) | 58 (70) % | 55 von 99 / 25 | 35 von 108 |
+| PLAN3_OG2 (350) | 90,3 % | 98,8 % | 0,232 | 3049 (60343) | 173 (4069) | 59 (74) % | 35 von 71 / 24 | 16 von 67 |
+| PLAN3_OG3 (350) | 94,8 % | 99,6 % | 0,162 | 1963 (64363) | 27 (979) | 72 (88) % | 14 von 24 / 2 | 10 von 21 |
+| PLAN3_OG4 (350) | 99,6 % | 100,0 % | 0,116 | 315 (938) | 22 (19) | 90 (98) % | 15 von 19 / 5 | 14 von 19 |
+| PLAN3_UG1 (350) | 91,8 % | 98,1 % | 0,162 | 3442 (56418) | 271 (4401) | 66 (75) % | 70 von 402 / 47 | 59 von 1133 |
+| PLAN3_UG2 (350) | 99,9 % | 99,7 % | 0,162 | 172 (367) | 8 (6) | 98 (100) % | 10 von 15 / 5 | 8 von 14 |
+| PLAN3_UG3 (350) | 100,0 % | 100,0 % | 0,162 | 47 (72) | 0 (0) | 99 (100) % | 3 von 5 / 2 | 1 von 3 |
 
 **Neue DXF (17.11.):** gleiche Geometrie, Layer ohne Präfix `XR$1$`; PLAN2/PLAN3 enthalten jetzt die Maßketten –
 nicht als DIMENSION, sondern aufgelöst als LINE/MTEXT (ARC, LWPOLYLINE) auf `MA_LINIE_1_50` (PLAN2) bzw.
@@ -155,6 +157,15 @@ Objekte, Schraffur/Kleinteile). Kies auf PLAN2_Dach/OG3: im Plot hellgraue Ringe
 **Simuliert (neue DXF, 0.35.0):** Treffer 87,6–100 %, Genauigkeit 96,0–100 %, Lage 95 % ≤ 0,23 mm; Wörter z. B.
 PLAN2_EG 46 von 299 / 53 falsch, PLAN3_UG1 125 von 374 / 70 (Maßzahlen jetzt im Original). 0.36.0 Kies-Fläche:
 Dach 6427 → 2130 Objekte (22 Flächen), OG3 4131 → 2975, Treffer gleich (89,4 / 87,6 %).
+**Schrift auf den echten Plots (Analyse 17.11., 8 Pläne, je gedrucktem Text):** (1) Prüfstand-Artefakt: Allplan löst
+Maße in Hauptzahl + kleine Hochziffer als **zwei** MTEXT auf („2“ + „5“), Traceify liest richtig „2⁵“ → galt als falsch.
+`truth.merge_superscripts` fügt sie zusammen (rechts oben, 0,4–0,8 der Höhe): je Text 13,7 → 31,9 % richtig, Wörter
+PLAN2_EG 141 → 193, falsch 104 → 52. (2) PLAN3_OG1–3: Schrift 0,17–0,5 mm Papier (2–6 px) – zählt nicht mehr
+(`MIN_TEXT_MM` 0,6). (3) PLAN3_UG1: die 1,5–2-mm-Texte sind übereinander gedruckte Maß-Knäuel (1133 Texte, 59 richtig),
+nicht lesbar. (4) Lesefehler „2.75°“ statt „2.75⁵“ (62 Stellen auf PLAN2): Hochziffer gefunden, Einzel-Nachlesen
+scheitert (an der Maßlinie angeschnitten) → **0.36.1** `ocr._DIM2`: Maß d.dd + Zeichen dahinter = ⁵. Echt Texte
+1660 → 1688, Simulation und 16 Scans unverändert. Offen: „275°“ (Punkt fehlt), reine Zahlen (cm-Maße „25“, „30“)
+nur 14–40 % richtig, Maße auf PLAN2 noch ~25 % verlesen; Raumstempel („0.27 Druckerpool“) oft nur teilweise.
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

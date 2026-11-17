@@ -321,6 +321,9 @@ def fix_numbers(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
 SUPERSCRIPT = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
 # Zahl, dahinter evtl. ein Zeichen, als das Tesseract eine Hochziffer liest („36°“, „10.61"“)
 _NUM_TAIL = re.compile(r"^(\d+(?:[.,]\d+)?)([°\"'’”*^?]?)$")
+# Maß in m mit zwei Nachkommastellen: ein Zeichen dahinter ist immer die Hochziffer (Allplan: ⁵),
+# ein Winkel „2.75°“ kommt in Plänen nicht vor
+_DIM2 = re.compile(r"^\d{1,2}[.,]\d{2}$")
 
 
 def _superscript_box(bw: np.ndarray, box):
@@ -364,7 +367,7 @@ def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
     import cv2
     from . import textlines
     bw = (gray < 128).astype(np.uint8)
-    cands = []
+    cands, out = [], list(raw)
     for i, (key, x, y, w, h, txt, conf) in enumerate(raw):
         m = _NUM_TAIL.match(txt)
         if conf < 30 or not m or h < 8:
@@ -375,6 +378,8 @@ def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
             continue
         found = _superscript_box(bw, (x, y, w, h))
         if found is None:
+            if m.group(2) and _DIM2.match(m.group(1)):
+                out[i] = (key, x, y, w, h, m.group(1) + "⁵", conf)
             continue
         sup, n_full = found
         main, tail = m.group(1), m.group(2)
@@ -387,7 +392,7 @@ def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
             continue
         cands.append((i, main, sup))
     if not cands:
-        return raw
+        return out
     crops = []
     for _, _, (sx, sy, sw, sh) in cands:
         p = max(2, int(0.35 * sh))
@@ -396,11 +401,15 @@ def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
         crops.append(cv2.resize(c, (max(1, int(round(c.shape[1] * f))), textlines.LINE_H),
                                 interpolation=cv2.INTER_CUBIC))
     res = (run_lines or textlines._tesseract_lines)(crops, s, NUM_WHITELIST)
-    out, drop = list(raw), set()
+    drop = set()
     for (i, main, (sx, sy, sw, sh)), (t, c) in zip(cands, res):
         t = (t or "").strip()
         if len(t) != 1 or not t.isdigit() or c < 50:
-            continue
+            # Hochziffer an der Maßlinie angeschnitten, Nachlesen scheitert
+            m = _NUM_TAIL.match(raw[i][5])
+            if not (m.group(2) and _DIM2.match(main)):
+                continue
+            t = "5"
         key, x, y, w, h, _, conf = raw[i]
         x1, y1 = max(x + w, sx + sw), max(y + h, sy + sh)
         # Zahl + kleine hochgestellte Ziffer ist ein starkes Muster: unsichere Lesung reicht

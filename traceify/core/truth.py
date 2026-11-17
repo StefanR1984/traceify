@@ -14,6 +14,7 @@ den Umweg über ein anderes Programm:
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from typing import List, Tuple
 
@@ -132,6 +133,56 @@ def _area_mask(areas, shape) -> np.ndarray:
     return A > 0
 
 
+MIN_TEXT_MM = 0.6      # kleinere Originalschrift (Papier) zählt nicht bei den Wörtern: < 7 px bei 300 dpi
+_SUP = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+
+
+def merge_superscripts(texts: list) -> list:
+    """Allplan zerlegt Maße beim Auflösen in Hauptzahl und kleine Hochziffer („2“ + „5“ = 2⁵).
+
+    Eine kleine Ziffernfolge (0,4–0,8 der Höhe, gleiche Richtung) rechts oben hinter einer Zahl
+    wird deren Hochziffer – so wie Traceify sie liest. Bildpixel, y nach unten."""
+    num = [t for t in texts if re.fullmatch(r"[\d.,]+", t.text.strip())]
+    used, out = set(), []
+    for s in texts:
+        if not re.fullmatch(r"\d{1,2}", s.text.strip()):
+            continue
+        best = None
+        for m in num:
+            if m is s or not 0.4 <= s.height / m.height <= 0.8 or abs((s.angle - m.angle + 180) % 360 - 180) > 2:
+                continue
+            a = math.radians(m.angle)
+            dx, dy = s.position[0] - m.position[0], s.position[1] - m.position[1]
+            x = (dx * math.cos(a) - dy * math.sin(a)) / m.height       # entlang der Schrift
+            y = (-dx * math.sin(a) - dy * math.cos(a)) / m.height      # nach oben
+            n = len(m.text.strip())
+            if 0.2 <= x <= 0.75 * n + 1.0 and 0.2 <= y <= 1.2:
+                d = abs(x - 0.7 * n) + abs(y - 0.6)
+                if best is None or d < best[0]:
+                    best = (d, m)
+        if best is not None and id(best[1]) not in used:
+            used |= {id(best[1]), id(s)}
+            m = best[1]
+            out.append(Text(m.text.strip() + s.text.strip().translate(_SUP), m.position, m.height,
+                            m.angle, m.layer))
+    return out + [t for t in texts if id(t) not in used]
+
+
+def _texts_right(truth_texts: list, mine: list) -> int:
+    """Je gedrucktem Originaltext: alle seine Wörter stehen in Traceify-Texten in der Nähe (Abstand der
+    Einfügepunkte ≤ Texthöhe × (Zeichen + 3)). Zählt wiederholte Maße einzeln – anders als `woerter`."""
+    from scipy.spatial import cKDTree
+    if not mine:
+        return 0
+    tree = cKDTree(np.array([m.position for m in mine], float))
+    n = 0
+    for t in truth_texts:
+        w = words([t])
+        if w and w <= words(mine[i] for i in tree.query_ball_point(t.position, t.height * (len(t.text) + 3))):
+            n += 1
+    return n
+
+
 def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.3,
             areas: list = ()) -> dict:
     """Misst Traceify-Objekte (Bildpixel) gegen die Originalgeometrie (Bildpixel).
@@ -180,8 +231,10 @@ def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.
 
     mg = [e for e in mg if not in_text(e)]
     off = dT[m_px] * mm_per_px                  # Abstand Traceify -> Original, Papier-mm
-    wt, wm = words(e for e in truth if isinstance(e, Text)), words(e for e in ents
-                                                                     if isinstance(e, Text))
+    tt = [t for t in merge_superscripts([e for e in truth if isinstance(e, Text)])
+          if t.height * mm_per_px >= MIN_TEXT_MM]
+    mt = [e for e in ents if isinstance(e, Text)]
+    wt, wm = words(tt), words(mt)
     return {
         "trefferquote": round(float((dM[t_px] <= tol).mean()) if t_px.any() else 0.0, 4),
         "genauigkeit": round(float((dT[m_px] <= tol).mean()) if m_px.any() else 0.0, 4),
@@ -194,6 +247,7 @@ def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.
         "ortho": round(ortho_share(mg), 4), "ortho_original": round(ortho_share(tg), 4),
         "woerter": len(wt & wm), "woerter_original": len(wt),
         "woerter_falsch": len(wm - wt),
+        "texte_richtig": _texts_right(tt, mt), "texte_original": sum(1 for t in tt if words([t])),
     }
 
 

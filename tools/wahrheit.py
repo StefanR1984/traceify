@@ -29,8 +29,9 @@ from traceify.api import load_settings  # noqa: E402
 from traceify.core.truth import run, run_real  # noqa: E402
 
 KOPF = ("| Datei | Bild px | Zeit s | Trefferquote | Genauigkeit | Lage Median mm | Lage 95 % mm "
-        "| Objekte (Original) | Bögen (Original) | Ortho (Original) | Wörter richtig | Wörter falsch |\n"
-        "|---|---|---|---|---|---|---|---|---|---|---|---|")
+        "| Objekte (Original) | Bögen (Original) | Ortho (Original) | Wörter richtig | Wörter falsch "
+        "| Texte richtig |\n"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 SCAN_EXT = (".pdf", ".png", ".tif", ".tiff", ".jpg", ".jpeg", ".bmp")
 
 
@@ -45,7 +46,7 @@ def zeile(name: str, r: dict) -> str:
             f"{r['lage_median_mm']} | {r['lage_p95_mm']} | {r['objekte']} ({r['objekte_original']}){_kies(r)} | "
             f"{r['boegen']} ({r['boegen_original']}) | {r['ortho'] * 100:.0f} % "
             f"({r['ortho_original'] * 100:.0f} %) | {r['woerter']} von {r['woerter_original']} | "
-            f"{r['woerter_falsch']} |")
+            f"{r['woerter_falsch']} | {r['texte_richtig']} von {r['texte_original']} |")
 
 
 def _name(r: dict) -> str:

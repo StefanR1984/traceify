@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.1 – 17.11.2026
+### Maßzahlen
+- **„2.75°“ statt „2.75⁵“:** Klebt die kleine Hochziffer an der Maßlinie, las Tesseract sie als Gradzeichen und das Nachlesen der einzelnen Ziffer scheiterte. Ein Maß mit zwei Nachkommastellen bekommt jetzt die Hochziffer ⁵ (Winkel wie „2.75°“ kommen in Plänen nicht vor; „30°“ bleibt). Echte Allplan-Plots: 28 Maße mehr richtig (PLAN2_EG +15), Scans unverändert.
+### Prüfstand
+- Wahrheits-Prüfstand zählt Schrift ehrlicher: Allplan zerlegt Maße beim Auflösen in Hauptzahl und kleine Hochziffer (zwei Texte) – diese werden zusammengeführt, wie Traceify sie liest. Originalschrift unter 0,6 mm auf dem Papier zählt nicht mehr (unlesbar klein). Neue Spalte „Texte richtig“ je gedrucktem Text (wiederholte Maße zählen einzeln).
+
 ## 0.36.0 – 17.11.2026
 ### Kies als Fläche
 - **Kies-Fläche statt tausender Kreise:** Im DXF/DWG wird jedes Kiesfeld eine Schraffur-Fläche (HATCH) mit Punktmuster auf dem Layer KIES – Umriss knapp hinter den äußeren Punkten, Punktabstand wie im Scan gemessen. Im CAD lässt sich der Kies als Ganzes auswählen, ändern oder löschen. Der SVG-Export zeigt dieselbe Fläche mit Punktmuster. Kleine Gruppen und abgerissene Randpunkte bleiben Kreise. Schalter: „Schraffur und Kies als Fläche“ (Einstellungen) bzw. Ansicht → Schraffur als Fläche; die Zeichenfläche zeigt weiterhin die Kreise.

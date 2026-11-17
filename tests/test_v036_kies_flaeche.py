@@ -124,3 +124,35 @@ def test_gui_kies_flaeche_schalter_und_export(tmp_path, monkeypatch):
             assert sum(e.dxftype() == "CIRCLE" for e in kies) > 600
             assert not any(e.dxftype() == "HATCH" for e in kies)
     w.close()
+
+
+def test_gradzeichen_hinter_mass_ohne_hochziffer_box():
+    """„2.75°“ ohne gefundene Hochziffer (verschmolzen mit der Maßlinie) wird „2.75⁵“, Winkel bleiben."""
+    from traceify.core.ocr import OcrSettings, fix_superscripts
+    g = np.full((60, 200), 255, np.uint8)                  # leer: keine Hochziffer-Komponente
+    raw = [((1, 1, 1), 10, 10, 40, 18, "2.75°", 90.0), ((1, 1, 2), 100, 10, 30, 18, "30°", 90.0),
+           ((1, 1, 3), 150, 10, 30, 18, "2.5°", 90.0)]
+    out = fix_superscripts(g, raw, OcrSettings(), lambda c, s, e="": [])
+    assert [r[5] for r in out] == ["2.75⁵", "30°", "2.5°"]
+
+
+def test_wahrheit_hochziffer_als_eigener_text():
+    """Aufgelöste Allplan-Maße: Hauptzahl und kleine Hochziffer sind zwei Texte."""
+    from traceify.core.model import Text
+    m = Text("2.75", (100, 200), 15.0, 0.0)
+    s = Text("5", (100 + 0.7 * 4 * 15, 200 - 9), 9.0, 0.0)
+    v = Text("1", (300, 300), 15.0, 90.0)                 # senkrecht, liest nach oben
+    sv = Text("5", (300 - 9, 300 - 11), 9.0, 90.0)
+    fremd = Text("7", (500, 500), 9.0, 0.0)
+    out = sorted(t.text for t in truth.merge_superscripts([m, s, v, sv, fremd]))
+    assert out == ["1⁵", "2.75⁵", "7"]
+
+
+def test_wahrheit_texte_je_vorkommen():
+    """Wiederholte Maße zählen je Text: eins richtig gelesen, eins verlesen → 1 von 2 (Wörter: 1 von 1)."""
+    from traceify.core.model import Text
+    orig = [Text("2.75", (100, 100), 15.0), Text("2.75", (400, 100), 15.0)]
+    mine = [Text("2.75", (102, 101), 15.0), Text("2.15", (401, 100), 15.0)]
+    r = truth.compare(orig, mine, (300, 600), 0.1)
+    assert r["texte_richtig"] == 1 and r["texte_original"] == 2
+    assert r["woerter"] == 1 and r["woerter_falsch"] == 1

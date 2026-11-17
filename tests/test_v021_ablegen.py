@@ -99,9 +99,13 @@ def test_hochziffer_hinter_mass_wird_gelesen():
     out = fix_superscripts(g, raw, OcrSettings(), fake)
     assert asked == [1]                                   # nur hinter 2.38 steht eine
     assert sorted(r[5] for r in out) == ["2.38⁵", "3.76"]
-    # unsichere Nachlesung (mehrere Zeichen) ändert nichts
+    # unsichere Nachlesung (mehrere Zeichen): Maß mit zwei Nachkommastellen bekommt trotzdem ⁵
+    # (Hochziffer an der Maßlinie angeschnitten, 0.36), andere Zahlen bleiben unverändert
     out = fix_superscripts(g, raw, OcrSettings(), lambda c, s, e="": [("55", 90.0)])
-    assert sorted(r[5] for r in out) == ["2.38°", "3.76"]
+    assert sorted(r[5] for r in out) == ["2.38⁵", "3.76"]
+    raw2 = [(raw[0][:5] + ("23°", 70.0))] + raw[1:]
+    out = fix_superscripts(g, raw2, OcrSettings(), lambda c, s, e="": [("55", 90.0)])
+    assert sorted(r[5] for r in out) == ["23°", "3.76"]
 
 
 def test_allplan_mtext_drehung_hochziffer_ausrichtung():
