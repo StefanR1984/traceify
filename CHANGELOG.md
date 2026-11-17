@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.37.1 – 17.11.2026
+### Maßzahlen
+- **Verlorener Dezimalpunkt:** „141⁵“ wird „1.41⁵“ – Allplan schreibt Maße ab 1 m immer mit Punkt, darunter in cm („88⁵“); drei Ziffern mit Hochziffer sind also ein Maß, dessen kleiner Punkt im Scan verloren ging. Echte Winkel („135°“) bleiben.
+- **Hochziffer als „%“ gelesen:** „2.41%“ wird „2.41⁵“ (ein Prozentwert mit zwei Nachkommastellen kommt im Plan nicht vor; „2%“ bleibt).
+- **Gemessen:** echte Allplan-Plots 24 Texte mehr richtig, 22 falsche Wörter weniger; Simulation +43 / −34; Scans unverändert.
+
 ## 0.37.0 – 17.11.2026
 ### Saubere Linien
 - **Zerstückelte Linien werden durchgezogen:** Im Scan zerfällt eine Linie an jeder kreuzenden Linie (Deckenraster, Treppenstufen, Maßlinien) in Stücke, die knapp vor der Kreuzung enden. Liegen zwei Stücke gleicher Art in einer Flucht und wird die Lücke von einer anderen Linie gekreuzt oder ist sie voller Tinte, werden sie wieder eine durchgehende Linie. Lücken auf weißem Papier (vor Maßzahlen, Strichlinien) bleiben. Abschaltbar: Einstellungen → Zerstückelte Linien durchziehen; Stapelregel `linien_durchziehen`.

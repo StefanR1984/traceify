@@ -320,10 +320,21 @@ def fix_numbers(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
 
 SUPERSCRIPT = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
 # Zahl, dahinter evtl. ein Zeichen, als das Tesseract eine Hochziffer liest („36°“, „10.61"“)
-_NUM_TAIL = re.compile(r"^(\d+(?:[.,]\d+)?)([°\"'’”*^?]?)$")
+_NUM_TAIL = re.compile(r"^(\d+(?:[.,]\d+)?)([°\"'’”*^?%]?)$")
 # Maß in m mit zwei Nachkommastellen: ein Zeichen dahinter ist immer die Hochziffer (Allplan: ⁵),
 # ein Winkel „2.75°“ kommt in Plänen nicht vor
 _DIM2 = re.compile(r"^\d{1,2}[.,]\d{2}$")
+# Allplan schreibt Maße ab 1 m als „d.dd⁵“, darunter in cm („88⁵“) – drei Ziffern mit Hochziffer
+# sind ein Maß, dessen kleiner Dezimalpunkt verloren ging („141⁵“ → „1.41⁵“; „135°“ bleibt)
+_LOST_POINT = re.compile(r"^(\d)(\d\d)⁵$")
+
+
+def _allplan_dims(raw):
+    out = []
+    for r in raw:
+        m = _LOST_POINT.match(r[5])
+        out.append(r[:5] + (f"{m.group(1)}.{m.group(2)}⁵",) + r[6:] if m else r)
+    return out
 
 
 def _has_hole(bw: np.ndarray) -> bool:
@@ -401,7 +412,7 @@ def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
             continue
         cands.append((i, main, sup))
     if not cands:
-        return out
+        return _allplan_dims(out)
     crops = []
     for _, _, (sx, sy, sw, sh) in cands:
         p = max(2, int(0.35 * sh))
@@ -431,7 +442,7 @@ def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
             if j != i and _overlap((r[1], r[2], r[3], r[4]), (sx, sy, sw, sh)) > 0.5 \
                     and len(r[5]) <= 2:
                 drop.add(j)
-    return [r for j, r in enumerate(out) if j not in drop]
+    return _allplan_dims([r for j, r in enumerate(out) if j not in drop])
 
 
 def _group_lines(words):

@@ -123,3 +123,14 @@ def test_scanpunkt_neben_schraeger_linie():
     ents = [Line((0, 0), (500, 400)), Line((400, 50), (402, 51))]
     assert cad.isolate_specks(ents, size=10, free=10, layer=LAYER_SPECKS) == 1
     assert ents[1].layer == LAYER_SPECKS and ents[0].layer == LAYER_LINES
+
+
+def test_allplan_mass_punkt_und_prozent():
+    """„141⁵“ → „1.41⁵“ (Punkt verloren), „2.41%“ → „2.41⁵“; Winkel „135°“ und „2%“ bleiben (0.38)."""
+    from traceify.core.ocr import OcrSettings, fix_superscripts
+    g = np.full((60, 400), 255, np.uint8)                  # keine Hochziffer-Komponente im Bild
+    raw = [((1, 1, 1), 10, 10, 40, 18, "141⁵", 90.0), ((1, 1, 2), 80, 10, 40, 18, "2.41%", 90.0),
+           ((1, 1, 3), 150, 10, 40, 18, "135°", 90.0), ((1, 1, 4), 220, 10, 20, 18, "2%", 90.0),
+           ((1, 1, 5), 280, 10, 40, 18, "88⁵", 90.0)]
+    out = fix_superscripts(g, raw, OcrSettings(), lambda c, s, e="": [])
+    assert [r[5] for r in out] == ["1.41⁵", "2.41⁵", "135°", "2%", "88⁵"]

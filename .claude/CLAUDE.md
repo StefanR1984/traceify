@@ -167,7 +167,9 @@ nicht lesbar. (4) Lesefehler „2.75°“ statt „2.75⁵“ (62 Stellen auf PL
 scheitert (an der Maßlinie angeschnitten) → **0.36.1** `ocr._DIM2`: Maß d.dd + Zeichen dahinter = ⁵. Echt Texte
 1660 → 1688, Simulation und 16 Scans unverändert. **0.36.2** auch ganze Zahlen „28°“ → „28⁵“, wenn die
 kleine Komponente gefunden wurde und kein Loch hat (`ocr._has_hole`; „°“ ist ein Ring, „30°“ bleibt): echt 1688 → 1729
-Texte (nur PLAN2), Simulation +5, Scans gleich. Offen: „N°“ ohne gefundene Komponente (14 auf PLAN2_EG, Hochziffer
+Texte (nur PLAN2), Simulation +5, Scans gleich. **0.37.1** `ocr._allplan_dims`: „141⁵“ → „1.41⁵“ (Allplan:
+ab 1 m immer d.dd, nur nach ⁵, nicht nach „°“ – „135°“ ist ein echter Winkel), „d.dd%“ → „d.dd⁵“: echt 1729 → 1753
+Texte, falsch 394 → 372; Sim +43/−34. Einstellige „2⁵“: Tesseract liefert dort meist gar nichts (24 von 38). Offen: „N°“ ohne gefundene Komponente (14 auf PLAN2_EG, Hochziffer
 an Linie verschmolzen), einstellige cm-Maße „2⁵“ (fast nie gelesen – Filter Kurztexte < 85 % Sicherheit), „275°“
 (Punkt fehlt), reine Zahlen (cm-Maße „25“, „30“)
 nur 14–40 % richtig, Maße auf PLAN2 noch ~25 % verlesen; Raumstempel („0.27 Druckerpool“) oft nur teilweise.
