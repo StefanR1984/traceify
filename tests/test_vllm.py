@@ -159,6 +159,13 @@ def test_ki_funktionen_ueber_vllm(fake_vllm):
     assert fixes and fixes[0].new == "Keller"
 
 
+def test_gemma4_gilt_als_bildfaehig():
+    # Gemma-4 (vLLM) liest Bilder, Textmodelle bleiben ohne Bild
+    c = OpenAICompatClient("http://127.0.0.1:9/v1")
+    assert c.has_vision("Gemma-4-26B-A4B")
+    assert not c.has_vision("llama-3.1-8b")
+
+
 # ------------------------------------------------------------------ Oberfläche
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")

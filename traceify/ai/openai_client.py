@@ -18,7 +18,8 @@ from typing import Callable, List, Optional
 
 from .ollama_client import OllamaError
 
-VISION_HINTS = ("vl", "vision", "llava", "gemma-3", "gemma3", "pixtral", "internvl", "minicpm-v",
+VISION_HINTS = ("vl", "vision", "llava", "gemma-3", "gemma3", "gemma-4", "gemma4", "pixtral",
+                "internvl", "minicpm-v",
                 "qwen2-vl", "qwen2.5-vl", "qwen3-vl", "molmo", "idefics", "phi-3.5-vision",
                 "phi-4-multimodal", "moondream", "smolvlm", "mistral-small-3")
 
