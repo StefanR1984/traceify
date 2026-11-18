@@ -205,6 +205,11 @@ d.dd⁵ 331 → 359, NN⁵ 258 → 267, falsche Zahlen 221 → 177; echt Texte 1
 **Offen/verworfen:** zweistellige Hochziffern im Plot meist nicht lesbar – die dünne „⁷“ zerfällt schon im Bild in
 Splitter (Schwelle 160 statt 128 wirkungslos, Bild dort bereits binär; Band links der „5“ als Ziffer mitnehmen griff
 auch volle Ziffern). Rest d.dd⁵: „283°“ ohne Komponente (Winkel „135°“ nicht unterscheidbar).
+**0.38.6:** `_close_pairs` Zahl neben dem Paar bis 1,5 h (vorher 0,8; 2,0 bringt nichts mehr): PLAN2 NN⁵ 267 → 283, echt
+Texte +13. Rest NN (55 %, Befund 18.11.): ~200 ohne Lücke – Zahlen in Wanddetails mit Schraffur (Bauteilstärken, keine
+Maßkette), fette Sterne am Ende eines Stummels mit einseitigem Waagrecht-Arm. **Verworfen:** einseitigen Arm im zweiten
+Stern-Versuch zulassen (Fehlsterne in Zahlen: PLAN2 NN −17, falsch +9); Sternpaar-Zahl nicht über gefundene Lückenzahl
+legen (wirkungslos). Lückenzahlen-Schnellmessung schwankt um einige Maße, weil Tesseract die Ausschnitte im Stapel liest.
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

@@ -261,9 +261,9 @@ def _close_pairs(rest: np.ndarray, ticks, found: List[Gap]) -> List[Gap]:
                 wx0, wx1 = wd[0][0], wd[-1][0] + wd[-1][2]
                 if abs((wx0 + wx1) / 2.0 - c) <= 0.6 * h:
                     dd = abs((wx0 + wx1) / 2.0 - c)
-                elif -0.2 * h <= wx0 - b <= 0.8 * h:
+                elif -0.2 * h <= wx0 - b <= 1.5 * h:
                     dd = h + wx0 - b
-                elif -0.2 * h <= a - wx1 <= 0.8 * h:
+                elif -0.2 * h <= a - wx1 <= 1.5 * h:
                     dd = h + a - wx1
                 else:
                     continue

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.38.6 – 18.11.2026
+### Maßzahlen
+- **Kleine Maße neben dem Sternpaar** („✳✳ 12⁵“) werden auch gelesen, wenn sie bis 1,5 Ziffernhöhen neben dem Paar stehen (vorher 0,8); die Längenprobe gegen den Sternabstand bleibt.
+- **Gemessen:** echte Allplan-Plots PLAN2 je Maß „12⁵“ 59 → 63 %, falsche Zahlen 177 → 176; je Text PLAN2 +15 (OG1 +7, OG2 +4, EG +2, OG3 +2), PLAN1 −2; Simulation und Scans unverändert.
+
 ## 0.38.5 – 18.11.2026
 ### Maßzahlen
 - **Hochziffer ⁵ hinter Metermaßen** („2.83⁵“) ging oft verloren oder wurde „2.83¹“, „2.83°“, „283°“: Die Wortbox der Texterkennung reicht bis zur Oberkante der Hochziffer, und eng stehende Ziffern („83“) hängen im Scan zusammen. Beides wird jetzt berücksichtigt; hinter einem Maß „d.dd“ ist eine gefundene Hochziffer immer ⁵, ganze Zahlen nur ohne Ring („30°“ bleibt ein Winkel). Schmale Strichreste gelten nicht mehr als Hochziffer.
