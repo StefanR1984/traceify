@@ -363,20 +363,36 @@ def _superscript_box(bw: np.ndarray, box):
     comps = [(cx + x0, cy + y0, cw, ch) for cx, cy, cw, ch, a in st[1:] if a >= 3]
     full = [c for c in comps if c[3] >= 0.75 * h and c[3] <= 1.3 * h and c[0] < x + w]
     if not full:
-        return None
+        # Tesseracts Wortbox reicht oft bis zur Oberkante der Hochziffer („2.83⁵“): Ziffernhöhe aus
+        # den Bauteilen in der Box nachmessen
+        inner = [c for c in comps if c[0] < x + w and c[1] >= y - 2 and c[3] <= h
+                 and c[1] + c[3] >= y + 0.75 * h]          # Ziffern stehen unten in der Box
+        if not inner or max(c[3] for c in inner) < 0.5 * h:
+            return None
+        h = max(c[3] for c in inner)
+        full = [c for c in inner if c[3] >= 0.75 * h]
+        y = min(c[1] for c in full)
     last = max(full, key=lambda c: c[0])
     sups = [c for c in comps
-            if 0.3 * h <= c[3] <= 0.75 * h and c[2] <= 0.7 * h        # klein
+            if 0.3 * h <= c[3] <= 0.75 * h and 0.2 * h <= c[2] <= 0.7 * h   # klein, kein Strichrest
             and c[1] + c[3] <= y + 0.72 * h and c[1] <= y + 0.25 * h  # oben, nicht am Fuß
             and c[0] >= last[0] + 0.5 * last[2]]                       # hinter der letzten Ziffer
     if not sups:
         return None
     sup = min(sups, key=lambda c: c[0])
+    # zweistellige Hochziffer („14⁷⁵“, Viertelzentimeter): die zweite kleine Ziffer direkt dahinter
+    nxt = [c for c in sups if c is not sup and 0 <= c[0] - (sup[0] + sup[2]) < 0.25 * h
+           and abs(c[1] - sup[1]) <= 0.15 * h]
+    if nxt:
+        c = min(nxt, key=lambda c: c[0])
+        y0s, y1s = min(sup[1], c[1]), max(sup[1] + sup[3], c[1] + c[3])
+        sup = (sup[0], y0s, c[0] + c[2] - sup[0], y1s - y0s)
     # danach darf direkt keine weitere volle Ziffer folgen (sonst ist es etwas anderes)
     if any(c[0] > sup[0] and c[0] - (sup[0] + sup[2]) < 0.4 * h and c[3] >= 0.75 * h
            for c in comps):
         return None
-    return sup, sum(1 for c in full if c[0] < sup[0])
+    # volle Ziffern links davon; zusammenhängende („83“ als ein Bauteil) nach Breite gezählt
+    return sup, sum(max(1, round(c[2] / (0.6 * c[3]))) for c in full if c[0] < sup[0])
 
 
 def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
@@ -425,7 +441,12 @@ def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
     drop = set()
     for (i, main, (sx, sy, sw, sh)), (t, c) in zip(cands, res):
         t = (t or "").strip()
-        if len(t) != 1 or not t.isdigit() or c < 50:
+        two = sw > 0.9 * sh                   # Box über zwei kleine Ziffern („⁷⁵“)
+        # einstellige Hochziffer an Maßen ist immer ⁵ (klein oft als ¹, ⁹ oder gar nicht gelesen);
+        # bei ganzen Zahlen nur ohne Ring – „30°“ ist ein Winkel
+        if not two and (_DIM2.match(main) or main.isdigit() and not _has_hole(bw[sy:sy + sh, sx:sx + sw])):
+            t = "5"
+        elif len(t) != 1 + two or not t.isdigit() or c < 50:
             # Nachlesen scheitert (Hochziffer an der Maßlinie angeschnitten o. Ä.): Tesseract las ein
             # Zeichen dahinter – bei einem Maß d.dd ist das die Hochziffer, bei einer ganzen Zahl, wenn
             # die kleine Komponente kein Loch hat (ein Gradzeichen ist ein Ring, „30°“ bleibt)

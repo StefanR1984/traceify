@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.38.5 – 18.11.2026
+### Maßzahlen
+- **Hochziffer ⁵ hinter Metermaßen** („2.83⁵“) ging oft verloren oder wurde „2.83¹“, „2.83°“, „283°“: Die Wortbox der Texterkennung reicht bis zur Oberkante der Hochziffer, und eng stehende Ziffern („83“) hängen im Scan zusammen. Beides wird jetzt berücksichtigt; hinter einem Maß „d.dd“ ist eine gefundene Hochziffer immer ⁵, ganze Zahlen nur ohne Ring („30°“ bleibt ein Winkel). Schmale Strichreste gelten nicht mehr als Hochziffer.
+- Die gezielte Lesung in der Maßlinienlücke übernimmt eine von der Texterkennung gefundene Hochziffer, statt sie zu überschreiben.
+- **Zweistellige Hochziffern** („14⁷⁵“) werden gelesen, wenn beide kleinen Ziffern im Scan erkennbar sind.
+- **Prüfstand:** Allplan legt „14⁷⁵“ Ziffer für Ziffer ab; der Wahrheits-Prüfstand setzt solche Hochziffern jetzt vollständig zusammen (vorher „14⁷“ plus ein loses „5“).
+- **Gemessen:** echte Allplan-Plots PLAN2 je Maß: „2.83⁵“ 86 → 93 %, „12⁵“ 57 → 59 %, falsche Zahlen 221 → 177; je Text +42 (EG +9, OG1 +20, OG2 +14), falsche Wörter 337 → 318. Simulation +9 Texte, Scans unverändert.
+
 ## 0.38.4 – 18.11.2026
 ### Maßzahlen
 - **Kleine Maßsterne ohne Maßlinie** („✳30✳“) wurden oft nicht als Maßbegrenzung erkannt: Ihre Arme ragen kaum über den Schrägstrich hinaus. Ein zweiter, genauerer Blick findet sie jetzt – aber nur in der Größe der sicher erkannten Sterne desselben Plans, damit Ziffern und Ecken größerer, fetter Schrift nicht als Stern gelten.

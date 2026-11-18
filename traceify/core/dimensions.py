@@ -346,7 +346,7 @@ def _crop(bw: np.ndarray, gray: np.ndarray, box, k: int, height: int, side: int 
 def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_lines=None):
     """Maßzahlen in Lücken der Maßlinie lesen. Gibt (Texte, Boxen x, y, w, h) zurück."""
     from . import textlines
-    from .ocr import NUM_WHITELIST
+    from .ocr import NUM_WHITELIST, SUPERSCRIPT
     keep: list = []
     gaps = line_gaps(bw, px_per_mm, keep)
     if not gaps:
@@ -365,9 +365,12 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
         # Punkt am Rand = Rest von Maßlinie/Pfeilspitze („2.45.“), nie Hochziffer oder Teil der Zahl
         raw = t = (t or "").replace(" ", "").replace(",", ".").strip(".")
         high = ""
-        if sup is not None and NUMBER.match(t[:-1]):      # letzte Ziffer ist die Hochziffer
-            # Hochziffer an Maßen ist immer ⁵ (halbe Zentimeter); klein gedruckt liest Tesseract
-            # sie oft als 9, 2, 6 oder 1
+        two = sup is not None and (sup[2] if k == 0 else sup[3]) > 0.9 * (sup[3] if k == 0 else sup[2])
+        if two and NUMBER.match(t[:-2]) and t[-2:].isdigit():   # „14⁷⁵“: zweistellige Hochziffer
+            t, high = t[:-2], t[-2:].translate(SUPERSCRIPT)
+        elif sup is not None and NUMBER.match(t[:-1]):    # letzte Ziffer ist die Hochziffer
+            # einstellige Hochziffer an Maßen ist immer ⁵ (halbe Zentimeter); klein gedruckt liest
+            # Tesseract sie oft als 9, 2, 6 oder 1
             t, high = t[:-1], "⁵"
         # einstellig („5“) nur über engem Sternpaar: dort prüft check_lengths die Länge
         ok = conf >= 75 and bool(NUMBER.match(t) or sg is not None and len(sg) == 5 and re.fullmatch(r"\d", t))
@@ -696,11 +699,11 @@ def metres(t: str) -> Optional[float]:
     """Maßzahl in Meter: „6.70“ → 6.70, „74“ (cm) → 0.74, „88⁵“ → 0.885, „2.12⁵“ → 2.125."""
     plain = t.rstrip(SUP)
     high = t[len(plain):]
-    if not (NUMBER.match(plain) or re.fullmatch(r"\d", plain)) or len(high) > 1:
+    if not (NUMBER.match(plain) or re.fullmatch(r"\d", plain)) or len(high) > 2:
         return None
     v = float(plain) if "." in plain else float(plain) / 100
-    if high:
-        v += SUP.index(high) / 1000
+    if high:                                    # Millimeter: „⁵“ = 5 mm, „⁷⁵“ = 7,5 mm
+        v += int("".join(str(SUP.index(c)) for c in high)) / 10 ** (2 + len(high))
     return v
 
 
@@ -831,6 +834,8 @@ def merge(texts: list, boxes: list, new_texts: list, new_boxes: list) -> None:
             continue
         if t.dim is None and any(texts[i].text == t.text for i in hit):
             continue                                # gleiche Lesung schon da
+        # die OCR fand dieselbe Zahl samt Hochziffer („2.83⁵“), die Lücke nicht: Hochziffer behalten
+        t.text = next((texts[i].text for i in hit if texts[i].text.rstrip(SUP) == t.text), t.text)
         for i in sorted(hit, reverse=True):
             del texts[i], boxes[i]
         texts.append(t)

@@ -138,12 +138,13 @@ _SUP = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
 
 
 def merge_superscripts(texts: list) -> list:
-    """Allplan zerlegt Maße beim Auflösen in Hauptzahl und kleine Hochziffer („2“ + „5“ = 2⁵).
+    """Allplan zerlegt Maße beim Auflösen in Hauptzahl und kleine Hochziffer („2“ + „5“ = 2⁵),
+    zweistellige Hochziffern sogar Ziffer für Ziffer („14“ + „7“ + „5“ = 14⁷⁵).
 
-    Eine kleine Ziffernfolge (0,4–0,8 der Höhe, gleiche Richtung) rechts oben hinter einer Zahl
-    wird deren Hochziffer – so wie Traceify sie liest. Bildpixel, y nach unten."""
+    Kleine Ziffern (0,4–0,8 der Höhe, gleiche Richtung) rechts oben hinter einer Zahl werden in
+    Leserichtung deren Hochziffern – so wie Traceify sie liest. Bildpixel, y nach unten."""
     num = [t for t in texts if re.fullmatch(r"[\d.,]+", t.text.strip())]
-    used, out = set(), []
+    groups: dict = {}                           # id(Zahl) → [(x entlang der Schrift, Hochziffer)]
     for s in texts:
         if not re.fullmatch(r"\d{1,2}", s.text.strip()):
             continue
@@ -159,12 +160,15 @@ def merge_superscripts(texts: list) -> list:
             if 0.2 <= x <= 0.75 * n + 1.0 and 0.2 <= y <= 1.2:
                 d = abs(x - 0.7 * n) + abs(y - 0.6)
                 if best is None or d < best[0]:
-                    best = (d, m)
-        if best is not None and id(best[1]) not in used:
-            used |= {id(best[1]), id(s)}
-            m = best[1]
-            out.append(Text(m.text.strip() + s.text.strip().translate(_SUP), m.position, m.height,
-                            m.angle, m.layer))
+                    best = (d, m, x)
+        if best is not None:
+            groups.setdefault(id(best[1]), (best[1], []))[1].append((best[2], s))
+    used, out = set(), []
+    for m, sups in groups.values():
+        sups.sort(key=lambda q: q[0])
+        used |= {id(m)} | {id(s) for _, s in sups}
+        high = "".join(s.text.strip() for _, s in sups).translate(_SUP)
+        out.append(Text(m.text.strip() + high, m.position, m.height, m.angle, m.layer))
     return out + [t for t in texts if id(t) not in used]
 
 

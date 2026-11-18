@@ -147,6 +147,10 @@ def test_wahrheit_hochziffer_als_eigener_text():
     fremd = Text("7", (500, 500), 9.0, 0.0)
     out = sorted(t.text for t in truth.merge_superscripts([m, s, v, sv, fremd]))
     assert out == ["1⁵", "2.75⁵", "7"]
+    # zweistellige Hochziffer Ziffer für Ziffer („14“ + „7“ + „5“, 0.38.5)
+    h = Text("14", (100, 200), 15.0, 0.0)
+    s7, s5 = Text("7", (100 + 1.4 * 15, 200 - 9), 9.0, 0.0), Text("5", (100 + 1.8 * 15, 200 - 9), 9.0, 0.0)
+    assert [t.text for t in truth.merge_superscripts([s5, h, s7])] == ["14⁷⁵"]
 
 
 def test_wahrheit_texte_je_vorkommen():

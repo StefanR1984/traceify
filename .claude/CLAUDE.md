@@ -194,6 +194,17 @@ echt Texte 1801 → 1916, falsche Wörter 359 → 337 (PLAN1 ±1); Sim gleich (P
 echte Allplan-Maße, `truth.merge_superscripts` macht daraus „14⁷“ + „5“) verwerfen → echte Maße verloren; Armbreite ≤ 3 px
 als Ziffernschutz (PLAN2 −90 NN); „Linie liegt auf dem Arm“ als Ziffernschutz (wirkungslos). Rest NN: Sterne mit zu kurzem
 Schrägstrich (< 0,7 mm Öffnung), Zahlen über langer Linie ohne Sternpaar, „5“ als abgetrennte Hochziffer im Original.
+**0.38.5 Hochziffern (Befund 18.11.):** (1) Prüfstand: Allplan legt zweistellige Hochziffern Ziffer für Ziffer ab
+(„14“ + „7“ + „5“ = 14⁷⁵, Viertelzentimeter) – `merge_superscripts` hängt jetzt alle kleinen Ziffern an; Basis PLAN2
+damit NN 55 %, NN⁵ 57 %, d.dd⁵ 86 %, 56 zweistellige (vorher als falsch/„5“ gezählt). (2) „2.83⁵“-Verluste kamen fast nur
+aus `fix_superscripts`, nicht aus den Lückenzahlen: Tesseract-Wortbox bis zur Hochziffer-Oberkante (h 22 statt 15 →
+keine „vollen“ Ziffern → Höhe aus den Bauteilen unten in der Box nachmessen), „83“ ein Bauteil (`n_full` nach Breite,
+sonst wurde die „3“ zur Hochziffer: „2.8⁵“), Einzel-Nachlesen der 5×9-px-Ziffer scheitert → hinter d.dd immer ⁵, ganze
+Zahlen ohne Loch ⁵; Strichreste (2 px breit) keine Hochziffer; `dimensions.merge` behält die Hochziffer der OCR. PLAN2:
+d.dd⁵ 331 → 359, NN⁵ 258 → 267, falsche Zahlen 221 → 177; echt Texte 1916 → 1958, falsch 337 → 318.
+**Offen/verworfen:** zweistellige Hochziffern im Plot meist nicht lesbar – die dünne „⁷“ zerfällt schon im Bild in
+Splitter (Schwelle 160 statt 128 wirkungslos, Bild dort bereits binär; Band links der „5“ als Ziffer mitnehmen griff
+auch volle Ziffern). Rest d.dd⁵: „283°“ ohne Komponente (Winkel „135°“ nicht unterscheidbar).
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

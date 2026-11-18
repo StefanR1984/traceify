@@ -466,3 +466,45 @@ def test_laengenpruefung_einstelliges_mass_ueber_sternpaar():
     cand, gaps = [c for c, _ in rows], [g for _, g in rows]
     dimensions.check_lengths(cand, gaps, [0] * len(gaps))
     assert [c[0] for c in cand[5:]] == ["5", None]
+
+
+def _mass_bild(sup_w=6, zwei=False):
+    """„2.83“ aus Blöcken (Ziffern 16 px hoch, „83“ als ein Bauteil), Hochziffer rechts oben;
+    Graubild 0 = Tinte."""
+    g = np.full((60, 120), 255, np.uint8)
+    g[20:36, 10:20] = 0                                  # „2“
+    g[33:36, 22:25] = 0                                  # Punkt
+    g[20:36, 27:47] = 0                                  # „83“ zusammenhängend
+    g[17:26, 49:49 + sup_w] = 0                          # Hochziffer, oben über den Ziffern
+    if zwei:
+        g[17:26, 57:63] = 0                              # zweite kleine Ziffer („⁷⁵“)
+    return g
+
+
+def test_hochziffer_hohe_wortbox_verschmolzene_ziffern_strichrest():
+    """Tesseracts Wortbox reicht bis zur Oberkante der Hochziffer, „83“ hängt zusammen, das
+    Nachlesen der winzigen Ziffer scheitert oder liefert „1“: hinter d.dd steht trotzdem ⁵.
+    Ein 2 px schmaler Strichrest ist keine Hochziffer (0.38.5)."""
+    from traceify.core.ocr import fix_superscripts
+    raw = [((1, 1, 1), 10, 12, 40, 24, "2.83", 80.0)]
+    for read in ([("", -1.0)], [("1", 60.0)]):
+        out = fix_superscripts(_mass_bild(), raw, OcrSettings(), lambda c, s, e="", r=read: r * len(c))
+        assert out[0][5] == "2.83⁵"
+    out = fix_superscripts(_mass_bild(sup_w=2), raw, OcrSettings(), lambda c, s, e="": [("5", 90.0)] * len(c))
+    assert out[0][5] == "2.83"
+
+
+def test_zweistellige_hochziffer():
+    """„14⁷⁵“ (Viertelzentimeter): zwei kleine Ziffern werden zusammen gelesen (0.38.5)."""
+    from traceify.core.ocr import fix_superscripts
+    raw = [((1, 1, 1), 10, 12, 40, 24, "2.83", 80.0)]
+    out = fix_superscripts(_mass_bild(zwei=True), raw, OcrSettings(), lambda c, s, e="": [("75", 80.0)] * len(c))
+    assert out[0][5] == "2.83⁷⁵"
+    assert dimensions.metres("14⁷⁵") == pytest.approx(0.1475)
+    assert dimensions.metres("2.83⁷⁵") == pytest.approx(2.8375)
+
+
+def test_zusammenfuehren_behaelt_hochziffer_der_ocr():
+    T, B = [Text("2.83⁵", (0, 0), 10)], [(0, 0, 50, 20)]
+    dimensions.merge(T, B, [Text("2.83", (0, 0), 10)], [(2, 0, 45, 20)])
+    assert [t.text for t in T] == ["2.83⁵"]
