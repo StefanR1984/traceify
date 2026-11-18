@@ -68,7 +68,7 @@ def estimate_skew(bw: np.ndarray) -> float:
     if lines is None:
         return 0.0
     angles = []
-    for x1, y1, x2, y2 in lines[:, 0]:
+    for x1, y1, x2, y2 in lines.reshape(-1, 4):  # OpenCV 5 liefert (N, 4) statt (N, 1, 4)
         a = np.degrees(np.arctan2(y2 - y1, x2 - x1))
         a = (a + 45) % 90 - 45  # auf nächste Achse beziehen
         if abs(a) < 15:

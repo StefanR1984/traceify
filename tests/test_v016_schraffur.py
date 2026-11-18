@@ -108,3 +108,27 @@ def test_schraeger_gebaeudeteil_ist_keine_schraffur():
     wand = Polygon([(2000, 0), (2030, 0), (2030, 400), (2000, 400)])
     h = [Line(l.p1, l.p2) for l in _hatch(wand)]
     assert detect_hatch(h + [Line((1000, 0), (1000, 900))], 0.25) >= 0.8 * len(h)
+
+
+def _rot(p, a=45.0):
+    c, s = math.cos(math.radians(a)), math.sin(math.radians(a))
+    return (500 + p[0] * c - p[1] * s, 500 + p[0] * s + p[1] * c)
+
+
+def test_schraege_treppe_ist_keine_schraffur():
+    from traceify.core.style import detect_hatch
+    # Treppe im 45°-Flügel (0,25 mm/px): 10 Stufen 8 mm breit, 2,5 mm Auftritt; die Wangen
+    # zerfallen wie im Scan an jeder Stufe
+    stufen = [Line(_rot((x, 0)), _rot((x, 32))) for x in range(0, 100, 10)]
+    wangen = [Line(_rot((x, y)), _rot((x + 10, y))) for x in range(0, 90, 10) for y in (0, 32)]
+    ents = stufen + wangen
+    assert detect_hatch(ents, 0.25) == 0
+    assert all(e.layer != LAYER_HATCH for e in ents)
+
+
+def test_kreuzschraffur_bleibt_schraffur():
+    from traceify.core.style import detect_hatch
+    wand = Polygon([(2000, 0), (2040, 0), (2040, 400), (2000, 400)])
+    h = [Line(l.p1, l.p2) for a in (45.0, 135.0) for l in _hatch(wand, angle=a)]
+    ents = h + [Line((2000, 0), (2000, 400)), Line((2040, 0), (2040, 400))]
+    assert detect_hatch(ents, 0.25) >= 0.8 * len(h)

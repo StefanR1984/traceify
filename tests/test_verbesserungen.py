@@ -386,3 +386,9 @@ def test_ocr_behaelt_dezimalpunkt():
     d = tf.convert(img, s, 25.4 / 200).drawing
     assert any("143.50" in t.text or "143,50" in t.text for t in d.by_type(Text)), \
         [t.text for t in d.by_type(Text)]
+
+
+def test_preprocess_schraeglage_raster():
+    # OpenCV 5 liefert HoughLinesP als (N, 4) – vorher „cannot unpack non-iterable numpy.int32“
+    from traceify.core.preprocess import estimate_skew
+    assert abs(estimate_skew(_skewed_plan(1.0)) + 1.0) < 0.3

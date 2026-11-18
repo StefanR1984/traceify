@@ -89,6 +89,8 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
 
 ## Stolpersteine
 - PyMuPDF-DPI muss `int` sein.
+- OpenCV 5 (Build zieht die neueste): `HoughLinesP` liefert (N, 4) statt (N, 1, 4) – immer `reshape(-1, 4)`
+  (0.38.2, Absturz „cannot unpack non-iterable numpy.int32“ in `preprocess.estimate_skew`).
 - PowerShell im Workflow: keine deutschen Anführungszeichen „“ in Inline-Skripten
   (Release-Notizen kommen aus `tools/release_notes.py`).
 - Tesseract wird **nach** dem PyInstaller-Build nach `dist/Traceify/tesseract` kopiert.

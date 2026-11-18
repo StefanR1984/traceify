@@ -164,12 +164,71 @@ def detect_hatch(ents: list, mm_per_px: float, min_count: int = 5,
             med = float(np.median(local))
             if 0.5 * med <= nearest[k] <= 1.8 * med:
                 hits.append(k)
-        if len(hits) < min_count:
+        if len(hits) < min_count or _is_stair([cand[k] for k in hits], ents, ppm):
             continue
         for k in hits:
             cand[k][0].layer = LAYER_HATCH
             n += 1
     return n
+
+
+def _is_stair(group: list, ents: list, ppm: float, tol_deg: float = 8.0) -> bool:
+    """Treppe statt Schraffur: die Striche stoßen rechtwinklig auf Wangenlinien.
+
+    Schraffur trifft Wandkanten schräg. Im Scan zerfallen Stufen und Wangen an Text und Pfeil,
+    darum reicht ein Ende an einer Wange bei ≥ 30 % der Striche; die Wange läuft nach beiden
+    Seiten weiter (auch in Stücken). Kreuzschraffur (auch von Hand) wird in der Mitte von vielen
+    Gegenstrichen gekreuzt, Stufen höchstens von der Lauflinie. Stufen sind streng parallel
+    (Median-Abweichung ≤ 3°)."""
+    n = len(group)
+    if float(np.median([c[4] for c in group])) < 2.0 * ppm:
+        return False
+    ang = np.array([c[1] for c in group])
+    a = float(np.median(ang))
+    # Stufen sind streng parallel; Linienfächer aus verrauschtem Mauerwerk streuen stark
+    if float(np.median(np.abs((ang - a + 90.0) % 180.0 - 90.0))) > 3.0:
+        return False
+    tol, margin = 2.0 * ppm, 1.0 * ppm      # Stufen enden im Scan oft kurz vor der Wange
+    xs = [p[0] for c in group for p in (c[0].p1, c[0].p2)]
+    ys = [p[1] for c in group for p in (c[0].p1, c[0].p2)]
+    x0, x1, y0, y1 = min(xs) - tol, max(xs) + tol, min(ys) - tol, max(ys) + tol
+    rails = []
+    for e in ents:
+        if not isinstance(e, Line):
+            continue
+        if max(e.p1[0], e.p2[0]) < x0 or min(e.p1[0], e.p2[0]) > x1 or                 max(e.p1[1], e.p2[1]) < y0 or min(e.p1[1], e.p2[1]) > y1:
+            continue
+        dx, dy = e.p2[0] - e.p1[0], e.p2[1] - e.p1[1]
+        L = math.hypot(dx, dy)
+        if L < 1.5 * ppm:
+            continue
+        b = math.degrees(math.atan2(dy, dx)) % 180.0
+        if abs((b - a) % 180.0 - 90.0) <= tol_deg:
+            rails.append((e.p1[0], e.p1[1], dx, dy, L))
+    if not rails:
+        return False
+    R = np.array(rails)
+    crossers = set()
+
+    def on_rail(p):
+        s = ((p[0] - R[:, 0]) * R[:, 2] + (p[1] - R[:, 1]) * R[:, 3]) / R[:, 4]   # Lage auf der Wange
+        d = np.abs((p[0] - R[:, 0]) * R[:, 3] - (p[1] - R[:, 1]) * R[:, 2]) / R[:, 4]
+        near = (d <= tol) & (s >= -tol) & (s <= R[:, 4] + tol)
+        # Wange (auch in Stücken, die an der Stufe zerfallen) läuft nach beiden Seiten weiter
+        return bool((near & (s >= margin)).any() and (near & (R[:, 4] - s >= margin)).any())
+    hits = 0
+    for c in group:
+        e = c[0]
+        hits += on_rail(e.p1) or on_rail(e.p2)
+        # Gegenstriche, die diesen Strich im mittleren Teil kreuzen
+        ex, ey = e.p2[0] - e.p1[0], e.p2[1] - e.p1[1]
+        den = R[:, 2] * ey - R[:, 3] * ex
+        ok = np.abs(den) > 1e-9
+        qx, qy = R[:, 0] - e.p1[0], R[:, 1] - e.p1[1]
+        t = np.where(ok, (R[:, 2] * qy - R[:, 3] * qx) / np.where(ok, den, 1), -1)   # auf dem Strich
+        u = np.where(ok, (ex * qy - ey * qx) / np.where(ok, den, 1), -1)              # auf dem Gegenstrich
+        crossers.update(np.nonzero(ok & (t > 0.2) & (t < 0.8) & (u > 0.05) & (u < 0.95))[0].tolist())
+    return hits >= 0.3 * n and len(crossers) <= max(2, 0.3 * n)
 
 
 def walls_to_outline(ents: list, mask: np.ndarray, mm_per_px: float, tolerance: float = 1.5

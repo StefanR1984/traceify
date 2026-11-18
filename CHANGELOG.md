@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.38.2 – 18.11.2026
+### Fehlerbehebung
+- **Absturz „cannot unpack non-iterable numpy.int32 object“** beim Umwandeln mit „Schräglage korrigieren“ (z. B. Strich-Scan-PDF): OpenCV 5 liefert erkannte Linien in anderer Form; die Schräglage-Schätzung liest jetzt beide Formen.
+- **Schräge Treppen wurden Schraffur:** In schräg stehenden Gebäudeteilen sahen Treppenstufen (parallel, gleicher Abstand) wie Schraffur aus und landeten auf SCHRAFFUR. Stoßen die Striche rechtwinklig auf Wangenlinien, die nach beiden Seiten weiterlaufen (auch wenn sie im Scan an jeder Stufe zerfallen), bleiben sie normale Linien. Schraffur trifft Wandkanten schräg; Kreuzschraffur (Striche treffen sich an den Enden) bleibt Schraffur.
+
 ## 0.38.1 – 17.11.2026
 ### Vektorisierung
 - **Wellen-Bögen:** Wo Schraffurstriche, Ziffern oder Nachbarlinien an eine dicke Linie stoßen, bekam das Skelett Wellen – daraus wurden Ketten kleiner Bögen (Radius ~1 mm) entlang einer geraden Linie. Ein kleiner Bogen (≤ 4 mm), dessen Sehne auf Tinte liegt und hinter dem die Tinte geradeaus weiterläuft, wird jetzt eine gerade Linie (`cad.flatten_arcs`); echte Bögen (Türschwenk, Rundung) haben eine leere Sehne und bleiben.
