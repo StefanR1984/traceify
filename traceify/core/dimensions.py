@@ -46,23 +46,47 @@ def _ticks(bw: np.ndarray, px_per_mm: float):
     # kurze Stücke der Maßlinie zwischen Stern und Zahl („✳—1.25—✳“, kürzer als eine „Linie“)
     stub = cv2.morphologyEx(bw, cv2.MORPH_OPEN, np.ones((1, max(5, int(px_per_mm))), np.uint8))
     R = int(3 * px_per_mm)
+    hits = []                           # (zweiter Versuch?, Sterngröße, Bauteil, cx, cy, y der Waagrechten)
     for i in range(1, n):
         x, y, w, h, _ = st[i]
         if not (0.6 * px_per_mm <= max(w, h) <= 3.0 * px_per_mm) or abs(w - h) > 0.35 * max(w, h):
             continue
         cx, cy = int(round(cen[i][0])), int(round(cen[i][1]))
-        if cx - r < 1 or cy - r < 1 or cx + r + 2 > W or cy + r + 2 > H:
+        if cx - r < 4 or cy - r < 4 or cx + r + 4 > W or cy + r + 4 > H:
             continue
-        # waagrechter und senkrechter Strich durch die Mitte, je beidseits
-        rows = bw[cy - 2:cy + 3, cx - r:cx + r + 1].all(axis=1)
-        if not rows.any() or not bw[cy - r:cy + r + 1, cx - 1:cx + 2].any(axis=1).all():
+        # Arme am Stern messen. Ohne Maßlinie („✳30✳“) ragen sie bei kleinen Sternen kaum über
+        # den Schrägstrich hinaus, dessen Schwerpunkt oft 1 px neben dem Kreuz liegt: zweiter
+        # Versuch mit kürzeren Armen, ±1 px, die Waagrechte höchstens 1 px vom Schwerpunkt (bei
+        # „4“ und „2“ liegt der Schrägstrich über dem Querbalken bzw. Fuß) und alle Arme am Stern
+        # selbst, nicht an der Nachbarziffer („4.17“)
+        q0 = max(3, int(round(0.35 * px_per_mm)))
+        rs, qs = max(3, min(r, int(0.35 * max(w, h)))), max(3, min(q0, int(0.3 * max(w, h))))
+        for cx, rr, q, b in ((cx, r, q0, 2), (cx, rs, qs, 1), (cx - 1, rs, qs, 1), (cx + 1, rs, qs, 1)):
+            # waagrechter und senkrechter Strich durch die Mitte, je beidseits
+            rows = bw[cy - b:cy + b + 1, cx - rr:cx + rr + 1].all(axis=1)
+            if not rows.any():
+                continue
+            # senkrecht um die gefundene Waagrechte: der Fuß einer „2“ hat darunter nichts
+            yc = cy - b + int(round(np.nonzero(rows)[0].mean())) if b == 1 else cy
+            m = max(rr, q) + 2
+            wl = cv2.connectedComponents(bw[cy - m:cy + m + 1, cx - m:cx + m + 1], connectivity=8)[1]
+            own = wl == wl[yc - cy + m, m] if b == 1 else wl > 0
+            if not own[yc - cy + m - rr:yc - cy + m + rr + 1, m - 1:m + 2].any(axis=1).all():
+                continue
+            # der Schrägstrich läuft durch die Mitte: Tinte beidseits auf der Diagonale (nicht „4“)
+            if any(own[m - sy * q - 1:m - sy * q + 2, m - q - 1:m - q + 2].any()
+                   and own[m + sy * q - 1:m + sy * q + 2, m + q - 1:m + q + 2].any() for sy in (-1, 1)):
+                hits.append((b == 1, max(w, h), i, cx, cy, cy - b + float(np.nonzero(rows)[0].mean())))
+                break
+    # zweiter Versuch nur in der Größe der sicher erkannten Sterne dieses Plans (± 15 %): sonst
+    # trifft er Ziffern und Ecken größerer, fetter Schrift (1:200)
+    sure = sorted(s for weak, s, *_ in hits if not weak)
+    med = sure[len(sure) // 2] if len(sure) >= 5 else 0
+    for weak, s, i, cx, cy, ty in hits:
+        if weak and not 0.85 * med <= s <= 1.15 * med:
             continue
-        # der Schrägstrich läuft durch die Mitte: Tinte beidseits auf der Diagonale (nicht „4“)
-        q = max(3, int(round(0.35 * px_per_mm)))
-        if not any(bw[cy - sy * q - 1:cy - sy * q + 2, cx - q - 1:cx - q + 2].any()
-                   and bw[cy + sy * q - 1:cy + sy * q + 2, cx + q - 1:cx + q + 2].any() for sy in (-1, 1)):
-            continue
-        out.append((cx, cy - 2 + float(np.nonzero(rows)[0].mean())))
+        x, y, w, h, _ = st[i]
+        out.append((cx, ty))
         sl = (slice(y, y + h), slice(x, x + w))
         mask[sl] |= (lab[sl] == i).astype(np.uint8)
         mask[cy - r - 2:cy + r + 3, cx - 1:cx + 2] = 1
@@ -131,7 +155,9 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = No
     ticks, stars = _ticks(bw, px_per_mm)
     if keep is not None:
         keep.append((ticks, stars | hor))           # für template_numbers: Sterne, Fremdtinte
-    rt = 0.4 * px_per_mm
+    # Stern als Lückenende: nur die Mitte ± 0,15 mm – die Sterne sind aus rest entfernt, und die
+    # Ziffern kleiner Maße („✳28✳“) reichen oft bis an die Arme
+    rt = 0.15 * px_per_mm
     segs = sorted([(y + h / 2.0, x, x + w) for x, y, w, h, _ in st[1:] if h <= thin]
                   + [(cy, cx - rt, cx + rt) for cx, cy in ticks])
     rest = bw & (hor == 0) & (stars == 0)
@@ -192,8 +218,9 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = No
 
 def _close_pairs(rest: np.ndarray, ticks, found: List[Gap]) -> List[Gap]:
     """Kleine Maße über zwei eng liegenden Sternen („24“ über „✳✳“): Die Zahl passt nicht
-    dazwischen und steht darüber, oft breiter als das Paar und in Nachbarschrift. Gesucht werden
-    Ziffern in Schrifthöhe der übrigen Maßzahlen, eine Zeile, die der Paarmitte am nächsten liegt.
+    dazwischen und steht darüber, oft breiter als das Paar und in Nachbarschrift, oder direkt
+    daneben über der verlängerten Maßlinie. Gesucht werden Ziffern in Schrifthöhe der übrigen
+    Maßzahlen, das Wort, das der Paarmitte bzw. dem Paarende am nächsten liegt.
     Zählt nur, wenn die Zahl zum Sternabstand passt (check_lengths)."""
     import cv2
     hs = sorted(g[1][3] for g in found if g[3] == 0)
@@ -209,31 +236,47 @@ def _close_pairs(rest: np.ndarray, ticks, found: List[Gap]) -> List[Gap]:
     for cy, xs in rows.items():
         xs.sort()
         for a, b in zip(xs, xs[1:]):
-            if not 0.3 * h <= b - a <= 1.3 * h:     # zwei Ziffern hätten dazwischen keinen Platz
+            # zwei Ziffern hätten dazwischen keinen Platz (bis 2,5 h: „12⁵“ ist breiter als 2 Ziffern)
+            if not 0.3 * h <= b - a <= 2.5 * h:
                 continue
             c = (a + b) / 2.0
-            x0, x1 = max(0, int(c - 1.5 * h)), min(W, int(c + 1.5 * h))
+            x0, x1 = max(0, int(a - 3 * h)), min(W, int(b + 3 * h))
             y0, y1 = max(0, int(cy - 2.4 * h)), int(cy) - 1
             n, _, st, _ = cv2.connectedComponentsWithStats(rest[y0:y1, x0:x1], connectivity=8)
             comps = [(x + x0, y + y0, w, hh) for x, y, w, hh, ar in st[1:] if ar >= 2]
-            full = [q for q in comps if 0.75 * h <= q[3] <= 1.3 * h]
-            if not full:
+            # Wörter: Ziffern einer Zeile mit kleinem Abstand
+            words: list = []
+            for q in sorted((q for q in comps if 0.75 * h <= q[3] <= 1.3 * h), key=lambda q: q[0]):
+                for wd in words:
+                    p = wd[-1]
+                    if abs(q[1] + q[3] - p[1] - p[3]) <= 0.2 * h and q[0] - (p[0] + p[2]) < 0.4 * h:
+                        wd.append(q)
+                        break
+                else:
+                    words.append([q])
+            # die Zahl steht mittig über dem Paar oder – Allplan verlängert dafür die Maßlinie –
+            # direkt daneben über der Linie; die nächste gewinnt
+            best = None
+            for wd in words:
+                wx0, wx1 = wd[0][0], wd[-1][0] + wd[-1][2]
+                if abs((wx0 + wx1) / 2.0 - c) <= 0.6 * h:
+                    dd = abs((wx0 + wx1) / 2.0 - c)
+                elif -0.2 * h <= wx0 - b <= 0.8 * h:
+                    dd = h + wx0 - b
+                elif -0.2 * h <= a - wx1 <= 0.8 * h:
+                    dd = h + a - wx1
+                else:
+                    continue
+                dd += abs(cy - max(q[1] + q[3] for q in wd))
+                if best is None or dd < best[0]:
+                    best = (dd, wd)
+            if best is None:
                 continue
-            # die Ziffer über der Paarmitte, dazu Nachbarn derselben Zeile mit kleinem Abstand
-            first = min(full, key=lambda q: abs(q[0] + q[2] / 2.0 - c) + abs(cy - q[1] - q[3]))
-            line = sorted((q for q in full if abs(q[1] + q[3] - first[1] - first[3]) <= 0.2 * h),
-                          key=lambda q: q[0])
-            i = line.index(first)
-            j0, j1 = i, i
-            while j0 > 0 and line[j0][0] - (line[j0 - 1][0] + line[j0 - 1][2]) < 0.4 * h:
-                j0 -= 1
-            while j1 + 1 < len(line) and line[j1 + 1][0] - (line[j1][0] + line[j1][2]) < 0.4 * h:
-                j1 += 1
-            word = line[j0:j1 + 1]
+            word = best[1]
             gx0 = word[0][0] - int(0.3 * h)
             gx1 = word[-1][0] + word[-1][2] + int(0.3 * h)
             g = _number(word, comps, rest, gx0, gx1)
-            if g is None or abs(g[1][0] + g[1][2] / 2.0 - c) > 0.6 * h:
+            if g is None:
                 continue
             out.append(g + (-1, (cy, a, b, g[1][0] + g[1][2] / 2.0, True)))
     return out
@@ -303,7 +346,7 @@ def _crop(bw: np.ndarray, gray: np.ndarray, box, k: int, height: int, side: int 
 def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_lines=None):
     """Maßzahlen in Lücken der Maßlinie lesen. Gibt (Texte, Boxen x, y, w, h) zurück."""
     from . import textlines
-    from .ocr import NUM_WHITELIST, SUPERSCRIPT
+    from .ocr import NUM_WHITELIST
     keep: list = []
     gaps = line_gaps(bw, px_per_mm, keep)
     if not gaps:
@@ -323,8 +366,11 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
         raw = t = (t or "").replace(" ", "").replace(",", ".").strip(".")
         high = ""
         if sup is not None and NUMBER.match(t[:-1]):      # letzte Ziffer ist die Hochziffer
-            t, high = t[:-1], t[-1].translate(SUPERSCRIPT)
-        ok = conf >= 75 and bool(NUMBER.match(t))
+            # Hochziffer an Maßen ist immer ⁵ (halbe Zentimeter); klein gedruckt liest Tesseract
+            # sie oft als 9, 2, 6 oder 1
+            t, high = t[:-1], "⁵"
+        # einstellig („5“) nur über engem Sternpaar: dort prüft check_lengths die Länge
+        ok = conf >= 75 and bool(NUMBER.match(t) or sg is not None and len(sg) == 5 and re.fullmatch(r"\d", t))
         if ok:
             # passt die Länge der Zahl zur Box? (sonst: Teil einer Zahl oder zwei aufeinander)
             w, h = (fb[2], fb[3]) if k == 0 else (fb[3], fb[2])
@@ -650,7 +696,7 @@ def metres(t: str) -> Optional[float]:
     """Maßzahl in Meter: „6.70“ → 6.70, „74“ (cm) → 0.74, „88⁵“ → 0.885, „2.12⁵“ → 2.125."""
     plain = t.rstrip(SUP)
     high = t[len(plain):]
-    if not NUMBER.match(plain) or len(high) > 1:
+    if not (NUMBER.match(plain) or re.fullmatch(r"\d", plain)) or len(high) > 1:
         return None
     v = float(plain) if "." in plain else float(plain) / 100
     if high:
@@ -660,15 +706,15 @@ def metres(t: str) -> Optional[float]:
 
 def _variants(raw: str) -> List[str]:
     """Lesarten einer unsicheren Ziffernfolge: wie gelesen, Hochziffer als volle Ziffer gelesen
-    („875“ → „87⁵“), Punkt verloren („245“ → „2.45“)."""
-    sup = SUP
+    („875“ → „87⁵“; als Hochziffer an Maßen gibt es nur ⁵, „1119“ → „1.11⁵“), Punkt verloren
+    („245“ → „2.45“)."""
     raw = raw.strip(".")                        # Punkt am Rand = Rest von Maßlinie/Pfeilspitze („2.45.“)
     out = [raw]
     d = raw.replace(".", "")
     if d.isdigit() and 3 <= len(d) <= 5:
-        out += [raw[:-1] + sup[int(raw[-1])]] if len(raw) == 3 or "." in raw[:-1] else []
+        out += [raw[:-1] + "⁵"] if len(raw) == 3 or "." in raw[:-1] else []
         out += [d[:-2] + "." + d[-2:]]
-        out += [d[:-3] + "." + d[-3:-1] + sup[int(d[-1])]] if len(d) >= 4 else []
+        out += [d[:-3] + "." + d[-3:-1] + "⁵"] if len(d) >= 4 else []
     return [v for v in dict.fromkeys(out) if metres(v) is not None]
 
 

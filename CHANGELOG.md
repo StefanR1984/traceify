@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.38.4 – 18.11.2026
+### Maßzahlen
+- **Kleine Maßsterne ohne Maßlinie** („✳30✳“) wurden oft nicht als Maßbegrenzung erkannt: Ihre Arme ragen kaum über den Schrägstrich hinaus. Ein zweiter, genauerer Blick findet sie jetzt – aber nur in der Größe der sicher erkannten Sterne desselben Plans, damit Ziffern und Ecken größerer, fetter Schrift nicht als Stern gelten.
+- **Kleine Maße neben dem Sternpaar:** Passt die Zahl nicht zwischen die Sterne, stellt Allplan sie daneben über die verlängerte Maßlinie oder über das Paar – auch bei Abständen bis 2,5 Ziffernhöhen. Beides wird jetzt gelesen und gegen den Sternabstand geprüft; dort auch einstellige Maße („5“).
+- Ziffern dürfen bis knapp an den Stern reichen („✳28✳“).
+- Hochziffern an Maßzahlen sind immer ⁵ (halbe Zentimeter); klein gedruckt las die Erkennung sie teils als ⁹, ², ⁶ oder ¹.
+- **Gemessen:** echte Allplan-Plots PLAN2 je Maß: cm-Maße „30“ 38 → 51 %, „12⁵“ 47 → 52 %, „2.83⁵“ 82 → 86 %, falsche Zahlen 241 → 221; je Text EG 415 → 448, OG1 335 → 366, OG2 305 → 325, OG3 221 → 252, falsche Wörter überall weniger. PLAN1/PLAN3, Simulation und Scans praktisch unverändert.
+
 ## 0.38.3 – 18.11.2026
 ### Maßzahlen
 - **Kleine cm-Maße zwischen zwei Maßsternen** („✳30✳“, „✳24✳“) wurden nicht gezielt gelesen, wenn die Schrift nur 1 mm hoch ist (Allplan-Standard für cm-Maße): die Mindesthöhe lag bei 1,2 mm. Jetzt 0,8 mm.

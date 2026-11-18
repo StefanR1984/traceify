@@ -180,6 +180,20 @@ an Linie verschmolzen), einstellige cm-Maße „2⁵“ (fast nie gelesen – Fi
 (Punkt fehlt), reine Zahlen (cm-Maße „25“, „30“)
 nur 14–40 % richtig (0.38.3: `_horizontal_gaps` h_min 1,2 → 0,8 mm – cm-Maße sind 1 mm hoch; PLAN2 echt +32 Texte. Analyse 18.11. je Maß
 PLAN2 alle 4: „NN“ 38 %, „NN⁵“ 47 %, d.dd 84 %, d.dd⁵ 82 %; bei NN meist gar nichts gelesen, oft Ziffern an Sternen), Maße auf PLAN2 noch ~25 % verlesen; Raumstempel („0.27 Druckerpool“) oft nur teilweise.
+**0.38.4 cm-Maße (Befund 18.11., je Fall belegt):** Ursache Nr. 1 war **keine Lücke**: (a) `_ticks` verwarf ~2/3 der
+Sterne – ohne Maßlinie (✳30✳) ragt der Waagrecht-Arm kleiner Sterne (~9 px bei 300 dpi) nur ±4 px über die Mitte, der
+Diagonal-Schwerpunkt liegt 1 px daneben → zweiter Versuch (kürzere Arme, ±1 px, Waagrechte ≤ 1 px am Schwerpunkt, senkrecht
+um die Waagrechte, alle Arme im Bauteil der Mitte) **nur in Größe ±15 % des Medians der sicher erkannten Sterne** – ohne diese
+Grenze traf er auf PLAN1 (1:200, Sterne ~23 px, fette Ziffern) „1“, „4“, „2“-Füße und Wandecken (echt PLAN1_UG 98 → 79
+Texte). (b) Allplan stellt kleine Maße **neben** das Sternpaar über die verlängerte Linie oder über Paare bis 2,5 h Abstand →
+`_close_pairs` sucht dort mit (Längenprobe bleibt Schutz). (c) Stern als Lückenende nur Mitte ± 0,15 mm statt 0,4 mm.
+(d) einstellige Maße („5“) nur über Sternpaar (Längenprobe). (e) Hochziffer an Lückenzahlen immer ⁵ (las „⁹/²/⁶“).
+Gemessen PLAN2 (klass.py): NN 226 → 304, NN⁵ 235 → 258, d.dd⁵ 315 → 331, d.dd 413 → 411, falsche Zahlen 241 → 221;
+echt Texte 1801 → 1916, falsche Wörter 359 → 337 (PLAN1 ±1); Sim gleich (PLAN1_UG −3 Texte), Scans unverändert.
+**Verworfen:** Hochziffer ohne eigene Box („445“ → „44⁵“ per Breite, netto 0); zweistellige Hochziffer („14⁷⁵“, „21²⁵“ –
+echte Allplan-Maße, `truth.merge_superscripts` macht daraus „14⁷“ + „5“) verwerfen → echte Maße verloren; Armbreite ≤ 3 px
+als Ziffernschutz (PLAN2 −90 NN); „Linie liegt auf dem Arm“ als Ziffernschutz (wirkungslos). Rest NN: Sterne mit zu kurzem
+Schrägstrich (< 0,7 mm Öffnung), Zahlen über langer Linie ohne Sternpaar, „5“ als abgetrennte Hochziffer im Original.
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

@@ -47,7 +47,8 @@ def test_lesen_mit_attrappe_zahlenmuster():
     img = _plan()
     gray = (255 - img * 255).astype(np.uint8)
     # „67“: zu kurz für die Box (Teil einer Zahl) → nichts
-    for read, want in (("6.70", "6.70"), ("9295", None), ("Bad", None), ("67", None), ("6,70", "6.70")):
+    # einstellig („7“) nur über engem Sternpaar, nicht in einer Lücke der Maßlinie
+    for read, want in (("6.70", "6.70"), ("9295", None), ("Bad", None), ("67", None), ("6,70", "6.70"), ("7", None)):
         tt, bb = dimensions.read_gap_numbers(img, gray, 10.0, OcrSettings(),
                                              run_lines=lambda c, s, x, r=read: [(r, 90.0)] * len(c))
         assert [t.text for t in tt] == ([want] if want else [])
@@ -116,7 +117,8 @@ def test_hochziffer_wird_angehaengt():
     assert len(g) == 1 and g[0][0][2] is not None
     gray = (255 - img * 255).astype(np.uint8)
     # zweiter/dritter Fall: war keine Hochziffer; Randpunkt („4.17.“) ist nie eine Hochziffer
-    for read, want in (("4.175", "4.17⁵"), ("4.17", "4.17"), ("4.17.", "4.17")):
+    # vierter Fall: klein gedruckte „⁵“ als „9“ gelesen – an Maßen gibt es nur ⁵
+    for read, want in (("4.175", "4.17⁵"), ("4.17", "4.17"), ("4.17.", "4.17"), ("4.179", "4.17⁵")):
         tt, bb = dimensions.read_gap_numbers(img, gray, 10.0, OcrSettings(),
                                              run_lines=lambda c, s, x, r=read: [(r, 90.0)] * len(c))
         assert [t.text for t in tt] == [want]
@@ -168,8 +170,10 @@ def test_meter_und_lesarten():
     assert dimensions.metres("88⁵") == pytest.approx(0.885)
     assert dimensions.metres("2.12⁵") == pytest.approx(2.125)
     assert dimensions.metres("9295") is None
+    assert dimensions.metres("5") == pytest.approx(0.05)
     assert dimensions._variants("875") == ["875", "87⁵", "8.75"]
     assert dimensions._variants("2885") == ["28.85", "2.88⁵"]
+    assert "1.11⁵" in dimensions._variants("1119")         # Hochziffer als „9“ gelesen
     # Punkt am Rand (Rest von Maßlinie/Pfeilspitze) darf keinen ValueError auslösen
     assert dimensions._variants("2.45.") == dimensions._variants("2.45")
     assert dimensions._variants("1.87.") == dimensions._variants("1.87")
@@ -359,3 +363,106 @@ def test_gui_schalter_fette_schrift():
     app.processEvents()
     assert not cb.isChecked() and not w.panel.settings().ocr.thin_bold
     w.close()
+
+
+# Ausschnitte aus einem echten Allplan-Plot (PLAN2_EG, 300 dpi = 11,81 px/mm, 1 = „#“)
+_STERN_KLEIN = """
+......##....
+.....###....
+.....###.###
+.....######.
+.....#####..
+.....#####..
+..#########.
+..########..
+...#####....
+..######....
+...#.###....
+.....###....
+......#.....
+"""
+_FUSS_DER_2 = """
+........##..
+.......##...
+.......#....
+......##....
+.....##.....
+....###.....
+...##.......
+..###.......
+..##........
+.#######....
+#########...
+#########...
+"""
+
+
+def _ascii(art, img, x, y):
+    rows = art.strip().splitlines()
+    img[y:y + len(rows), x:x + len(rows[0])] = np.array([[c == "#" for c in r] for r in rows], np.uint8)
+
+
+def test_kleiner_stern_ohne_masslinie_und_fuss_der_2():
+    """Kleine Sterne ohne Maßlinie („✳30✳“): Arme kaum länger als der Schrägstrich, dessen
+    Schwerpunkt 1 px neben dem Kreuz liegt – werden erkannt, wenn sie so groß sind wie die sicher
+    erkannten Sterne des Plans; der Fuß einer fetten „2“ (Schrägstrich auf Querstrich, darunter
+    nichts) nicht (0.38.4)."""
+    def plan(gross):
+        img = np.zeros((60, 420), np.uint8)
+        _ascii(_STERN_KLEIN, img, 20, 20)
+        _ascii(_FUSS_DER_2, img, 60, 20)
+        for x in range(120, 420, 50):                    # sicher erkennbare Sterne
+            if gross:
+                _star(img, x, 27)
+            else:
+                cv2.line(img, (x - 4, 31), (x + 4, 23), 1, 2)
+                cv2.line(img, (x - 7, 27), (x + 7, 27), 1, 1)
+                cv2.line(img, (x, 20), (x, 34), 1, 1)
+        return img
+    xs = [x for x, _ in dimensions._ticks(plan(False), 11.811)[0]]
+    assert len(xs) == 7 and min(xs) < 40                 # kleiner Stern ja, „2“ nein
+    rot = np.ascontiguousarray(np.rot90(plan(False), 1))
+    assert len(dimensions._ticks(rot, 11.811)[0]) == 7   # auch senkrecht
+    # Plan mit größeren Sternen (1:200, fette Schrift): kein zweiter Versuch
+    assert min(x for x, _ in dimensions._ticks(plan(True), 11.811)[0]) > 100
+
+
+def _kette(img):
+    """„✳74✳74✳74✳“ bis x = 500 für die Schrifthöhe der Maßzahlen."""
+    for x in (60, 210, 360, 500):
+        _star(img, x, 150)
+    for x in (115, 265, 405):
+        cv2.putText(img, "74", (x, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+
+
+def test_kleines_mass_neben_dem_sternpaar_und_ueber_weitem_paar():
+    """Allplan stellt kleine Maße neben das Sternpaar über die verlängerte Maßlinie oder über
+    ein Paar, das für die Zahl zu eng ist (bis 2,5 Ziffernhöhen) (0.38.4)."""
+    img = np.zeros((300, 900), np.uint8)
+    _kette(img)
+    for x in (640, 662):                                 # enges Paar, „24“ rechts daneben
+        _star(img, x, 150)
+    cv2.line(img, (662, 150), (760, 150), 1, 2)
+    cv2.putText(img, "24", (673, 144), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    g = [gap for gap, k in dimensions.line_gaps(img, 10.0) if gap[4] and len(gap[4]) > 4]
+    assert len(g) == 1 and g[0][3] == -1 and g[0][4][1:3] == pytest.approx((640, 662), abs=1)
+    x, y, w, h = g[0][0]
+    assert 662 < x and y + h < 150
+    img = np.zeros((300, 900), np.uint8)
+    _kette(img)
+    for x in (640, 680):                                 # Paar 40 px (2 Ziffernhöhen), „24“ darüber
+        _star(img, x, 150)
+    cv2.putText(img, "24", (642, 136), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    g = [gap for gap, k in dimensions.line_gaps(img, 10.0) if gap[4] and len(gap[4]) > 4]
+    assert len(g) == 1 and g[0][4][1:3] == pytest.approx((640, 680), abs=1)
+
+
+def test_laengenpruefung_einstelliges_mass_ueber_sternpaar():
+    r = 118.0                                            # 1:100 bei 300 dpi
+    rows = [_seg(t, metres * r) for t, metres in
+            (("6.70", 6.70), ("2.35", 2.35), ("3.01", 3.01), ("2.12⁵", 2.125), ("1.88⁵", 1.885))]
+    pair = lambda t, L: ([t, t, 90.0], (None, None, None, -1, (100.0, 0.0, float(L), L / 2, True)))
+    rows += [pair("5", 0.05 * r), pair("9", 0.05 * r)]   # „9“ passt nicht zu 5 cm → weg
+    cand, gaps = [c for c, _ in rows], [g for _, g in rows]
+    dimensions.check_lengths(cand, gaps, [0] * len(gaps))
+    assert [c[0] for c in cand[5:]] == ["5", None]
