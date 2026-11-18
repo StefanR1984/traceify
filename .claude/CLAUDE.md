@@ -224,6 +224,12 @@ durch das Wort („Druck pool“, „Putz mmer“) → `lexicon._join_cut` (Begr
 eindeutig, nicht zwei bekannte Wörter). PLAN2 Buchstaben-Texte 86 → 95 von 121, echt Texte 1968 → 1977, falsch 295 → 284.
 Offen: Raumnummer ohne Punkt („0 21a“, „121WCD“ – Zahlen nie ändern), abgeschnittenes Wortende („Putzka“, „Drucke“ +
 „kerpool“ als zwei Texte), „Pod t2“, Stempel ganz ungelesen („2.18 Flur“, „3.10 Flur/ Garderobe“).
+**0.38.9 Türmaße (Befund 18.11., `tuer.py` im Notizordner):** Türpaare (Breite 0,55–1,5 über Höhe 1,9–3,0 m) auf den Plots:
+PLAN2 141, PLAN1 14 (UG 13). Stand 0.38.8: beide richtig PLAN2 81 %, PLAN1_UG 15 %. Belegte Ursachen PLAN2_EG: (a) OCR-Zeile
+„25 1.01“, Lückenzahl „25“ ersetzte sie ganz → `dimensions._split_off` behält den Rest; (b) „101“ über „2.75⁵“: OCR-Höhe 9,6 statt
+14 px → `_stacked` in beide Richtungen. PLAN2_EG beide 71 → 80 %, echt Texte +6. Rest fast nur **Türbogen durch die Ziffern**
+(„2.40“ → „24“, „1.01“ → „1.91“/„LOL“) und OCR ohne Fund („88⁵“ über „2.26“, Ausschnitt sauber – auch der Schablonen-Leser
+findet sie nicht). PLAN1_UG: Paare senkrecht und an Wänden („NO“), nicht untersucht.
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

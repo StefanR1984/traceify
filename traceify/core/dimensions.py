@@ -808,7 +808,8 @@ def tidy_numbers(texts: list) -> int:
             continue
         v = int(t.text) / 100
         for o in texts:
-            if o is t or not _DIM_M.match(o.text) or not _stacked(t, o):
+            # beide Richtungen: die OCR-Höhe einer Zahl ist oft zu klein („101“ 9,6 statt 14 px)
+            if o is t or not _DIM_M.match(o.text) or not (_stacked(t, o) or _stacked(o, t)):
                 continue
             w = metres(o.text)
             if w is not None and (0.55 <= v <= 1.5 and 1.9 <= w <= 3.0 or 0.55 <= w <= 1.5 and 1.9 <= v <= 3.0):
@@ -837,9 +838,29 @@ def merge(texts: list, boxes: list, new_texts: list, new_boxes: list) -> None:
         # die OCR fand dieselbe Zahl samt Hochziffer („2.83⁵“), die Lücke nicht: Hochziffer behalten
         t.text = next((texts[i].text for i in hit if texts[i].text.rstrip(SUP) == t.text), t.text)
         for i in sorted(hit, reverse=True):
-            del texts[i], boxes[i]
+            if not _split_off(texts[i], boxes[i], t.text):
+                del texts[i], boxes[i]
         texts.append(t)
         boxes.append(b)
+
+
+def _split_off(o: Text, box, num: str) -> bool:
+    """Hat die OCR zwei Maße als eine Zeile gelesen („25 1.01“) und ist num eines davon am Rand:
+    o behält den Rest (Lage um den Anteil verschoben). Gibt zurück, ob o bleibt."""
+    import math
+    toks = o.text.split()
+    if len(toks) < 2 or num not in (toks[0], toks[-1]):
+        return False
+    first = toks[0] == num
+    rest = toks[1:] if first else toks[:-1]
+    if not all(NUMBER.match(x.rstrip(SUP)) for x in rest):
+        return False
+    if first:                                   # Anfang verschiebt sich um den abgetrennten Teil
+        a = math.radians(o.angle)
+        L = (box[2] if abs(math.cos(a)) >= 0.5 else box[3]) * (len(num) + 1) / len(o.text)
+        o.position = (o.position[0] + L * math.cos(a), o.position[1] - L * math.sin(a))
+    o.text = " ".join(rest)
+    return True
 
 
 def _self_check() -> None:

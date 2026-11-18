@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.38.9 – 18.11.2026
+### Maßzahlen
+- **Türmaße:** Hat die Texterkennung zwei Maße als eine Zeile gelesen („25 1.01“), ersetzte die gezielt gelesene Lückenzahl „25“ die ganze Zeile – die Türbreite „1.01“ ging verloren. Jetzt bleibt der Rest stehen.
+- Türmaß-Paar „101“ über „2.75⁵“ wird auch dann „1.01“, wenn die Texterkennung die Höhe der oberen Zahl zu klein schätzt.
+- **Gemessen:** echte Allplan-Plots Türmaße (Breite und Höhe richtig) PLAN2_EG 71 → 80 %, alle 7 Pläne mit Türen 75 → 77 %; alle 17 Plots Texte 1977 → 1983. Simulation und Scans praktisch unverändert (±1).
+
 ## 0.38.8 – 18.11.2026
 ### OCR
 - **Raumstempel:** Das Wörterbuch kennt jetzt weitere Raumnamen (Teeküche, Druckerpool, Putzkammer, Putzraum, Garderobe, Besprechung, Vorstand, Kopierer, Drucker) und typische Verleser von „Büro“ („Bure“, „Biro“, „Buro-“). „l“ und „t“ gelten als Formverwechslung („Beralung“ → „Beratung“).
