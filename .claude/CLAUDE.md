@@ -178,7 +178,8 @@ echte „200“, „150“ neben Maßen), „2 75°“ → „2.75⁵“: echt 1
 Hochziffer nicht gesehen, Teil gelesen). Offen: „N°“ ohne gefundene Komponente (14 auf PLAN2_EG, Hochziffer
 an Linie verschmolzen), einstellige cm-Maße „2⁵“ (fast nie gelesen – Filter Kurztexte < 85 % Sicherheit), „275°“
 (Punkt fehlt), reine Zahlen (cm-Maße „25“, „30“)
-nur 14–40 % richtig, Maße auf PLAN2 noch ~25 % verlesen; Raumstempel („0.27 Druckerpool“) oft nur teilweise.
+nur 14–40 % richtig (0.38.3: `_horizontal_gaps` h_min 1,2 → 0,8 mm – cm-Maße sind 1 mm hoch; PLAN2 echt +32 Texte. Analyse 18.11. je Maß
+PLAN2 alle 4: „NN“ 38 %, „NN⁵“ 47 %, d.dd 84 %, d.dd⁵ 82 %; bei NN meist gar nichts gelesen, oft Ziffern an Sternen), Maße auf PLAN2 noch ~25 % verlesen; Raumstempel („0.27 Druckerpool“) oft nur teilweise.
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

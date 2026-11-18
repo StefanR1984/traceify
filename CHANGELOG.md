@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.38.3 – 18.11.2026
+### Maßzahlen
+- **Kleine cm-Maße zwischen zwei Maßsternen** („✳30✳“, „✳24✳“) wurden nicht gezielt gelesen, wenn die Schrift nur 1 mm hoch ist (Allplan-Standard für cm-Maße): die Mindesthöhe lag bei 1,2 mm. Jetzt 0,8 mm.
+- **Gemessen:** echte Allplan-Plots PLAN2 je Text EG 404 → 415, OG1 332 → 335, OG2 297 → 305, OG3 211 → 221, Dach 79 → 81, falsche Wörter gleich oder weniger; Simulation PLAN2 je Text +16 bis +45 (falsche Wörter +11 bis +17); Geometrie und Scans unverändert.
+
 ## 0.38.2 – 18.11.2026
 ### Fehlerbehebung
 - **Absturz „cannot unpack non-iterable numpy.int32 object“** beim Umwandeln mit „Schräglage korrigieren“ (z. B. Strich-Scan-PDF): OpenCV 5 liefert erkannte Linien in anderer Form; die Schräglage-Schätzung liest jetzt beide Formen.

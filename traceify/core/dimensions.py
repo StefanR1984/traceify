@@ -136,7 +136,7 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = No
                   + [(cy, cx - rt, cx + rt) for cx, cy in ticks])
     rest = bw & (hor == 0) & (stars == 0)
     H, W = bw.shape
-    h_min, h_max = 1.2 * px_per_mm, 7.0 * px_per_mm
+    h_min, h_max = 0.8 * px_per_mm, 7.0 * px_per_mm    # Allplan-cm-Maße sind 1 mm hoch
     out = []
 
     def seg(cy, x):
