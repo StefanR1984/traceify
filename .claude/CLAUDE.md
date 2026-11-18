@@ -230,6 +230,14 @@ PLAN2 141, PLAN1 14 (UG 13). Stand 0.38.8: beide richtig PLAN2 81 %, PLAN1_UG 15
 14 px → `_stacked` in beide Richtungen. PLAN2_EG beide 71 → 80 %, echt Texte +6. Rest fast nur **Türbogen durch die Ziffern**
 („2.40“ → „24“, „1.01“ → „1.91“/„LOL“) und OCR ohne Fund („88⁵“ über „2.26“, Ausschnitt sauber – auch der Schablonen-Leser
 findet sie nicht). PLAN1_UG: Paare senkrecht und an Wänden („NO“), nicht untersucht.
+**Verworfen (18.11.): Türschwenk-Bögen vor der OCR aus dem Schriftbild löschen.** Skelett an Knoten zerlegen, RANSAC-Kreis
+(R 4–30 mm, längster lückenloser Inlier-Lauf ≥ 2,5 mm, sichtbar gekrümmt), Bogen nur dort über ein Wort verlängern, wo er
+dahinter ≥ 1 mm weiterläuft; zurück ins Schriftbild nur Teile ≤ 3 mm am gelöschten Band. Bild an den Fällen sauber
+(„Druckerpool“, „Putzkammer“, „2.40“ frei), aber Tesseract liest den ganzen Plan anders: PLAN2 Buchstaben-Texte 95 → 97,
+Türmaße ±0; Simulation Texte −25 (PLAN1_UG −11, PLAN3_UG1 −8), echt −6 (PLAN1_EG −7), Scans +240 offene Enden (andere
+Textboxen → andere Geometrie), Zeit +30 %. Auch nur für Plots wäre es netto ~0. Code: Notizordner `ocr_boegen_verworfen.py` (nicht im Repo).
+Dabei gefunden und behalten (0.38.10, Messung unverändert – greift erst, wenn ein Bruchstück sicher gelesen wird): `Lexicon.add_own` lernt keine Bruchstücke bekannter Begriffe mehr
+(„ammer“ blockierte „Putz ammer“ → „Putzkammer“), `_join_cut` nimmt „Putz’ ammer“ (Linienrest als Apostroph).
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

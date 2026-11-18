@@ -31,3 +31,12 @@ def test_vom_tuerbogen_zerschnittene_woerter():
     # Zahlen bleiben, auch zwischen Wortstücken
     assert _fix("0 21a Flur") == "0 21a Flur"
     assert _fix("121WCD") == "121WCD"
+
+
+def test_bruchstueck_wird_kein_planwort():
+    lex = Lexicon()
+    lex.add_own(["ammer", "kerpool", "Fahrenberger"])
+    assert "ammer" not in lex and "kerpool" not in lex
+    assert "Fahrenberger" in lex
+    assert correct("0.28 Putz ammer", lex, sure=True)[0] == "0.28 Putzkammer"
+    assert correct("1.24 Putz’ ammer", lex, sure=True)[0] == "1.24 Putzkammer"

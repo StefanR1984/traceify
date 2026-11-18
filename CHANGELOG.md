@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.38.10 – 18.11.2026
+### OCR
+- **Wörterbuch:** Sicher gelesene Bruchstücke bekannter Begriffe („ammer“, „kerpool“) werden nicht mehr als Wort des Plans gelernt – sie verhinderten, dass zerschnittene Wörter („Putz ammer“) wieder zu „Putzkammer“ zusammengesetzt werden. Ein Linienrest als Apostroph am Wortstück („Putz’ ammer“) stört nicht mehr.
+- **Untersucht und verworfen:** Türschwenk-Bögen vor der Texterkennung aus dem Bild löschen – an den Raumstempeln besser, im ganzen Plan aber weniger richtige Texte.
+
 ## 0.38.9 – 18.11.2026
 ### Maßzahlen
 - **Türmaße:** Hat die Texterkennung zwei Maße als eine Zeile gelesen („25 1.01“), ersetzte die gezielt gelesene Lückenzahl „25“ die ganze Zeile – die Türbreite „1.01“ ging verloren. Jetzt bleibt der Rest stehen.

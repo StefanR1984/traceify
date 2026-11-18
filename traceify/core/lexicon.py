@@ -158,6 +158,9 @@ class Lexicon:
                 continue
             if self.best(w, loose=False) is not None:
                 continue
+            f = _fold(w.strip(".,:;"))
+            if any(len(k) > len(f) and (k.startswith(f) or k.endswith(f)) for k in self.words):
+                continue                  # Bruchstück eines bekannten Begriffs („ammer“, „kerpool“)
             self.add([w])
 
     def __contains__(self, w: str) -> bool:
@@ -285,7 +288,7 @@ def _join_cut(toks: List[str], lex: Lexicon) -> List[str]:
     out = list(toks)
     i = 0
     while i + 1 < len(out):
-        a, b = out[i], out[i + 1].rstrip(".,:;")
+        a, b = out[i].rstrip("’'`"), out[i + 1].rstrip(".,:;")     # ’ = Rest der Linie am Schnitt
         tail = out[i + 1][len(b):]
         if len(a) >= 3 and len(b) >= 3 and a.isalpha() and b.isalpha() and not (a in lex and b in lex):
             fa, fb = _fold(a), _fold(b)
