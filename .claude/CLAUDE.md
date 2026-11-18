@@ -210,6 +210,13 @@ Texte +13. Rest NN (55 %, Befund 18.11.): ~200 ohne Lücke – Zahlen in Wanddet
 Maßkette), fette Sterne am Ende eines Stummels mit einseitigem Waagrecht-Arm. **Verworfen:** einseitigen Arm im zweiten
 Stern-Versuch zulassen (Fehlsterne in Zahlen: PLAN2 NN −17, falsch +9); Sternpaar-Zahl nicht über gefundene Lückenzahl
 legen (wirkungslos). Lückenzahlen-Schnellmessung schwankt um einige Maße, weil Tesseract die Ausschnitte im Stapel liest.
+**0.38.7 Raumstempel (Befund 18.11.):** PLAN2 Texte mit Buchstaben 80 von 121 richtig; fast alle Fehlstellen werden von einer
+grau gedruckten Linie gekreuzt (Türschwenk, Grau 100–200; Schrift < 100) – `text_layer` warf Wort + Linie als ein Bauteil
+weg. `recognize`: Tinte nur mit dunklem Kern (`detail` < 128, 5×5 erweitert), **nur wenn ≥ 25 % der Tinte ≤ 10 ist**
+(Plots; Scans 25 %-Perzentil 32–64, Simulation ~30+) – ohne dieses Tor Simulation je Text 1257 → 1145, Scan image 136
+Texte 46 → 24. Schwelle 100 statt 128: weniger falsche Zahlen (149), aber cm-Maße −17 (1-mm-Ziffern ohne tiefschwarzen
+Kern). Ergebnis: Buchstaben 86, echt falsche Wörter 316 → 295. Rest: Wörter an schwarzen Linien, „Büro“ teils ohne
+Umlaut („Biro“), fehlende Leerzeichen („121WCD“).
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

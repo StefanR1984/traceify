@@ -508,3 +508,16 @@ def test_zusammenfuehren_behaelt_hochziffer_der_ocr():
     T, B = [Text("2.83⁵", (0, 0), 10)], [(0, 0, 50, 20)]
     dimensions.merge(T, B, [Text("2.83", (0, 0), 10)], [(2, 0, 45, 20)])
     assert [t.text for t in T] == ["2.83⁵"]
+
+
+@pytest.mark.skipif(not tesseract_available(), reason="Tesseract fehlt")
+def test_graue_linie_durch_raumstempel():
+    """Eine grau gedruckte Linie (Türschwenk) quer durch „Druckerpool“ reißt die Buchstaben in
+    text_layer nicht mehr mit: für die Schrift zählt nur Tinte mit dunklem Kern (0.38.7)."""
+    detail = np.full((120, 520), 255, np.uint8)
+    cv2.putText(detail, "Druckerpool", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.6, 0, 3)
+    cv2.line(detail, (60, 10), (300, 115), 150, 2)       # grau, schräg durch die Schrift
+    cv2.line(detail, (5, 62), (515, 62), 150, 2)         # waagrecht mitten durch
+    binary = np.where(detail < 200, 0, 255).astype(np.uint8)   # Binärbild: grau zählt als Tinte
+    texts, _ = recognize(binary, OcrSettings(), px_per_mm=10.0, detail=detail)
+    assert "Druckerpool" in [t.text for t in texts]

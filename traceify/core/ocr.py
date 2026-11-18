@@ -593,8 +593,17 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
     if not s.enabled or not tesseract_available():
         return [], []
     src = gray
+    ink = gray < 128
+    if detail is not None and detail.shape == gray.shape and px_per_mm > 0 and ink.any() \
+            and np.percentile(detail[ink], 25) <= 10:
+        # grau gedruckte Linien (Türschwenk, Hilfslinien) kreuzen Raumstempel und reißen Buchstaben
+        # in text_layer mit weg: nur Tinte mit dunklem Kern in der Nähe ist Schrift. Nur bei Plots
+        # mit tiefschwarzer Schrift (≥ 25 % der Tinte fast schwarz) – in Scans ist Schrift oft grau
+        import cv2
+        core = cv2.dilate((detail < 128).astype(np.uint8), np.ones((5, 5), np.uint8))
+        src = np.where(core > 0, gray, 255).astype(gray.dtype)
     if px_per_mm > 0:
-        src = 255 - text_layer(255 - gray, px_per_mm, s.max_char_mm)
+        src = 255 - text_layer(255 - src, px_per_mm, s.max_char_mm)
     srcs = [src]
     if s.thin_bold and px_per_mm > 0:
         # fette Schrift: zusätzlich ausgedünnt lesen, je Stelle gewinnt die sicherere Lesung

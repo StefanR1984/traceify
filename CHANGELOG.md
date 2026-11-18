@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.38.7 – 18.11.2026
+### OCR
+- **Raumstempel mit grauer Linie:** In Plots kreuzen grau gedruckte Linien (Türschwenk, Hilfslinien) oft Raumstempel wie „0.27 Druckerpool“ oder „2.16 Büro“. Die Linie hing an den Buchstaben, beide wurden vor der Texterkennung als Linie ausgeblendet. Jetzt zählt für die Schrift nur Tinte mit dunklem Kern in der Nähe – nur in Plots mit tiefschwarzer Schrift, in Scans ist Schrift oft grau.
+- **Gemessen:** echte Allplan-Plots PLAN2 Texte mit Buchstaben 80 → 86 von 121, falsche Zahlen 176 → 170; alle 17 Plots falsche Wörter 316 → 295, Wörter +5, je Text −3. Simulation und Scans unverändert.
+
 ## 0.38.6 – 18.11.2026
 ### Maßzahlen
 - **Kleine Maße neben dem Sternpaar** („✳✳ 12⁵“) werden auch gelesen, wenn sie bis 1,5 Ziffernhöhen neben dem Paar stehen (vorher 0,8); die Längenprobe gegen den Sternabstand bleibt.
