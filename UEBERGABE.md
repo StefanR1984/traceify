@@ -1,13 +1,33 @@
-# Übergabe Traceify – Stand 16.11.2026
+# Übergabe Traceify – Stand 18.11.2026
 
-**Zuerst lesen:** `.claude/CLAUDE.md` (Regeln, Aufbau, Stolpersteine, Befunde des Wahrheits-Prüfstands mit Messwerten). Danach `git pull`, `git log --oneline -8`.
+**Zuerst lesen:** `.claude/CLAUDE.md` (Regeln, Aufbau, Stolpersteine, Befunde des Wahrheits-Prüfstands mit Messwerten). Danach `git pull`, `git log --oneline -12`.
 
-## Aktuell (16.11.2026) – hier anfangen
+## Aktuell (18.11.2026) – hier anfangen
+- Version **0.38.1** auf main (Commit 20c7a9d), Tests und Windows-Build grün, kein Tag (Releases legt der Nutzer an).
+- **Neue Standard-DXF:** `Testdaten Traceify/dxf neu/dxf neu/` (Layer ohne `XR$1$`, PLAN2/PLAN3 mit Maßketten
+  als LINE/MTEXT, neu PLAN1_Dach ohne Plot). Die alten DXF in `dxf/dxf/` bleiben als Vergleich.
+  **Echte Plots aller 17 Pläne** im Wahrheits-Prüfstand (`--scans "Testdaten Traceify/PDF" --jobs 4`, Maßstab je
+  Plan erkannt). Messbasis 0.36.1 und alle Befunde: `.claude/CLAUDE.md`.
+- **0.35.0** Kies/Punktmuster als kleine Kreise auf Layer KIES (`dots.find_dots`), **0.36.0** als DXF-HATCH mit
+  Punktmuster (`dots.find_areas`), SVG-Muster. Echt Dach 7267 → 2814 Objekte, Trefferquote 73,6 → 93,0 %.
+- **0.36.1–0.37.2 Maßzahlen/Hochziffern:** Prüfstand fügt Allplan-Hochziffern zusammen (`truth.merge_superscripts`),
+  „2.75°“/„28°“ → „2.75⁵“/„28⁵“ (`ocr._DIM2`, `_has_hole`), „141⁵“ → „1.41⁵“ (`ocr._allplan_dims`),
+  Türmaß-Paare „101“/„2.40“ → „1.01“ und „2 75°“ → „2.75⁵“ (`dimensions.tidy_numbers`). Echt je Text 1660 → 1767.
+- **0.37.0** zerstückelte Linien an Kreuzungen durchziehen (`cad.join_collinear`), frei stehende Scanpunkte < 1 mm
+  auf Layer SCANPUNKTE (`cad.isolate_specks`): Objekte −2…−7 %, Treffer unverändert.
+- **0.37.3** Scan, der als Hunderttausende Pixel-Striche im PDF steckt, wird wie ein Scan vektorisiert.
+- **0.38.0** fette Schrift zusätzlich ausgedünnt lesen (`ocr.thin_bold`), Testplan „Punkte weg/03-Bestand“ 138 → 209 Texte.
+- **0.38.1** Wellen-Bögen entlang gerader Linien → Linien (`cad.flatten_arcs`): Bögen echt PLAN2_EG 222 → 102.
+  Offen: Sim-Trefferquote −0,1…−1,1 Punkte danach – vermutlich Messartefakt, noch nicht geprüft.
+- **Offene Themen** (Details CLAUDE.md): Maße auf PLAN2 noch ~25 % verlesen (einstellige „2⁵“, „N°“ ohne
+  Komponente, reine cm-Maße 14–40 %); Buchstaben an langen Linien verschwinden in `text_layer`; PLAN3 1:350
+  (DG Treffer 48,5 %, winzige Schrift); Kies-Fläche zerfällt (Dach 35 Flächen), Kiespunkte an Linien fehlen;
+  KI an Handschrift / Workflow „Integration (echt)“ nur mit Okay.
+
+## Stand 16.11.2026
 - Version **0.34.1** auf main (Commit ef03c40: Fix „invalid literal for int()“ in `dimensions._variants`, Randpunkte
   „2.45.“). **Lokal geprüft 16.11.:** pyflakes sauber, 230 Tests grün (mit Tesseract), der auslösende Plan
   `Testdaten Traceify/PDF/PLAN2_EG.pdf` konvertiert ohne Fehler (67 s, 477 Texte, Maßstab 1:100 aus Maßketten).
-  Offen aus der Prüfliste unten: Punkte 2–5 (Prüfstände gegen 0.34.0, Nebenwirkung `check_lengths`, weitere
-  `int()`/`float()` auf Rohlesungen, Windows-Probe-Build für 0.34.1).
 - **Neue Testdaten (16.11.):** echte Allplan-Plots jetzt für **alle** Pläne in `Testdaten Traceify/PDF/`
   (PLAN2_Dach/EG/OG1–3, PLAN3_DG/EG/OG1–4/UG1–3, dazu PLAN1_EG/OG1/UG wie bisher). Maßstab/Auflösung je Plan
   erst feststellen (PLAN2_EG: 1:100, nicht 1:200 wie PLAN1). `tools/wahrheit.py … --scans "Testdaten
@@ -98,7 +118,9 @@ Messstand 0.24.0: simuliert 528 von 887 Wörtern richtig (200 falsch); echte PLA
 - Nicht gewünscht: signierte EXE, winget, englische Übersetzung.
 - Ablauf pro Feature: Kernlogik und Tests, GUI anbinden (README, `show_help`, Changelog, Tooltip in `gui/tips.py`), Version erhöhen, pyflakes und Tests grün, committen, pushen, Windows-Probe-Build (`gh workflow run release.yml --ref main`, `gh run watch <id> --exit-status`), danach alte Actions-Läufe löschen (nur die zum aktuellen Commit behalten).
 
-## Zu prüfen durch Claude Code (Stand 16.11.2026, Fix 0.34.1, Commit ef03c40)
+## Erledigt: Prüfliste Fix 0.34.1 (Stand 16.11.2026, Commit ef03c40)
+**Alle Punkte erledigt** (16./17.11.: Plan konvertiert, Prüfstände gemessen, Randpunkte seit 0.34.2 schon in
+`read_gap_numbers` entfernt, übrige `int()`/`float()` geprüft, Builds grün). Bleibt nur zur Nachvollziehbarkeit stehen.
 Der Fix für „Konvertierung fehlgeschlagen: invalid literal for int() with base 10: '.'“ wurde in einer Cloud-Sitzung
 ohne Tesseract und ohne Testpläne gebaut und nur mit Unit-Tests geprüft (231 grün). Bitte hier lokal prüfen:
 1. `git pull`, dann `pyflakes` + alle Tests mit Tesseract im PATH (siehe Umgebung oben).
