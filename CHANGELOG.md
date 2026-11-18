@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.38.8 – 18.11.2026
+### OCR
+- **Raumstempel:** Das Wörterbuch kennt jetzt weitere Raumnamen (Teeküche, Druckerpool, Putzkammer, Putzraum, Garderobe, Besprechung, Vorstand, Kopierer, Drucker) und typische Verleser von „Büro“ („Bure“, „Biro“, „Buro-“). „l“ und „t“ gelten als Formverwechslung („Beralung“ → „Beratung“).
+- **Vom Türbogen zerschnittene Wörter** („2.13 Druck pool“, „0.28 Putz mmer“) werden wieder zusammengesetzt, wenn genau ein bekannter Begriff mit dem einen Stück beginnt, mit dem anderen endet und dazwischen 1–3 Buchstaben fehlen. Zahlen bleiben unverändert.
+- **Gemessen:** echte Allplan-Plots PLAN2 Texte mit Buchstaben 86 → 95 von 121; alle 17 Plots Texte 1968 → 1977, falsche Wörter 295 → 284. Simulation +3 Texte, falsche Wörter −2; Scans unverändert.
+### KI
+- **Gemma 4 über vLLM** gilt jetzt als bildfähig (vorher nur Gemma 3).
+
 ## 0.38.7 – 18.11.2026
 ### OCR
 - **Raumstempel mit grauer Linie:** In Plots kreuzen grau gedruckte Linien (Türschwenk, Hilfslinien) oft Raumstempel wie „0.27 Druckerpool“ oder „2.16 Büro“. Die Linie hing an den Buchstaben, beide wurden vor der Texterkennung als Linie ausgeblendet. Jetzt zählt für die Schrift nur Tinte mit dunklem Kern in der Nähe – nur in Plots mit tiefschwarzer Schrift, in Scans ist Schrift oft grau.

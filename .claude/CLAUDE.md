@@ -217,6 +217,13 @@ weg. `recognize`: Tinte nur mit dunklem Kern (`detail` < 128, 5×5 erweitert), *
 Texte 46 → 24. Schwelle 100 statt 128: weniger falsche Zahlen (149), aber cm-Maße −17 (1-mm-Ziffern ohne tiefschwarzen
 Kern). Ergebnis: Buchstaben 86, echt falsche Wörter 316 → 295. Rest: Wörter an schwarzen Linien, „Büro“ teils ohne
 Umlaut („Biro“), fehlende Leerzeichen („121WCD“).
+**0.38.8 Raumstempel (Befund 18.11.):** Alle Fehlstellen waren *sicher* gelesen (≥ 80), die Formregeln griffen nicht.
+(a) Raumnamen fehlten im Wörterbuch (Teeküche, Druckerpool, Putzkammer …), (b) „Büro“ → „Bure“/„Biro“/„Buro-“ (zu kurz für
+die Ähnlichkeitsregel → Tabelle `lexicon._MISREAD`), (c) „Beralung“ (l/t jetzt in `_FORM`), (d) **schwarze** Türschwenk-Bögen
+durch das Wort („Druck pool“, „Putz mmer“) → `lexicon._join_cut` (Begriff ≥ 8, Anfang + Ende, 1–3 fehlende Buchstaben,
+eindeutig, nicht zwei bekannte Wörter). PLAN2 Buchstaben-Texte 86 → 95 von 121, echt Texte 1968 → 1977, falsch 295 → 284.
+Offen: Raumnummer ohne Punkt („0 21a“, „121WCD“ – Zahlen nie ändern), abgeschnittenes Wortende („Putzka“, „Drucke“ +
+„kerpool“ als zwei Texte), „Pod t2“, Stempel ganz ungelesen („2.18 Flur“, „3.10 Flur/ Garderobe“).
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

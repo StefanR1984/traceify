@@ -41,6 +41,7 @@ Gasabzug Rohr Leitung Anschluss Steckdose Heizkörper Radiator Kessel Speicher B
 Achse Bestand Neubau Abbruch Umbau Anbau Planung Entwurf Genehmigung Bauherr Architekt
 Personal Personalraum Aufenthalt Aufenthaltsraum Sozialraum Umkleide Pausenraum
 Klasse Klassenzimmer Fachraum Werkraum Lehrer Lehrerzimmer Werkstatt
+Teeküche Druckerpool Putzkammer Putzraum Garderobe Besprechung Vorstand Kopierer Drucker
 Labor Rezeptur Notdienst Beratung Verkauf Verkaufsraum Handverkauf Offizin Sichtwahl
 Freiwahl Arbeitsplatz Kasse Theke Tresen Schübe Regal Regale Schrank Schränke
 Helferinnen Mitarbeiter Empfang Anmeldung Wartezimmer Warteraum Behandlung
@@ -57,12 +58,15 @@ ABBREV = ["Pos", "Nr", "BR", "RH", "OK", "UK", "FFB", "RFB", "NFL", "WFL", "qm",
 
 # OCR-Verwechslungen. FORM: Zeichen, die sich in Schrift kaum unterscheiden (auch bei sicher
 # gelesenem Text plausibel). VOKAL u. Ä.: nur bei unsicher gelesenem Text
-_FORM = ["il1!|jIíì", "vwVW", "eé", "uü", "aä", "oö", "o0O", "sß", "cC", "zZ"]
+_FORM = ["il1!|jIíì", "vwVW", "eé", "uü", "aä", "oö", "o0O", "sß", "cC", "zZ", "lt"]
 _LOOSE = _FORM + ["tfl", "eco", "aoe", "uvn", "bh", "gq9", "kK", "s5S", "B8", "z2"]
 _THIN = set("il1!|.'’,:;-")             # dünne Zeichen gehen im Scan leicht verloren
 _PAIRS = {("rn", "m"), ("ii", "ü"), ("ii", "u"), ("cl", "d"), ("vv", "w"), ("li", "h"),
           ("il", "u"), ("in", "m"), ("ri", "n")}
-_ALPHA = re.compile(r"^[A-Za-zÄÖÜäöüßéèí!|]+[.:]?$")
+_ALPHA = re.compile(r"^[A-Za-zÄÖÜäöüßéèí!|]+[.:-]?$")
+# Kurze Begriffe, die Tesseract in kleiner Planschrift typisch verliest („ü“ ohne Punkte als
+# „i“, „o“ als „e“) – zu kurz für die allgemeine Ähnlichkeitsregel
+_MISREAD = {"bure": "Büro", "biro": "Büro", "bxro": "Büro", "biiro": "Büro"}
 _DIGITS = re.compile(r"\d")
 # Endungen: „Garagen“, „Details“, „Zimmern“ sind gebeugte Formen, keine Lesefehler
 _SUFFIXES = ("e", "n", "en", "er", "ern", "es", "s", "ns", "ens", "nen")
@@ -220,12 +224,12 @@ def correct(text: str, lex: Lexicon, sure: bool = False) -> Tuple[str, int, int]
     sure: Text wurde sicher gelesen – dann nur Formverwechslungen und fehlende Umlaute.
     Gibt (Text, Anzahl Wörter, davon im Wörterbuch bzw. eindeutig korrigiert) zurück –
     gezählt werden nur Wörter aus Buchstaben (ab 3 Zeichen)."""
-    toks = text.split(" ")
+    toks = _join_cut(text.split(" "), lex)
     out: List[str] = []
     n_words = n_known = 0
     for i, t in enumerate(toks):
         nxt = toks[i + 1] if i + 1 < len(toks) else ""
-        core = t.rstrip(".,:;")
+        core = t.rstrip(".,:;-")
         tail = t[len(core):]
         if not core or not _ALPHA.match(t):
             out.append(t)
@@ -243,6 +247,10 @@ def correct(text: str, lex: Lexicon, sure: bool = False) -> Tuple[str, int, int]
             out.append(t)
             continue
         n_words += 1
+        if core.lower() in _MISREAD:
+            n_known += 1
+            out.append(_case_like(core, _MISREAD[core.lower()]) + tail)
+            continue
         if core in lex:
             n_known += 1
             ref = lex.words[_fold(core)]
@@ -266,6 +274,28 @@ def correct(text: str, lex: Lexicon, sure: bool = False) -> Tuple[str, int, int]
         n_known += 1
         out.append(_case_like(core, hit[0]) + tail)
     return " ".join(out), n_words, n_known
+
+
+def _join_cut(toks: List[str], lex: Lexicon) -> List[str]:
+    """Von einer Linie zerschnittene Wörter wieder zusammensetzen („Druck pool“ → „Druckerpool“).
+
+    Ein Türbogen durch ein Wort löscht 1–3 Buchstaben; Tesseract liest Anfang und Ende als zwei
+    Wörter. Zusammengesetzt wird nur, wenn ein bekannter Begriff (≥ 8 Buchstaben) genau mit dem
+    einen Stück beginnt, mit dem anderen endet und eindeutig ist."""
+    out = list(toks)
+    i = 0
+    while i + 1 < len(out):
+        a, b = out[i], out[i + 1].rstrip(".,:;")
+        tail = out[i + 1][len(b):]
+        if len(a) >= 3 and len(b) >= 3 and a.isalpha() and b.isalpha() and not (a in lex and b in lex):
+            fa, fb = _fold(a), _fold(b)
+            hits = {v for k, v in lex.words.items()
+                    if len(k) >= 8 and 1 <= len(k) - len(fa) - len(fb) <= 3
+                    and k.startswith(fa) and k.endswith(fb)}
+            if len(hits) == 1:
+                out[i:i + 2] = [_case_like(a, hits.pop()) + tail]
+        i += 1
+    return out
 
 
 def _abbrev(core: str, lex: Lexicon) -> Optional[str]:
