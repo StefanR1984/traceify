@@ -2,7 +2,7 @@
 
 <h1 align="center">Traceify</h1>
 
-<p align="center"><b>Scans, Bilder und PDFs → DXF, SVG und G-Code. Mit lokaler KI.</b><br>
+<p align="center"><b>Scans, Bilder und PDFs → DXF, DWG, SVG und G-Code. Mit lokaler KI.</b><br>
 Freie Windows-Software · GNU AGPL v3</p>
 
 <p align="center">
@@ -11,32 +11,18 @@ Freie Windows-Software · GNU AGPL v3</p>
 <a href="https://github.com/StefanR1984/traceify/releases/latest"><img src="https://img.shields.io/github/v/release/StefanR1984/traceify?label=Download" alt="Download"></a>
 </p>
 
-Traceify wandelt gescannte Zeichnungen, Pläne, Skizzen und Logos in saubere CAD-Geometrie (Linien, Bögen, Kreise, Texte) oder in fräsfertige Konturen für CNC, Laser und Plasma um.
+Traceify wandelt gescannte Baupläne, technische Zeichnungen, Skizzen und Logos in saubere CAD-Geometrie – Linien, Bögen, Kreise, Texte, Bemaßungen, Schraffuren – oder in fräsfertige Konturen für CNC, Laser und Plasma.
 
-## Funktionen
+## Auf einen Blick
 
-| Bereich | Was es kann |
-|---|---|
-| **Eingabe** | PNG, JPG, BMP, TIFF, GIF, WebP und PDF (auch mehrseitig). Öffnen per Menü, Drag & Drop ins Fenster oder **auf das Programmsymbol** (Desktop, Startmenü, EXE) – läuft Traceify schon, öffnet die Datei im offenen Fenster statt in einem zweiten. **Gescannte PDFs** werden automatisch in ihrer Originalauflösung gelesen – ohne künstliches Hochrechnen, dadurch schneller und mit weniger Kleinteilen (einstellbar unter „PDF-Render-DPI“). |
-| **Vektor-PDF** | PDFs aus CAD-Programmen werden erkannt und **direkt übernommen**: Linien, Kreise, Bögen, Texte, Farben, Strichstärken und gestrichelte Linien – millimetergenau, ohne Umweg über ein Rasterbild. Abschaltbar unter „Vektor-PDF“. Scans, die nur als Tausende Pixel-Striche im PDF stecken, werden erkannt und wie ein Scan vektorisiert. |
-| **Raster-Werkzeuge** | Schwellwert (automatisch, fest oder adaptiv), Flecken entfernen, Löcher füllen, Glätten, Lücken schließen, Invertieren, Drehen, Zuschneiden, Schräglage begradigen. Mit der Binärbild-Vorschau prüfst du das Ergebnis. |
-| **CAD-Modus (Mittellinie)** | Skelettierung mit Eckenerkennung. Daraus entstehen Linien, Bögen und Kreise, nahe Endpunkte werden zusammengeführt. Gerade Kanten bleiben **eine Linie**, auch wenn Schraffur oder andere Linien abzweigen; flache Rausch-„Beulen“ und vom Skelett abgerundete Ecken werden nicht zu Bögen – kleine Bögen, deren Tangenten-Ecke im Scan auf Tinte liegt, werden wieder zu einer spitzen Ecke aus zwei Linien. **Schräglage ausgleichen:** Traceify erkennt, wie schief der Scan liegt, richtet fast waagrechte/senkrechte Linien und Polylinien-Segmente exakt aus – auch kurze Stücke mit unsicherem Winkel (Ecken bleiben verbunden) und dreht die Schräglage beim Export heraus – auf dem Scan bleiben die Vektoren deckungsgleich. Ein **schräger Gebäudeflügel** wird in sich ebenfalls exakt parallel und rechtwinklig ausgerichtet. **Kleine Lücken schließen:** Linienenden, die knapp (Standard 0,8 mm) vor einem anderen Objekt enden, werden bis dorthin verlängert – bis zum 2,5-Fachen (2 mm), wenn der Scan auf der ganzen Lücke Tinte zeigt (das Skelett endet in dicken oder ausgefransten Strichen oft zu früh); absichtliche weiße Lücken wie in Strichlinien oder vor Maßzahlen bleiben offen. **Schraffurlinien**, die kurz vor der Wandkante enden, werden bis zur Kante gezogen, wenn die Nachbarlinien dort enden. **Fransen entfernen:** kurze Stummel (Standard bis 1,5 mm), die an rauen Wandkanten oder überstehender Schraffur seitlich abstehen, werden entfernt. Alternativ gibt es eine reine Polylinien-Ausgabe, zum Beispiel für Höhenlinien. |
-| **CNC-Modus (Umriss)** | Geschlossene, geglättete Außen- und Innenkonturen. Runde Bohrungen werden als echte Kreise erkannt. |
-| **Linien und Farben** | **Strichlinien** (gestrichelt, Strichpunkt) werden zu echten Linientypen (DASHED, CENTER) auf dem Layer STRICHLINIEN zusammengefasst. **Strichstärken** werden gemessen und als DXF-Strichstärke übernommen; deutlich dickere Linien (z. B. Wände) landen auf DICKE_LINIEN – auf Wunsch als **Umriss (Doppellinie)** auf dem Layer WAENDE. **Schraffuren** (schräge, parallele Linien in regelmäßigem Abstand, z. B. in Wänden) kommen auf den Layer SCHRAFFUR und lassen sich im CAD mit einem Klick ausblenden. Im DXF/DWG werden regelmäßige Schraffuren als **echte Schraffur-Fläche (HATCH)** mit Winkel und Linienabstand ausgegeben statt als viele Einzellinien – deckungsgleich mit dem Scan und im CAD als Ganzes änderbar (abschaltbar). Dieselben Flächen zeigt auch die **Zeichenfläche** (ein Klick wählt die ganze Schraffur, Entf löscht sie) und der **SVG-Export** (Fläche mit Linienmuster); umschalten über Ansicht → Schraffur als Fläche. Das klappt auch bei im Scan zerrissenen Schraffurlinien, leicht schwankendem Abstand und aneinanderstoßenden Wänden mit versetztem Raster. Schraffierte Wände werden als Ganzes erfasst: Die Fläche reicht von Wandkante zu Wandkante und über im Scan zerfallene Stellen hinweg; lose Striche und Bruchstücke darin gehen in der Fläche auf. Einzelne schräge Striche ohne Fläche und ohne Kanten (z. B. Handschrift) bleiben normale Linien. Auch handgezeichnetes Mauerwerk (lange Striche, dazwischen kurze) gilt als Schraffur; erkannt wird zweimal – auf den rohen Strichen und noch einmal auf der bereinigten Geometrie. Wände und Möbel in schräg stehenden Gebäudeteilen werden nicht mit Schraffur verwechselt, ebenso wenig **schräge Treppen** (Stufen, die rechtwinklig auf die Wangen stoßen). **Kies und andere Punktmuster** (dichte Felder kleiner Punkte oder Ringe, auch hellgrau geplottet) werden kleine Kreise auf dem Layer KIES – vorher gingen sie beim Entflecken verloren; einzelne Punkte, Rauschen und Punktreihen (Strichpunktlinien) bleiben außen vor (abschaltbar). **Zerstückelte Linien** (an Kreuzungen zerfallen) werden wieder durchgezogen, **Scanpunkte** kommen auf den Layer SCANPUNKTE zum Ausblenden. Im DXF/DWG und SVG wird jedes Kiesfeld eine **Kies-Fläche** (HATCH mit Punktmuster im gemessenen Punktabstand) statt tausender Einzelkreise – im CAD als Ganzes änderbar; Schalter wie bei der Schraffur. **Farbige Pläne** lassen sich nach Farbe auf eigene Layer trennen (FARBE_ROT, FARBE_BLAU, …) – auch bei Vektor-PDFs. |
-| **OCR** | Texterkennung mit Tesseract (Deutsch und Englisch, weitere Sprachen möglich) in **allen vier Richtungen** – auch senkrecht und auf dem Kopf stehend. **Schräge Beschriftungen** in beliebigem Winkel werden gefunden, geradegerückt und nachgelesen – zusätzlich aus dem Graustufenbild, was bei kleiner, fetter Schrift mit verschmolzenen Buchstaben deutlich hilft. **Handschrift**, die Tesseract nicht lesen kann, liest auf Wunsch die KI („Unerkannte Schrift mit KI lesen“). Linien, Wände und Schraffuren werden vor der Erkennung ausgeblendet, Zeichensalat wird herausgefiltert, grobe Scans (unter ca. 130 dpi) werden für die Erkennung intern vergrößert, Dezimalpunkte und Kommas in Zahlen bleiben beim Entflecken erhalten. **Maßzahlen** wie „24 85“ oder „251“ werden gezielt noch einmal aus dem Graustufenbild gelesen (nur Ziffern, Komma, Punkt) – fehlende Kommas werden ergänzt, die Ziffern bleiben dabei unverändert. **Maßzahlen in der Lücke einer Maßlinie** („—— 6.70 ——“, waagrecht und senkrecht) werden erkannt und ohne die Linienstücke gezielt gelesen – ebenso kurze Maße zwischen zwei Maßbegrenzungen ohne Linie („✳74✳“) und Maßpaare direkt über und unter der Linie („3.01“ / „3.00“) – eine dort verlesene Zahl („144“ statt „14.45“) wird ersetzt, Wörter bleiben unangetastet. Aus den sicher gelesenen Maßen ermittelt Traceify den Maßstab des Plans und prüft jede Maßzahl gegen den Abstand ihrer Maßbegrenzungen: unsicher gelesene Maße, die genau passen, werden übernommen, unmögliche verworfen. Kleine Maße über zwei eng liegenden Maßbegrenzungen („24“ über „✳✳“) werden gezielt gelesen und gegen den Sternabstand geprüft. **Türmaße** („88⁵“ / „2.12⁵“), die sich überlappen und über die Maßbegrenzung laufen, liest Traceify mit Ziffern-Schablonen aus den übrigen Maßzahlen desselben Plans. **Hochgestellte Ziffern** in Maßen (Allplan-Schreibweise „2.38⁵“ = 2,385 m), die Tesseract als „°“ liest oder verschluckt, werden einzeln nachgelesen und als Hochziffer übernommen. Einheiten hinter Zahlen („qm“) bleiben erhalten, von Tesseract zerrissene Zeilen („NFL“ + „13,12“) werden wieder zusammengefügt. Ein **Wörterbuch für Planbegriffe** (Raumnamen, Bauteile, Abkürzungen wie WFL/NFL/BR) korrigiert verlesene Wörter („Schiafen“ → „Schlafen“, „Kuche“ → „Küche“, „Deckenhohe“ → „Deckenhöhe“) und rettet unsicher gelesene schräge Beschriftungen; Wörter, die im selben Plan sicher gelesen wurden, gelten mit. Sicher gelesene Wörter werden nur bei typischen Formverwechslungen (i/l, rn/m) angepasst, normale Wörter und Namen bleiben unverändert, Zahlen werden nie verändert (abschaltbar). **Fette Schablonen- oder Plotterschrift**, die im Scan zu Klecksen verläuft, wird zusätzlich ausgedünnt gelesen; je Stelle zählt die sicherere Lesung (abschaltbar). Erkannte Texte landen als echte CAD-Texte auf dem Layer `TEXT` und erzeugen keinen Linienwirrwarr. |
-| **Raster bereinigen** | **Radierer** (E) für Flecken, Stempel und Lochungen, **Stift** (P) zum Nachziehen unterbrochener Linien – Pinselgröße in der Werkzeugleiste. |
-| **Bereiche** | Rechteck aufziehen (R) und festlegen: *ignorieren*, *CAD – Mittellinie*, *CNC – Umriss* oder *nur Text*. So wird z. B. der Plan als Linien, das Logo im Schriftfeld als Umriss und die Legende gar nicht übernommen. Rechtsklick auf einen Bereich ändert oder entfernt ihn. |
-| **Bearbeiten** | Objekte anklicken oder per Rahmen markieren und mit Entf löschen. Bei einem markierten Objekt erscheinen **Knoten zum Ziehen** (verbundene Linien wandern mit). **Ecke schließen** (C), **gerade ausrichten** (O, für Linien und Polylinien, rechte Winkel bleiben verbunden, Rundungen bleiben rund), **Lücken schließen** (L), **zu Polylinie verbinden** (J), **auflösen** (X). Strg+Z macht alles rückgängig. Layer lassen sich ein- und ausblenden. |
-| **Zeichnen** | Senkrechte Leiste links: **Linie** (N), **Polylinie** (Umschalt+N), **Rechteck** (Umschalt+K), **Kreis** (K), **Bogen aus 3 Punkten** (A). **Fangpunkte** (F3) für Endpunkt, Mittelpunkt, Zentrum, Schnittpunkt, Lotfußpunkt und den nächsten Punkt, mit CAD-üblichen Symbolen; einzeln abschaltbar unter Zeichnen → Fangarten. **Ortho** (F7, oder Umschalt halten) zeichnet nur waagrecht oder senkrecht. **Maße per Tastatur**: Länge oder Radius in mm eintippen und Enter drücken, beim Rechteck „Breite;Höhe“. Länge und Winkel stehen live in der Statuszeile. Neue Objekte landen auf einem wählbaren Layer (Standard GEZEICHNET) und bleiben beim Neu-Konvertieren erhalten. Zeichnen geht auch ohne vorheriges Konvertieren. |
-| **Stutzen und Dehnen** | **Stutzen** (T): Teilstück anklicken, es wird bis zu den nächsten Schnittpunkten entfernt; das wegfallende Stück ist vorher rot markiert. Das geht bei Linien, Polylinien, Kreisen (werden zum Bogen) und Bögen. **Dehnen** (D): Linie, offene Polylinie oder Bogen nahe dem Ende anklicken – das Objekt wird bis zum nächsten Objekt verlängert (Bögen entlang ihres Kreises). |
-| **Maßstab** | Wird automatisch aus der Bild- oder PDF-DPI übernommen. Steht im Plan „M 1:100“ (oder „Maßstab 1:50“, „SCALE 1:20“), exportiert Traceify in **Originalgröße**. Noch sicherer: Aus erkannten Maßketten (gezeichnete Länge gegen Maßzahl) ermittelt Traceify den Maßstab selbst – auch ohne Maßstabsangabe im Plan. Alternativ klickst du zwei Punkte einer bekannten Strecke an und gibst die wahre Länge ein. |
-| **Export** | DXF (R12 bis R2018) mit den Layern LINIEN, BOEGEN, KREISE, POLYLINIEN, KONTUREN und TEXT, Maßzahlen erkannter Maßketten als **Bemaßung (DIMENSION)** von Stern zu Stern, außerdem **DWG** (über den kostenlosen [ODA File Converter](https://www.opendesign.com/guestfiles/oda_file_converter), falls installiert), SVG und G-Code. Es werden nur sichtbare Layer exportiert. |
-| **G-Code** | Für Fräsen (Z-Zustellung in mehreren Durchgängen) oder Laser/Plasma (M3/M5). Echte G2/G3-Bögen, verkettete Wege und optimierte Fahrreihenfolge. **Fräserradius-Korrektur** außen, innen oder automatisch (Teile ausschneiden: Löcher zuerst und innen, Außenkontur zuletzt und außen), Gleich- oder Gegenlauf. **Haltestege** mit einstellbarer Breite und Höhe (beim Laser als Unterbrechung). **Vorschau** (Strg+Umschalt+G) mit Animation, Eilgängen, Stegen und Zeitschätzung. |
-| **Stapel** | Ganze Ordner und mehrseitige PDFs in einem Durchgang, mit Fortschritt, Protokoll und Abbruchmöglichkeit. |
-| **Qualitätsampel** | Nach jedem Konvertieren vergleicht Traceify die Vektoren mit dem Scan: **Abdeckung**, **Genauigkeit** und eine Ampel in der Statusleiste. Klick darauf (oder Q) markiert die Problemstellen auf der Zeichenfläche – rot: Tinte ohne Vektor, violett: Vektor ohne Tinte; **F8** springt von Stelle zu Stelle. Enthält ein grober Scan (unter 200 dpi) viel sehr kleine Schrift (unter 2 mm), weist die Ampel darauf hin, mit **300 dpi** zu scannen – solche Schrift liest die Texterkennung dann ein Vielfaches besser. |
-| **Symbole** | Werkzeug **Symbol** (Y): Rechteck um ein Beispiel ziehen (z. B. Steckdose) – Traceify findet alle gleichen, auch um 90/180/270° gedreht, und ersetzt sie durch **einen CAD-Block** (DXF: BLOCK/INSERT). Zählung links („Steckdose: 12“). Die KI schlägt auf Wunsch einen Namen vor. Symbole lassen sich in einer **Bibliothek** speichern und in neuen Plänen automatisch einsetzen. |
-| **Updates & Hilfe** | Traceify sucht einmal täglich nach neuen Versionen (abschaltbar im Menü Hilfe). **Jetzt installieren** lädt das Setup mit Fortschrittsanzeige, prüft Größe und SHA-256-Prüfsumme, beendet Traceify, installiert still drüber und startet neu. Die portable ZIP und der Start aus dem Quellcode bekommen weiterhin den Download-Link. **Hilfe → Problem melden** öffnet einen vorbefüllten Fehlerbericht auf GitHub (Version, Umgebung, Einstellungen, Protokoll). |
-| **Automatisierung** | Python-API und Kommandozeile. Einstellungen lassen sich als JSON speichern und laden und in Stapel oder Kommandozeile weiterverwenden. |
+- **Eingabe:** PNG, JPG, BMP, TIFF, GIF, WebP und PDF (mehrseitig, Scan- oder CAD-PDF).
+- **Zwei Modi:** *CAD – Mittellinie* für Pläne und Zeichnungen, *CNC – Umriss* für Logos und Frästeile.
+- **Für Baupläne gemacht:** Schräglage, Strichlinien, Strichstärken, Wände, Schraffur als HATCH-Fläche, Kies, Treppen, Maßketten als DIMENSION, Maßstab aus dem Plan.
+- **Texterkennung** (Tesseract eingebaut) in allen Richtungen, mit Maßzahlen samt Hochziffern („2.38⁵“) und Wörterbuch für Planbegriffe.
+- **Nacharbeiten im Programm:** Radierer, Stift, Bereiche, CAD-Werkzeuge mit Fang, Stutzen und Dehnen, Symbole als Blöcke.
+- **Export:** DXF (R12–R2018), DWG (über ODA File Converter), SVG, G-Code mit Radiuskorrektur und Haltestegen.
+- **Lokale KI** über Ollama oder vLLM: Einstellungen wählen, Texte prüfen, Handschrift lesen, Chat mit Aufträgen, Stapel mit Regeln in Klartext. Keine Daten ins Internet.
+- **Qualitätsampel**, Stapelverarbeitung, Kommandozeile, Python-API, automatische Updates.
 
 ## Installation (Windows 10/11, 64 Bit)
 
@@ -44,107 +30,213 @@ Traceify wandelt gescannte Zeichnungen, Pläne, Skizzen und Logos in saubere CAD
 2. Ausführen. Administratorrechte sind nicht nötig; im Setup ist auch „für alle Benutzer“ wählbar.
 3. Beim ersten Start fragt Traceify einmal, ob die **KI-Funktionen** eingerichtet werden sollen. Dann werden Ollama und ein KI-Modell (ca. 3–4 GB) automatisch geladen.
 
-**Tesseract OCR mit deutschen und englischen Sprachdaten ist bereits eingebaut.** Die Texterkennung funktioniert sofort, ohne weitere Installation.
+**Tesseract OCR mit deutschen und englischen Sprachdaten ist eingebaut** – die Texterkennung funktioniert sofort.
 
-> Windows-Hinweis: Die EXE ist (noch) nicht digital signiert. Erscheint „Der Computer wurde durch Windows geschützt“, klicke auf **Weitere Informationen → Trotzdem ausführen**.
+> Die EXE ist nicht digital signiert. Erscheint „Der Computer wurde durch Windows geschützt“, klicke auf **Weitere Informationen → Trotzdem ausführen**.
 
-Alternativ gibt es eine **portable ZIP** ohne Installation (entpacken, `Traceify.exe` starten).
+Alternativ gibt es eine **portable ZIP** (entpacken, `Traceify.exe` starten). Einstellungen liegen unter `%APPDATA%\Traceify\config.json`.
 
-Einstellungen liegen unter `%APPDATA%\Traceify\config.json`.
+**Aus dem Quellcode:** Repo klonen oder als ZIP laden und `Traceify_Start_Windows.bat` doppelklicken. Beim ersten Start holt die Datei alles selbst: Python 3.12, alle Bibliotheken (in `.venv`), Tesseract mit Sprachdaten und auf Wunsch Ollama samt KI-Modell. Optionen: `--ja` (alles bestätigen), `--ohne-ki`, `--modell qwen2.5vl:7b`, `--nur-pruefen`.
 
-### Aus dem Quellcode starten
+## Schnellstart
 
-Repo klonen oder als ZIP herunterladen und `Traceify_Start_Windows.bat` doppelklicken. Beim ersten Start holt die Datei alles selbst: Python 3.12, alle Bibliotheken (in `.venv`), Tesseract mit Sprachdaten und auf Wunsch Ollama samt KI-Modell.
-Optionen: `--ja` (alles bestätigen), `--ohne-ki`, `--modell qwen2.5vl:7b`, `--nur-pruefen`.
+1. Datei öffnen (Strg+O), ins Fenster oder **aufs Traceify-Symbol** ziehen – läuft Traceify schon, öffnet sie im offenen Fenster. Bei PDFs die Seite oben in der Werkzeugleiste wählen.
+2. Bei Bedarf drehen, zuschneiden oder begradigen (Menü Raster).
+3. Modus oder Vorlage wählen, z. B. „Technische Zeichnung“ oder „Logo / CNC-Umriss“ – oder **✨ KI-Analyse** wählen lassen.
+4. **Konvertieren** (F5). Das Ergebnis erscheint farbig über dem Bild, die Ampel unten rechts zeigt die Qualität.
+5. Überflüssiges markieren und mit Entf löschen, Fehlendes nachzeichnen, Überstände stutzen (T), zu kurze Linien dehnen (D).
+6. Exportieren: DXF mit Strg+E, G-Code mit Strg+G, DWG und SVG über das Menü Datei.
+
+**Hilfe zu jedem Schalter:** Mit der Maus kurz auf einem Schalter, Feld oder seiner Beschriftung stehen bleiben – es erscheint eine Erklärung. **Navigation:** Mausrad zoomt, mittlere Maustaste oder Umschalt+Ziehen verschiebt, Strg+0 passt ein.
+
+## Funktionen im Detail
+
+### Eingabe und PDF
+
+- Öffnen per Menü, Drag & Drop oder über das Programmsymbol (Desktop, Startmenü, EXE).
+- **Gescannte PDFs** werden in ihrer Originalauflösung gelesen – ohne künstliches Hochrechnen, dadurch schneller und mit weniger Kleinteilen (einstellbar unter „PDF-Render-DPI“).
+- **Vektor-PDFs** aus CAD-Programmen werden direkt übernommen: Linien, Kreise, Bögen, Texte, Farben, Strichstärken und Strichlinien – millimetergenau, ohne Umweg über ein Rasterbild (abschaltbar unter „Vektor-PDF“).
+- Scans, die nur als Tausende Pixel-Striche im PDF stecken, werden erkannt und wie ein Scan vektorisiert.
+
+### Raster vorbereiten
+
+- Schwellwert (automatisch, fest oder adaptiv), Flecken entfernen, Löcher füllen, Glätten, Lücken schließen, Invertieren, Drehen, Zuschneiden, Schräglage begradigen; die **Binärbild-Vorschau** zeigt das Ergebnis.
+- **Radierer** (E) für Flecken, Stempel und Lochungen, **Stift** (P) zum Nachziehen unterbrochener Linien – Pinselgröße in der Werkzeugleiste.
+- **Bereiche** (R): Rechteck aufziehen und festlegen – *ignorieren*, *CAD – Mittellinie*, *CNC – Umriss* oder *nur Text*. So wird z. B. der Plan als Linien, das Logo im Schriftfeld als Umriss und die Legende gar nicht übernommen. Rechtsklick ändert oder entfernt einen Bereich.
+
+### Vektorisieren
+
+**CAD-Modus (Mittellinie)** – Skelettierung mit Eckenerkennung, daraus Linien, Bögen und Kreise:
+- Gerade Kanten bleiben **eine Linie**, auch wenn Schraffur oder andere Linien abzweigen.
+- Rausch-„Beulen“, vom Skelett abgerundete Ecken und Wellen entlang gerader Linien werden nicht zu Bögen; abgerundete Ecken werden wieder spitz.
+- **Schräglage:** Traceify erkennt, wie schief der Scan liegt, richtet fast waagrechte/senkrechte Linien exakt aus (Ecken bleiben verbunden) und dreht die Schräglage beim Export heraus – auf dem Scan bleiben die Vektoren deckungsgleich. Ein **schräger Gebäudeflügel** wird in sich ebenfalls parallel und rechtwinklig ausgerichtet; bewusst schräge Linien bleiben schräg.
+- **Lücken schließen:** Linienenden knapp (Standard 0,8 mm) vor einem anderen Objekt werden verlängert – bis 2 mm, wenn der Scan auf der ganzen Lücke Tinte zeigt. Absichtliche Lücken (Strichlinien, vor Maßzahlen) bleiben offen.
+- **Zerstückelte Linien**, die im Scan an jeder kreuzenden Linie zerfallen (Deckenraster, Stufen, Maßlinien), werden wieder durchgezogen.
+- **Fransen entfernen:** kurze Stummel (Standard bis 1,5 mm) an rauen Wandkanten verschwinden.
+- **Scanpunkte** (frei stehend, unter 1 mm) kommen auf den Layer SCANPUNKTE zum Ausblenden.
+- Alternativ reine Polylinien-Ausgabe, z. B. für Höhenlinien.
+
+**CNC-Modus (Umriss)** – geschlossene, geglättete Außen- und Innenkonturen; runde Bohrungen werden echte Kreise.
+
+### Baupläne: Linien, Wände, Schraffur, Kies
+
+- **Strichlinien** (gestrichelt, Strichpunkt) werden echte Linientypen (DASHED, CENTER) auf STRICHLINIEN.
+- **Strichstärken** werden gemessen und als DXF-Strichstärke übernommen; dicke Linien (Wände) kommen auf DICKE_LINIEN – auf Wunsch als **Umriss (Doppellinie)** auf WAENDE.
+- **Schraffur** (schräge, parallele Linien in regelmäßigem Abstand) kommt auf SCHRAFFUR und wird im DXF/DWG als **echte Schraffur-Fläche (HATCH)** mit Winkel und Abstand ausgegeben – auch bei zerrissenen Linien, schwankendem Abstand und versetztem Raster. Die Fläche reicht von Wandkante zu Wandkante; lose Striche darin gehen in ihr auf. Auch handgezeichnetes Mauerwerk zählt als Schraffur. Zeichenfläche und SVG zeigen dieselben Flächen (ein Klick wählt die ganze Schraffur).
+- **Keine Verwechslung:** Wände und Möbel in schrägen Gebäudeteilen, **schräge Treppen** (Stufen stoßen rechtwinklig auf die Wangen) und einzelne schräge Striche (Handschrift) bleiben normale Linien.
+- **Kies und Punktmuster** (auch hellgrau geplottete Ringe) werden kleine Kreise auf KIES, im DXF/DWG/SVG eine **Kies-Fläche** (HATCH mit Punktmuster). Einzelne Punkte, Rauschen und Strichpunktlinien bleiben außen vor.
+- **Farbige Pläne** lassen sich nach Farbe auf eigene Layer trennen (FARBE_ROT, FARBE_BLAU, …) – auch bei Vektor-PDFs.
+
+Umschalten: Ansicht → **Schraffur als Fläche** (Flächen oder Einzellinien, gilt auch für Kies und für DXF/SVG). Die übrigen Schalter stehen in den Einstellungen unter „Linien, Farben, Symbole“.
+
+### Texte und Maße (OCR)
+
+- Tesseract (Deutsch und Englisch, weitere Sprachen möglich) liest in **allen vier Richtungen**; **schräge Beschriftungen** werden gefunden, geradegerückt und nachgelesen.
+- Linien, Wände und Schraffuren werden vor der Erkennung ausgeblendet, Zeichensalat wird gefiltert, grobe Scans (unter ca. 130 dpi) intern vergrößert.
+- **Fette Schablonen- oder Plotterschrift**, die zu Klecksen verläuft, wird zusätzlich ausgedünnt gelesen.
+- **Maßzahlen** werden gezielt nachgelesen (nur Ziffern, Punkt, Komma):
+  - in der Lücke einer Maßlinie („—— 6.70 ——“, waagrecht und senkrecht),
+  - zwischen zwei Maßbegrenzungen ohne Linie („✳74✳“) und über eng liegenden Sternen („24“ über „✳✳“),
+  - als Paar über und unter der Linie („3.01“ / „3.00“), auch **Türmaße** („88⁵“ / „2.12⁵“) per Ziffern-Schablonen aus dem eigenen Plan,
+  - mit **Hochziffern** (Allplan-Schreibweise „2.38⁵“ = 2,385 m), auch wenn Tesseract sie als „°“ liest.
+- Aus sicher gelesenen Maßen ermittelt Traceify den Maßstab und prüft jede Maßzahl gegen den Abstand ihrer Maßbegrenzungen: passende unsichere Lesungen werden übernommen, unmögliche verworfen.
+- Ein **Wörterbuch für Planbegriffe** (Raumnamen, Bauteile, WFL/NFL/BR) korrigiert verlesene Wörter („Kuche“ → „Küche“); Zahlen werden nie verändert.
+- **Handschrift** liest auf Wunsch die KI.
+- Texte landen als echte CAD-Texte auf TEXT, erkannte Maßketten zusätzlich als **Bemaßung (DIMENSION)** von Stern zu Stern.
+- Grobe Scans mit viel kleiner Schrift: Die Ampel empfiehlt dann **300 dpi** – kleine Schrift wird damit ein Vielfaches besser gelesen.
+
+### Maßstab
+
+- Automatisch aus der Bild- oder PDF-DPI.
+- Steht im Plan „M 1:100“ (oder „Maßstab 1:50“, „SCALE 1:20“), exportiert Traceify in **Originalgröße**.
+- Noch sicherer: aus erkannten Maßketten (gezeichnete Länge gegen Maßzahl) – auch ohne Maßstabsangabe.
+- Von Hand: zwei Punkte einer bekannten Strecke anklicken und die wahre Länge eingeben.
+
+### Bearbeiten und Zeichnen
+
+| Werkzeug | Taste | |
+|---|---|---|
+| Auswahl | Esc | Klick oder Rahmen, Entf löscht; bei einem Objekt **Knoten zum Ziehen** (verbundene Linien wandern mit) |
+| Ecke schließen | C | |
+| Gerade ausrichten | O | Linien und Polylinien; rechte Winkel bleiben verbunden, Rundungen rund |
+| Lücken schließen | L | |
+| Zu Polylinie verbinden / auflösen | J / X | |
+| Linie, Polylinie | N, Umschalt+N | Rechtsklick beendet den Linienzug |
+| Rechteck, Kreis, Bogen (3 Punkte) | Umschalt+K, K, A | |
+| Stutzen | T | Teilstück bis zu den nächsten Schnittpunkten entfernen (Linie, Polylinie, Kreis, Bogen); wird vorher rot markiert |
+| Dehnen | D | Linie, offene Polylinie oder Bogen bis zum nächsten Objekt verlängern |
+| Symbol | Y | siehe unten |
+| Fang / Ortho | F3 / F7 | Endpunkt, Mitte, Zentrum, Schnittpunkt, Lot, Nächster (einzeln unter Zeichnen → Fangarten); Ortho auch mit Umschalt halten |
+| Rückgängig | Strg+Z | gilt für alles |
+
+- **Maße per Tastatur:** beim Zeichnen Länge oder Radius in mm tippen (Komma oder Punkt), Enter setzt den Punkt in Mausrichtung; beim Rechteck „Breite;Höhe“. Länge und Winkel stehen live in der Statuszeile.
+- Esc bricht die laufende Form ab, zweimal Esc = zurück zur Auswahl.
+- Neue Objekte landen auf einem wählbaren Layer (Standard GEZEICHNET) und bleiben beim Neu-Konvertieren erhalten. Zeichnen geht auch ohne vorheriges Konvertieren.
+- Layer lassen sich ein- und ausblenden; exportiert werden nur sichtbare.
+
+### Symbole
+
+Werkzeug **Symbol** (Y): Rechteck um ein Beispiel ziehen (z. B. Steckdose) – Traceify findet alle gleichen, auch um 90/180/270° gedreht, und ersetzt sie durch **einen CAD-Block** (DXF: BLOCK/INSERT). Die Zählung steht links („Steckdose: 12“), die KI schlägt auf Wunsch einen Namen vor. Symbole lassen sich in einer **Bibliothek** speichern und in neuen Plänen automatisch einsetzen.
+
+### Qualitätsampel
+
+Nach jedem Konvertieren vergleicht Traceify die Vektoren mit dem Scan: **Abdeckung**, **Genauigkeit** und eine Ampel in der Statusleiste. Klick darauf (oder Q) markiert die Problemstellen – rot: Tinte ohne Vektor, violett: Vektor ohne Tinte; **F8** springt von Stelle zu Stelle.
+
+### Export und Layer
+
+- **DXF** R12 bis R2018, **DWG** über den kostenlosen [ODA File Converter](https://www.opendesign.com/guestfiles/oda_file_converter) (falls installiert), **SVG** und **G-Code**.
+- Schraffur und Kies als HATCH-Flächen, Maßketten als DIMENSION, Symbole als BLOCK/INSERT, Strichstärken und Linientypen wie im Scan.
+
+| Layer | Inhalt |
+|---|---|
+| LINIEN, BOEGEN, KREISE, POLYLINIEN | Geometrie aus dem CAD-Modus |
+| KONTUREN | Umrisse aus dem CNC-Modus |
+| TEXT | erkannte Texte und Maßzahlen |
+| STRICHLINIEN, DICKE_LINIEN, WAENDE | Linientypen, dicke Linien, Wände als Doppellinie |
+| SCHRAFFUR, KIES | Schraffur- und Kies-Flächen |
+| SYMBOLE | erkannte Symbole (Blöcke) |
+| SCANPUNKTE | Scanstaub zum Ausblenden |
+| FLAECHEN | gefüllte Flächen aus Vektor-PDFs |
+| FARBE_… | nach Farbe getrennte Linien |
+| GEZEICHNET | selbst gezeichnete Objekte (Layer wählbar) |
+
+### G-Code
+
+- Für Fräsen (Z-Zustellung in mehreren Durchgängen) oder Laser/Plasma (M3/M5).
+- Echte G2/G3-Bögen, verkettete Wege, optimierte Fahrreihenfolge.
+- **Fräserradius-Korrektur** außen, innen oder automatisch (Löcher zuerst und innen, Außenkontur zuletzt und außen), Gleich- oder Gegenlauf.
+- **Haltestege** mit einstellbarer Breite und Höhe (beim Laser als Unterbrechung).
+- **Vorschau** (Strg+Umschalt+G) mit Animation, Eilgängen, Stegen und Zeitschätzung.
+
+### Stapel, Updates, Hilfe
+
+- **Stapel:** ganze Ordner und mehrseitige PDFs in einem Durchgang, mit Fortschritt, Protokoll und Abbruch. Einstellungen lassen sich als JSON speichern und in Stapel oder Kommandozeile weiterverwenden.
+- **Updates:** Traceify sucht einmal täglich nach neuen Versionen (abschaltbar im Menü Hilfe). Erscheint unten rechts „⬆ Update … verfügbar“, genügt ein Klick auf **Jetzt installieren**: Das Setup wird geladen, Größe und SHA-256 geprüft, Traceify beendet, still installiert und neu gestartet; Einstellungen bleiben erhalten. Vorher die aktuelle Zeichnung exportieren. Portable ZIP und Quellcode bekommen den Download-Link.
+- **Hilfe → Problem melden** öffnet einen vorbefüllten Fehlerbericht auf GitHub (Version, Umgebung, Einstellungen, Protokoll).
 
 ## KI-Assistent (Ollama oder vLLM)
 
-Die KI läuft **lokal** auf deinem Rechner über [Ollama](https://ollama.com) – oder auf einem eigenen KI-Server mit **[vLLM](https://docs.vllm.ai)** bzw. einem anderen OpenAI-kompatiblen Server (LM Studio, llama.cpp-Server, LocalAI). Es gehen keine Daten ins Internet. Der Assistent sitzt rechts als Reiter neben den Einstellungen (Strg+Umschalt+K).
+Die KI läuft **lokal** über [Ollama](https://ollama.com) – oder auf einem eigenen Server mit **[vLLM](https://docs.vllm.ai)** bzw. einem anderen OpenAI-kompatiblen Server (LM Studio, llama.cpp-Server, LocalAI). Es gehen keine Daten ins Internet. Der Assistent sitzt rechts als Reiter neben den Einstellungen (Strg+Umschalt+K).
 
-**KI-Server wählen:** Im KI-Panel auf **⚙** klicken → *Ollama* oder *vLLM / OpenAI-kompatibel*, Adresse (z. B. `http://gpu-server:8000/v1`) und – falls der Server einen verlangt – API-Schlüssel eintragen. **Verbindung testen** zeigt sofort Serverversion und angebotene Modelle. vLLM legt das Modell beim Start fest, z. B.:
+**Server wählen:** Im KI-Panel auf **⚙** → *Ollama* oder *vLLM / OpenAI-kompatibel*, Adresse (z. B. `http://gpu-server:8000/v1`) und – falls verlangt – API-Schlüssel eintragen. **Verbindung testen** zeigt Serverversion und Modelle. vLLM legt das Modell beim Start fest:
 ```
 vllm serve Qwen/Qwen2.5-VL-7B-Instruct --port 8000
 ```
-Für die Bild-Funktionen braucht es ein Bildmodell (VL/Vision). Alle KI-Funktionen – Analyse, Textprüfung, Handschrift, Chat, KI-Stapel – laufen mit beiden Servern gleich. Das gewählte Modell wird je Server getrennt gemerkt.
+Für die Bild-Funktionen braucht es ein Bildmodell (VL/Vision). Alle Funktionen laufen mit beiden Servern gleich; das Modell wird je Server getrennt gemerkt.
 
-- **✨ KI-Analyse** (Strg+Umschalt+A): Die KI sieht sich das Bild an und erkennt die Art der Zeichnung (Grundriss, technische Zeichnung, Logo …). Dann wählt sie Vorlage, Modus, Entrauschen, Begradigen und OCR und konvertiert sofort.
-- **Texte mit KI prüfen**: Jeder OCR-Text wird als Ausschnitt einzeln von einem Bildmodell nachgelesen (auch gedrehte und schräge Texte). Korrekturen siehst du in einer Liste und kannst sie einzeln übernehmen.
-- **Unerkannte Schrift mit KI lesen**: Traceify sucht Stellen, die wie Schrift aussehen, aber von der OCR nicht gelesen wurden – typisch Handschrift wie „Privat Keller“ – und lässt sie vom Bildmodell lesen. Übernommene Texte ersetzen die Linien der Buchstaben.
-- **Ergebnis bewerten**: Die KI vergleicht Original und Vektoren und schlägt Verbesserungen vor. Auf Wunsch setzt sie diese gleich um.
-- **Chat mit Aufträgen**: Zum Beispiel „Lösche alle Texte und exportiere als DXF“, „Toleranz auf 3 und neu konvertieren“, „Entferne alles unter 0,5 mm“ oder „Ersetze ‚Kuche‘ durch ‚Küche‘“. Die KI antwortet und führt die passenden Aktionen aus. Ist „Aktionen sofort ausführen“ abgehakt, musst du erst bestätigen. Alles lässt sich mit Strg+Z zurücknehmen.
-- **Modelle**: Im Panel wählen und (bei Ollama) mit „Laden“ herunterladen. Empfohlen: `gemma3:4b` (schnell), `qwen2.5vl:7b` (beste Texterkennung), `gemma3:12b` (genauer, braucht ca. 16 GB RAM bzw. eine gute Grafikkarte).
-- **Ergebnis bewerten**: nutzt zusätzlich die Qualitätsampel (Problemstellen mit Koordinaten).
-- **Stapel mit Regeln in Klartext** (Stapel-Dialog oder `--ki-regeln`): z. B. „Grundrisse als DXF mit Maßstab aus dem Plan, Logos als CNC-Umriss mit 2 mm Frästiefe als G-Code, handschriftliche Notizen überspringen“. Die KI sieht sich jede Datei an und setzt Einstellungen, Formate oder überspringt sie; das Protokoll zeigt jede Entscheidung.
-  ```
-  python -m traceify eingang\ -o ausgang\ --ki-regeln "Logos als G-Code mit 2 mm Tiefe, Fotos überspringen"
-  ```
+- **✨ KI-Analyse** (Strg+Umschalt+A): erkennt die Art der Zeichnung (Grundriss, technische Zeichnung, Logo …), wählt Vorlage, Modus, Entrauschen, Begradigen und OCR und konvertiert sofort.
+- **Texte mit KI prüfen:** Jeder OCR-Text wird als Ausschnitt einzeln nachgelesen (auch gedreht und schräg); Korrekturen erscheinen in einer Liste zum einzelnen Übernehmen.
+- **Unerkannte Schrift mit KI lesen:** Stellen, die wie Schrift aussehen, aber nicht gelesen wurden – typisch Handschrift wie „Privat Keller“. Übernommene Texte ersetzen die Linien der Buchstaben.
+- **Ergebnis bewerten:** Die KI vergleicht Original und Vektoren (mit den Problemstellen der Qualitätsampel) und schlägt Verbesserungen vor; auf Wunsch setzt sie sie gleich um.
+- **Chat mit Aufträgen:** z. B. „Lösche alle Texte und exportiere als DXF“, „Toleranz auf 3 und neu konvertieren“, „Entferne alles unter 0,5 mm“, „Ersetze ‚Kuche‘ durch ‚Küche‘“. Ist „Aktionen sofort ausführen“ abgehakt, bestätigst du erst. Alles lässt sich mit Strg+Z zurücknehmen.
+- **Stapel mit Regeln in Klartext** (Stapel-Dialog oder `--ki-regeln`): z. B. „Grundrisse als DXF mit Maßstab aus dem Plan, Logos als CNC-Umriss mit 2 mm Frästiefe als G-Code, handschriftliche Notizen überspringen“. Das Protokoll zeigt jede Entscheidung.
+- **Modelle:** im Panel wählen und (bei Ollama) mit „Laden“ herunterladen. Empfohlen: `gemma3:4b` (schnell), `qwen2.5vl:7b` (beste Texterkennung), `gemma3:12b` (genauer, braucht ca. 16 GB RAM bzw. eine gute Grafikkarte).
 
-## Bedienung
+## Tipps
 
-1. Datei öffnen (Strg+O), ins Fenster oder aufs Traceify-Symbol ziehen. Bei PDFs wählst du die Seite oben in der Werkzeugleiste.
-2. Bei Bedarf drehen, zuschneiden oder begradigen (Menü Raster).
-3. Einen Modus oder eine Vorlage wählen, zum Beispiel „Technische Zeichnung“ oder „Logo / CNC-Umriss“.
-4. **Konvertieren** (F5). Das Ergebnis erscheint farbig über dem Bild.
-5. Überflüssige Objekte markieren und mit Entf entfernen. Fehlendes mit den Zeichenwerkzeugen links ergänzen, Überstände stutzen (T), zu kurze Linien dehnen (D).
-6. Exportieren: DXF mit Strg+E, G-Code mit Strg+G.
-
-Schraffur: Regelmäßige Schraffuren erscheinen als Fläche mit Linienmuster. Ein Klick wählt die ganze Fläche, Entf löscht sie. Ansicht → **Schraffur als Fläche** schaltet auf Einzellinien um – das gilt dann auch für DXF und SVG.
-
-Kies: Punktfelder (Kies, Splitt) landen als kleine Kreise auf dem Layer KIES, im DXF/DWG/SVG als Kies-Fläche mit Punktmuster (aus: Ansicht → Schraffur als Fläche) – im CAD mit einem Klick ausblendbar. Abschalten: Einstellungen → **Punktmuster (Kies) als Kreise**.
-
-Zerstückelte Linien: Linien, die im Scan an jeder kreuzenden Linie in Stücke zerfallen (Deckenraster, Treppenstufen, Maßlinien), werden wieder eine durchgehende Linie – nur wo die Lücke gekreuzt wird oder voller Tinte ist; Lücken vor Maßzahlen und Strichlinien bleiben. Kleine, frei stehende Punkte vom Scannen (unter 1 mm, nichts in 1 mm Umkreis) kommen auf den Layer **SCANPUNKTE** – im CAD ausblenden oder löschen. Beides abschaltbar: Einstellungen → **Zerstückelte Linien durchziehen**, **Scanpunkte auf Layer SCANPUNKTE**.
-
-Zeichnen: Klicken setzt Punkte, Esc bricht die laufende Form ab (zweimal Esc = zurück zur Auswahl), Rechtsklick beendet Linienzug und Polylinie. Die Zahl, die du während des Zeichnens tippst, ist eine Länge in mm (Komma oder Punkt); Enter setzt den Punkt in Mausrichtung.
-
-Updates: Erscheint unten rechts „⬆ Update … verfügbar“, genügt ein Klick und **Jetzt installieren** – Einstellungen bleiben erhalten. Vorher die aktuelle Zeichnung exportieren.
-
-Hilfe zu jedem Schalter: Bleib mit der Maus kurz auf einem Schalter, Feld oder seiner Beschriftung stehen – dann erscheint eine kurze Erklärung, was er bewirkt.
-
-Navigation: Mausrad zoomt. Mit mittlerer Maustaste oder Umschalt+Ziehen verschiebst du die Ansicht, Strg+0 passt sie ein.
-
-**Tipps:**
-- Sind Linien zerrissen, erhöhe „Lücken schließen“ oder senke den Schwellwert.
-- Sind zu viele kleine Linien entstanden, erhöhe „Flecken entfernen“ und die Toleranz.
-- Werden Bögen zu Linienketten, erhöhe die Toleranz leicht.
-- Wände sollen im CAD als Doppellinie erscheinen? „Wände als Umriss“ einschalten (Linien, Farben, Symbole).
-- Handschrift wurde nicht erkannt? Im KI-Panel „Unerkannte Schrift mit KI lesen“.
-- Stehen an Wandkanten viele kleine Stummel? „Fransen entfernen bis“ erhöhen (Linien, Farben, Symbole).
+- Linien zerrissen? „Lücken schließen“ erhöhen oder den Schwellwert senken.
+- Zu viele kleine Linien? „Flecken entfernen“ und die Toleranz erhöhen.
+- Bögen werden zu Linienketten? Toleranz leicht erhöhen.
+- Viele kleine Stummel an Wandkanten? „Fransen entfernen bis“ erhöhen.
+- Wände als Doppellinie gewünscht? „Wände als Umriss“ einschalten.
+- Kleine Schrift und Maße schlecht gelesen? Mit 300 dpi scannen.
+- Handschrift nicht erkannt? Im KI-Panel „Unerkannte Schrift mit KI lesen“.
 
 ## Kommandozeile
 
 ```
-python -m traceify EINGABE -o ZIELORDNER -f dxf -f nc [-m umriss] [--kein-ocr] [--einstellungen datei.json]
+python -m traceify EINGABE -o ZIELORDNER -f dxf -f svg -f nc [-m umriss] [--kein-ocr] [--einstellungen datei.json] [-r]
 ```
 
-`EINGABE` kann eine Datei oder ein Ordner sein. Ohne Argumente startet `python -m traceify` die Oberfläche.
+`EINGABE` ist eine Datei oder ein Ordner (`-r` mit Unterordnern). Ohne Argumente startet die Oberfläche.
 
-KI-Stapel über einen vLLM-Server (nur für diesen Lauf, die Einstellungen bleiben unverändert):
+KI-Stapel mit Regeln, hier über einen vLLM-Server (gilt nur für diesen Lauf):
 ```
-python -m traceify eingang\ -o ausgang\ --ki --ki-server vllm --ki-url http://gpu-server:8000/v1 --ki-modell Qwen/Qwen2.5-VL-7B-Instruct [--ki-schluessel GEHEIM]
+python -m traceify eingang\ -o ausgang\ --ki-regeln "Logos als G-Code mit 2 mm Tiefe, Fotos überspringen" --ki-server vllm --ki-url http://gpu-server:8000/v1 --ki-modell Qwen/Qwen2.5-VL-7B-Instruct [--ki-schluessel GEHEIM]
 ```
 
 ## Python-API
 
 ```python
-import traceify as rc
+import traceify as tf
 
-rc.convert_file("plan.png", "plan.dxf")
+tf.convert_file("plan.png", "plan.dxf")
 
-s = rc.ConvertSettings()
-s.vectorize.mode = rc.MODE_OUTLINE
+s = tf.ConvertSettings()
+s.vectorize.mode = tf.MODE_OUTLINE
 s.ocr.enabled = False
-rc.convert_file("logo.png", "logo.nc", settings=s,
-                gcode=rc.GcodeSettings(cut_depth=2, step_down=0.5))
+tf.convert_file("logo.png", "logo.nc", settings=s,
+                gcode=tf.GcodeSettings(cut_depth=2, step_down=0.5))
 
 # KI wählt die Einstellungen (Ollama muss laufen)
-s, vorschlag = rc.ai_settings("scan.png")
-rc.convert_file("scan.png", "scan.dxf", settings=s)
+s, vorschlag = tf.ai_settings("scan.png")
+tf.convert_file("scan.png", "scan.dxf", settings=s)
 
-res = rc.open_file("scan.pdf", page=2)
+res = tf.open_file("scan.pdf", page=2)
 print(res.drawing.stats())
-rc.export(res.drawing, "scan.svg")
+tf.export(res.drawing, "scan.svg")
 
-rc.batch_convert("eingang/", "ausgang/", formats=[".dxf", ".svg"])
+tf.batch_convert("eingang/", "ausgang/", formats=[".dxf", ".svg"])
 ```
 
 ## Entwicklung
@@ -156,6 +248,14 @@ py -3.12 -m venv .venv
 .venv\Scripts\python -m traceify            &rem Oberfläche
 .venv\Scripts\python -m traceify --selbsttest
 ```
+
+## Grenzen
+
+- Die Qualität hängt stark vom Scan ab. Empfohlen sind **300 dpi** und klare Linien; bei 150 dpi ist Schrift unter 2 mm kaum lesbar.
+- **DWG** braucht den kostenlosen ODA File Converter; ohne ihn exportiert Traceify DXF, das jedes CAD-Programm öffnet.
+- Bemaßungen (DIMENSION) entstehen nur für Maßzahlen mittig zwischen zwei erkannten Maßbegrenzungen; Maße über/unter der Linie (Türen) bleiben Texte. Die Maßlinie aus dem Scan bleibt zusätzlich als Linie stehen.
+- Sehr eng liegende Doppellinien (unter ca. 0,6 mm) verschmelzen im Scan und werden eine Linie.
+- Handschrift liest nur die KI, und auch sie nicht immer.
 
 ## Lizenz
 
@@ -169,9 +269,3 @@ Traceify ist freie Software unter der **GNU Affero General Public License v3.0 o
 | scikit-image, NumPy, SciPy | BSD |
 | ezdxf, Pillow, pytesseract | MIT / HPND / Apache-2.0 |
 | Ollama (separat installiert) | MIT |
-
-## Bekannte Grenzen (v0.1)
-
-- **DWG** wird nicht direkt geschrieben, weil das Format proprietär ist. Jedes CAD-Programm öffnet aber DXF und kann es als DWG speichern. Der kostenlose ODA File Converter wandelt DXF auch stapelweise in DWG um.
-- Die Erkennungsqualität hängt stark von der Scanqualität ab. Empfohlen sind mindestens 300 dpi und klare Linien.
-- Bemaßungen (DIMENSION) entstehen nur für Maßzahlen, die mittig zwischen zwei erkannten Maßbegrenzungen stehen; Maße über/unter der Linie (Türen) bleiben Texte. Die Maßlinie aus dem Scan bleibt zusätzlich als Linie stehen.

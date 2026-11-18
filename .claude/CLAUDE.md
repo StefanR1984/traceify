@@ -243,7 +243,10 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
   Spitze der gedachten Ecke weiß → keine Ecke), Rest in Text. Ketten kleiner Bögen entlang gerader Linien (Schraffur,
   Ziffern, Nachbarlinie stößt an). `cad.flatten_arcs`: Sehne ≥ 95 % Tinte und Tinte läuft über die Sehne hinaus →
   Linie. Echte Bögen bleiben (PLAN2_EG 58/58); Bögen echt PLAN2_EG 222 → 102. Ohne Verlängerungsprüfung noch weniger
-  Bögen (84), aber sanfte Kurven würden Sehnen. Sim-Trefferquote −0,1…−1,1 (vermutlich Messartefakt).
+  Bögen (84), aber sanfte Kurven würden Sehnen. Sim-Trefferquote −0,1…−1,1 = **Messartefakt (geprüft 18.11.)**:
+  die verlorenen Trefferpixel liegen fast nur an engen Doppellinien (2 Linien ~3 px, im Scan ein Band) – die
+  Wellen-Bögen pendelten zufällig über beide, die Sehne trifft eine. Genauigkeit gleich. Verworfen: Sehnenketten
+  zur Ausgleichsgeraden mittig im Band zusammenfassen (PLAN3_OG4 verloren 475 → 468, Band breiter als 2 × Toleranz).
 - **Ortho** 52–73 % gegen 71–91 % im Original (Schraffur des Originals ist dort als Einzellinien).
 - **Wörter (0.21.0, korrigierte Simulation, mit Tesseract):** 523 von 887 richtig, 199 falsch. Je Gruppe
   (Stand vor 0.21): Maße mit Hochziffer 8 % (0.21: Nachlesen `ocr.fix_superscripts`), reine Zahlen 50 %,
