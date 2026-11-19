@@ -109,6 +109,18 @@ def test_nachlesen_abweichende_lesung_wird_verworfen():
     assert not any(f.new in ("2.40", "2.48") for f in fixes)
 
 
+def test_nachlesen_gegenprobe_verwirft_und_bestaetigt(monkeypatch):
+    # Gegenprobe: Lesungen 1+2 gleich, Lesung 3 (anderer Rand) weicht ab.
+    # Mit Lesung 4 gleich bleibt die Stelle, mit Lesung 3+4 abweichend wird sie verworfen.
+    # Nur die Stelle lesen (alte Kandidaten haben keine Gegenprobe und verbrauchen Lesungen).
+    monkeypatch.setattr("traceify.ai.assistant.unread_candidates", lambda *a, **k: [])
+    monkeypatch.setattr(text_slots, "find_slots", lambda *a, **k: [(298, 181, 60, 20)])
+    verworfen = _lesen(FakeClient(["2.40", "2.40", "2.48", "2.48"]), workers=1)
+    assert not any(f.new in ("2.40", "2.48") for f in verworfen)
+    bestaetigt = _lesen(FakeClient(["2.40", "2.40", "2.48", "2.40"]), workers=1)
+    assert any(f.new == "2.40" for f in bestaetigt)
+
+
 def test_nachlesen_leere_antwort_liefert_nichts():
     client = FakeClient("")
     fixes = _lesen(client)

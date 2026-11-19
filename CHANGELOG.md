@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.39.1 – 19.11.2026
+### KI
+- **Gegenprobe beim Nachlesen:** Stimmen die zwei Lesungen einer Stelle überein, liest das Bildmodell sie noch einmal mit anderem Ausschnitt (1,0 mm Rand, bei Abweichung zusätzlich 2,5 mm). Nur wenn eine dieser Lesungen dasselbe ergibt, wird der Text vorgeschlagen. Das Modell antwortet auch bei Temperatur 0 nicht immer gleich, besonders unter Last.
+- **Gemessen:** PLAN2/PLAN3_UG1 (5 Pläne, feste Antworten) falsche KI-Texte 10 → 6, richtige Texte unverändert. Alle 17 echten Plots: Texte 2157 → 2157, falsche Wörter 288 → 287 (ohne KI 285). Der Rest kommt aus PLAN3_UG1: in Knäueln übereinander gedruckter Maße liest das Modell je nach Lauf 0–6 erfundene Maße („242“ aus „24“ über „2“); Tintenanteil und Nachbardichte trennen sie nicht von richtigen Lesungen.
+
 ## 0.39.0 – 19.11.2026
 ### KI
 - **Unerkannte Schrift mit KI lesen** liest jetzt auch Maße und Raumstempel auf Plänen: Traceify nimmt lange Linien aus dem Bild, fasst die übrige Tinte in Schriftgröße zu Wörtern zusammen und schickt alle Stellen ohne sichere Lesung an das Bildmodell – auch Maße an der Maßlinie und Stempel unter Türbögen, die die Texterkennung ausgeblendet hatte. Mehrere Stellen werden gleichzeitig gelesen.

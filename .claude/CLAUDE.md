@@ -33,6 +33,8 @@ pip install -r requirements.txt -r requirements-dev.txt --break-system-packages
 QT_QPA_PLATFORM=offscreen python3 -W ignore -m pytest -q   # ~180 Tests, ca. 12 s
 python3 -m pyflakes traceify tests
 python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
+# Windows lokal: .venv/Scripts/python; für Messungen Tesseract in den PATH:
+export PATH="/d/Programme/Tesseract:$PATH" PYTHONIOENCODING=utf-8   # sonst misst wahrheit.py ohne OCR
 ```
 
 ## Aufbau
@@ -426,5 +428,9 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    Echt 17 Plots: Texte 1983 → 2157, falsch 285 → 288 (PLAN3_UG1 +3, Maß-Knäuel), Zeit 670 → 4367 s.
    Offen: Rest-Fehlstellen ohne Stelle (~40 %), Mehrheit 2 von 3 mit zweitem Prompt; Ergebnisse schwanken leicht
    (vLLM bei Temperatur 0 nicht ganz deterministisch). Messskripte im Notizordner `ki_nachlesen_0390/`.
+   **0.39.1 Gegenprobe** (`SLOT_CHECK_PADS_MM` 1,0/2,5 mm, eine muss gleich lesen): 5 Pläne mit festen Antworten falsche
+   KI-Texte 10 → 6, Texte gleich; echt 17 Plots Texte 2157, falsch 287. Rest-Fehlwörter PLAN3_UG1: einzeln mit festen Antworten
+   0, frisch unter Last (3 Läufe parallel) +1 bis +6 – Maß-Knäuel („242“ = „24“ über „2“, „4.05“). Tintenanteil (richtige bis
+   0,53, falsche 0,35–0,44) und Nachbardichte trennen nicht. Idee offen: mehrere Lesungen einer Stelle seriell statt parallel.
 8. Workflow „Integration (echt)“: ODA-Suchmuster angepasst (Dateiname hat keine Versionsnummer
    mehr: `ODAFileConverter_QT6_vc16_amd64dll.msi`), aber noch **nicht live getestet**.

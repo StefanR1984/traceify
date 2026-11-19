@@ -257,6 +257,7 @@ SLOT_PROMPT = ("Ausschnitt aus einem gedruckten Bauplan. Lies nur die Schrift ab
                "Zeichen sicher erkennst. Ist keine Schrift zu sehen, gib text = \"\".")
 SLOT_SCHEMA = READ_SCHEMA
 SLOT_PADS_MM = (0.6, 1.5)        # zwei Lesungen mit verschiedenem Rand, beide müssen gleich sein
+SLOT_CHECK_PADS_MM = (1.0, 2.5)  # Gegenprobe: eine davon muss dasselbe lesen (any() bricht früh ab)
 
 
 def _ask(client, model: str, prompt: str, schema: dict, crop: np.ndarray) -> dict:
@@ -311,6 +312,13 @@ def read_unrecognized(client: OllamaClient, model: str, gray: np.ndarray, bw: np
             return None
         second = _ask(client, model, prompt, schema, crops[1])
         txt = text_slots.accept(a, str(second.get("text", "")), box)
+        if txt is not None and kind == "stelle":
+            # Gegenprobe: das Modell antwortet auch bei Temperatur 0 nicht immer gleich – eine
+            # dritte (oder vierte) Lesung mit anderem Rand muss es bestätigen
+            if not any(text_slots.normalize(str(_ask(client, model, prompt, schema, _prepare(
+                    text_slots.slot_crop(gray, c, px_per_mm, p))).get("text", ""))) == txt
+                       for p in SLOT_CHECK_PADS_MM):
+                txt = None
         return None if txt is None else (kind, c, txt, bool(first.get("kopf")))
 
     out = []
