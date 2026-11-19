@@ -416,5 +416,15 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    desselben Paars dürfen überlappen (**0.30.0:** Maßstab aus `Text.dim` → `dimensions.scale_from_dims`, Vorrang in
    `pipeline.apply_auto_scale`; echte Plots 1:200): EG 140, UG 96, Wörter echt 129/37, simuliert 536/199. Verworfen: Höhe
    ±1 px (EG +2/−1, „86⁵“, Zeit ×3); Wortschatz für die Höhe (EG hat kein sicheres „2.12⁵“).
+3a. **KI-Nachlesen echt getestet (0.39.0, 19.11.)** mit Gemma-4-26B-A4B über vLLM (`http://192.168.0.160:11435/v1`):
+   `core/text_slots.py` (Stellen ohne sichere Lesung, Linien ≥ 3 mm weg; `normalize`, `plausible`, `accept`),
+   `ai.read_unrecognized` liest jede Stelle zweimal (Rand 0,6/1,5 mm, 8 Threads, ~4 Stellen/s), `apply_text_fixes`.
+   Befunde PLAN2: KI liest Fehlstellen an richtiger Lage zu ~80–90 % (Orakel), Problem ist die Stellensuche (alte
+   `unread_candidates` trafen 4 von 595 Fehlstellen, neue ~60 %). `sicher` der KI ist wertlos (fast immer true).
+   Prompt-Beispiele werden halluziniert. Regel „beide Lesungen gleich“ ist der Hauptfilter (alle: 126 richtig/149 falsch;
+   gleich: 53/4 auf PLAN2_EG). Linienlöschen in der Stelle kostete Trefferquote (−0,4…−1,2) → aus.
+   Echt 17 Plots: Texte 1983 → 2157, falsch 285 → 288 (PLAN3_UG1 +3, Maß-Knäuel), Zeit 670 → 4367 s.
+   Offen: Rest-Fehlstellen ohne Stelle (~40 %), Mehrheit 2 von 3 mit zweitem Prompt; Ergebnisse schwanken leicht
+   (vLLM bei Temperatur 0 nicht ganz deterministisch). Messskripte im Notizordner `ki_nachlesen_0390/`.
 8. Workflow „Integration (echt)“: ODA-Suchmuster angepasst (Dateiname hat keine Versionsnummer
    mehr: `ODAFileConverter_QT6_vc16_amd64dll.msi`), aber noch **nicht live getestet**.

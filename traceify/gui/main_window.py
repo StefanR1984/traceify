@@ -1643,7 +1643,7 @@ class MainWindow(QMainWindow):
         tab = QTableWidget(len(fixes), 3)
         tab.setHorizontalHeaderLabels(["Bisher (OCR)", "Neu (KI)", "KI sicher"])
         for r, f in enumerate(fixes):
-            a = QTableWidgetItem(f.old if not f.is_new else "(nicht erkannt)")
+            a = QTableWidgetItem(f.old or "(nicht erkannt)")
             a.setFlags(a.flags() & ~Qt.ItemIsEditable)
             a.setFlags(a.flags() | Qt.ItemIsUserCheckable)
             a.setCheckState(Qt.Checked if f.sure else Qt.Unchecked)
@@ -1662,24 +1662,14 @@ class MainWindow(QMainWindow):
         if dlg.exec() != QDialog.Accepted:
             return
         self.undo_stack.append(("entities", [self._clone(e) for e in self.drawing.entities]))
-        n, n_new, n_del = 0, 0, 0
+        from ..ai.assistant import apply_text_fixes
+        chosen = []
         for r, f in enumerate(fixes):
-            if tab.item(r, 0).checkState() != Qt.Checked:
-                continue
-            f.entity.text = tab.item(r, 1).text()
-            if not f.is_new:
-                n += 1
-                continue
-            if not f.entity.text.strip():
-                continue
-            # neue Schrift: Linien-Wirrwarr der Buchstaben durch den CAD-Text ersetzen
-            if f.region:
-                from ..ai.assistant import entities_in_region
-                gone = {id(e) for e in entities_in_region(self.drawing.entities, f.region)}
-                n_del += len(gone)
-                self.drawing.entities = [e for e in self.drawing.entities if id(e) not in gone]
-            self.drawing.entities.append(f.entity)
-            n_new += 1
+            if tab.item(r, 0).checkState() == Qt.Checked:
+                f.new = tab.item(r, 1).text()
+                chosen.append(f)
+        # neue Schrift: Linien-Wirrwarr der Buchstaben und unsichere OCR-Reste durch den Text ersetzen
+        n, n_new, n_del = apply_text_fixes(self.drawing, chosen)
         self.canvas.set_entities(self.drawing.entities)
         self.refresh_layers()
         parts = []
@@ -2103,7 +2093,8 @@ class MainWindow(QMainWindow):
             "ergänzt, verlesene Planbegriffe "
             "per Wörterbuch korrigiert („Kuche“ → „Küche“), fette Schrift zusätzlich ausgedünnt gelesen "
             "(Schalter „Fette Schrift ausdünnen“ unter Texterkennung). "
-            "Handschrift liest die KI (KI → Unerkannte Schrift mit KI lesen).<br>"
+            "Handschrift und Maße, die die OCR nicht lesen konnte, liest die KI (KI → Unerkannte Schrift "
+            "mit KI lesen; je Stelle zwei Lesungen, nur gleiche werden vorgeschlagen).<br>"
             "<b>KI-Server</b> – im KI-Panel über ⚙: Ollama oder vLLM / OpenAI-kompatibel.<br>"
             "<b>Schräglage</b> des Scans wird erkannt, Linien werden ausgerichtet und beim "
             "Export gerade gedreht, ein schräger Gebäudeflügel wird in sich ausgerichtet. "

@@ -418,9 +418,11 @@ def _printed_ink(gray: np.ndarray, mm_per_px: float) -> np.ndarray:
     return ((ink | small[lab]) * 255).astype(np.uint8)
 
 
-def run_real(dxf: str, scan: str, scale_n: float = 0, settings=None, progress=None) -> dict:
+def run_real(dxf: str, scan: str, scale_n: float = 0, settings=None, progress=None,
+             ki=None) -> dict:
     """Echter Scan/Plot eines Original-CAD-Plans → Traceify → Messung gegen das Original.
-    scale_n ≤ 0: Plotmaßstab je Plan erkennen (`scan_scale`)."""
+    scale_n ≤ 0: Plotmaßstab je Plan erkennen (`scan_scale`). ki = (Client, Modell): danach
+    unerkannte Schrift per KI nachlesen und alle Vorschläge übernehmen."""
     import time
 
     from ..api import open_file
@@ -434,8 +436,15 @@ def run_real(dxf: str, scan: str, scale_n: float = 0, settings=None, progress=No
     truth = printed(align_scan(cad, ink, unit / mm_per_px / scale_n), _printed_ink(gray, mm_per_px))
     t0 = time.time()
     res = open_file(scan, 0, settings, progress=progress)
+    n_ki = None
+    if ki:
+        from ..ai.assistant import apply_text_fixes, read_unrecognized
+        fixes = read_unrecognized(ki[0], ki[1], gray, res.binary, res.drawing, 1.0 / mm_per_px)
+        n_ki = apply_text_fixes(res.drawing, fixes)[1]
     ents, areas = _with_areas(res.drawing)
     r = compare(truth, ents, gray.shape, mm_per_px, areas=areas)
+    if n_ki is not None:
+        r["ki_texte"] = n_ki
     r.update({"datei": dxf, "scan": scan, "bild": [int(gray.shape[1]), int(gray.shape[0])],
               "massstab": float(scale_n), "passung": None if fit is None else round(fit, 3),
               "sekunden": round(time.time() - t0, 1)})

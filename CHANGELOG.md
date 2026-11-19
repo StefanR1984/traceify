@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.39.0 – 19.11.2026
+### KI
+- **Unerkannte Schrift mit KI lesen** liest jetzt auch Maße und Raumstempel auf Plänen: Traceify nimmt lange Linien aus dem Bild, fasst die übrige Tinte in Schriftgröße zu Wörtern zusammen und schickt alle Stellen ohne sichere Lesung an das Bildmodell – auch Maße an der Maßlinie und Stempel unter Türbögen, die die Texterkennung ausgeblendet hatte. Mehrere Stellen werden gleichzeitig gelesen.
+- **Regeln für die Übernahme:** Jede Stelle wird zweimal mit verschiedenem Ausschnitt gelesen; vorgeschlagen wird nur, was beide Male gleich ist, von der Länge her in die Stelle passt und keine einstellige Zahl ist. Ziffern und Buchstaben in einem Wort („22T“) und kurze Kleinbuchstaben-Folgen gelten als Bruchstück. Sicher gelesene Texte (Maße im Allplan-Format, Wörter ab 4 Zeichen) bleiben unberührt, unsichere Lesungen an der Stelle werden ersetzt. Linien in der Stelle bleiben stehen (dort liegen Maßlinie und Sterne).
+- Der Prompt nennt keine Beispielwerte mehr – mit „1.13 Büro“ als Beispiel schrieb das Modell genau das auf Schraffur.
+- **Prüfstand:** `tools/wahrheit.py --scans … --ki <Server-URL> [--ki-modell …]` misst echte Plots mit KI-Nachlesen.
+- **Gemessen** (echte Allplan-Plots, 17 Pläne, Gemma 4 26B über vLLM): Texte richtig 1983 → 2157, falsche Wörter 285 → 288, Trefferquote und Genauigkeit unverändert; ca. 1–12 min je Plan zusätzlich. Ohne KI ändert sich nichts.
+
 ## 0.38.11 – 19.11.2026
 ### Behoben
 - **Scan-PDF ergab eine leere Zeichnung** („Quelle: PDF-Vektoren“, 0 Linien, Qualität „Probleme“): Die PDF enthielt neben dem Scan vier weiße Abdeckflächen. Ihre 16 Zeichenbefehle reichten, um die Seite als Vektor-PDF einzustufen – der Vektorimport fand dann nichts. Weiße Flächen ohne Strich zählen jetzt nicht mehr als Zeichnung; die Seite wird wie ein Scan vektorisiert.

@@ -186,7 +186,7 @@ Für die Bild-Funktionen braucht es ein Bildmodell (VL/Vision). Alle Funktionen 
 
 - **✨ KI-Analyse** (Strg+Umschalt+A): erkennt die Art der Zeichnung (Grundriss, technische Zeichnung, Logo …), wählt Vorlage, Modus, Entrauschen, Begradigen und OCR und konvertiert sofort.
 - **Texte mit KI prüfen:** Jeder OCR-Text wird als Ausschnitt einzeln nachgelesen (auch gedreht und schräg); Korrekturen erscheinen in einer Liste zum einzelnen Übernehmen.
-- **Unerkannte Schrift mit KI lesen:** Stellen, die wie Schrift aussehen, aber nicht gelesen wurden – typisch Handschrift wie „Privat Keller“. Übernommene Texte ersetzen die Linien der Buchstaben.
+- **Unerkannte Schrift mit KI lesen:** Stellen, die wie Schrift aussehen, aber nicht oder nicht sicher gelesen wurden – Handschrift wie „Privat Keller“, auf Plänen vor allem Maße an Maßlinien und Raumstempel unter Türbögen. Jede Stelle wird zweimal mit verschiedenem Ausschnitt gelesen; vorgeschlagen wird nur, was beide Male gleich ist und von der Länge her passt (keine einstelligen Zahlen). Sicher gelesene Texte bleiben unberührt, unsichere Lesungen an der Stelle werden ersetzt. Übernommene Texte ersetzen die Linien der Buchstaben. Mit Gemma 4 (26B) über vLLM etwa 3–5 min je A3-Plan.
 - **Ergebnis bewerten:** Die KI vergleicht Original und Vektoren (mit den Problemstellen der Qualitätsampel) und schlägt Verbesserungen vor; auf Wunsch setzt sie sie gleich um.
 - **Chat mit Aufträgen:** z. B. „Lösche alle Texte und exportiere als DXF“, „Toleranz auf 3 und neu konvertieren“, „Entferne alles unter 0,5 mm“, „Ersetze ‚Kuche‘ durch ‚Küche‘“. Ist „Aktionen sofort ausführen“ abgehakt, bestätigst du erst. Alles lässt sich mit Strg+Z zurücknehmen.
 - **Stapel mit Regeln in Klartext** (Stapel-Dialog oder `--ki-regeln`): z. B. „Grundrisse als DXF mit Maßstab aus dem Plan, Logos als CNC-Umriss mit 2 mm Frästiefe als G-Code, handschriftliche Notizen überspringen“. Das Protokoll zeigt jede Entscheidung.
@@ -200,7 +200,7 @@ Für die Bild-Funktionen braucht es ein Bildmodell (VL/Vision). Alle Funktionen 
 - Viele kleine Stummel an Wandkanten? „Fransen entfernen bis“ erhöhen.
 - Wände als Doppellinie gewünscht? „Wände als Umriss“ einschalten.
 - Kleine Schrift und Maße schlecht gelesen? Mit 300 dpi scannen.
-- Handschrift nicht erkannt? Im KI-Panel „Unerkannte Schrift mit KI lesen“.
+- Handschrift oder Maße nicht erkannt? Im KI-Panel „Unerkannte Schrift mit KI lesen“.
 
 ## Kommandozeile
 

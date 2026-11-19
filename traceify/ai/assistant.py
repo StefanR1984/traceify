@@ -156,6 +156,7 @@ class TextFix:
     sure: bool
     is_new: bool = False            # neuer Text (bisher nicht erkannt)
     region: Optional[tuple] = None  # (cx, cy, länge, höhe, winkel) – Bereich der Schrift
+    drop: list = field(default_factory=list)   # unsichere OCR-Texte, die der neue Text ersetzt
 
 
 def _rotated_crop(gray: np.ndarray, cx: float, cy: float, length: float, height: float,
@@ -244,45 +245,130 @@ def unread_candidates(bw: np.ndarray, d: Drawing, px_per_mm: float, limit: int =
     return find_candidates(layer, px_per_mm, boxes, max_candidates=limit)
 
 
+# Plan-Stellen (Maße, Raumstempel): ohne Beispielwerte im Text – mit Beispielen („1.13 Büro“)
+# schrieb das Modell genau diese auf Schraffur und Linien (gemessen an PLAN2_EG, 19.11.)
+SLOT_PROMPT = ("Ausschnitt aus einem gedruckten Bauplan. Lies nur die Schrift ab, die wirklich im Bild "
+               "steht, Zeichen für Zeichen. Meist ist es eine Maßzahl (Meter mit Punkt und zwei "
+               "Nachkommastellen oder Zentimeter ohne Punkt; eine kleine hochgestellte Ziffer dahinter "
+               "als hochgestelltes Zeichen, z. B. ⁵) oder eine Raumbezeichnung. Linien, Sterne, Pfeile, "
+               "Schraffur, Bögen und angeschnittene Zeichen am Bildrand gehören nicht dazu. Die Schrift "
+               "kann senkrecht oder auf dem Kopf stehen. Rate nicht: Ist ein Zeichen nicht klar lesbar, "
+               "setze sicher = false. Antworte als JSON: text = gelesener Text, sicher = ob du jedes "
+               "Zeichen sicher erkennst. Ist keine Schrift zu sehen, gib text = \"\".")
+SLOT_SCHEMA = READ_SCHEMA
+SLOT_PADS_MM = (0.6, 1.5)        # zwei Lesungen mit verschiedenem Rand, beide müssen gleich sein
+
+
+def _ask(client, model: str, prompt: str, schema: dict, crop: np.ndarray) -> dict:
+    msg = {"role": "user", "content": prompt, "images": [encode_image(crop, 768)]}
+    try:
+        res = parse_json(client.chat(model, [msg], fmt=schema, temperature=0.0))
+    except (OllamaError, ValueError):
+        return {}
+    return res if isinstance(res, dict) else {}
+
+
 def read_unrecognized(client: OllamaClient, model: str, gray: np.ndarray, bw: np.ndarray,
                       d: Drawing, px_per_mm: float,
                       progress: Optional[Callable[[int, int, str], None]] = None,
                       should_stop: Optional[Callable[[], bool]] = None,
-                      limit: int = 60) -> List[TextFix]:
-    """Lässt das Bildmodell schriftähnliche Stellen lesen, an denen die OCR nichts fand.
+                      limit: int = 2000, workers: int = 8) -> List[TextFix]:
+    """Lässt das Bildmodell Schrift lesen, die die OCR nicht oder nicht sicher lesen konnte.
 
-    Gibt Vorschläge für neue Texte zurück (TextFix mit is_new=True); übernommen werden sie
-    erst nach Bestätigung."""
+    Zwei Quellen: schriftähnliche Gruppen ohne Text (auch schräg, Handschrift) und Stellen ohne
+    sichere Lesung, an denen Linien entfernt wurden (Maße an Maßlinien, Raumstempel unter
+    Türbögen, `core.text_slots`). Jede Stelle wird zweimal mit verschiedenem Rand gelesen;
+    vorgeschlagen wird nur, was beide Male gleich und plausibel ist (`text_slots.accept`).
+    Sichere OCR-Lesungen werden nie überschrieben, unsichere in der Stelle ersetzt
+    (TextFix.drop). Übernommen wird erst nach Bestätigung (`apply_text_fixes`)."""
     import math
+    from concurrent.futures import ThreadPoolExecutor
+
+    from ..core import text_slots
+    texts = d.by_type(Text)
     cands = unread_candidates(bw, d, px_per_mm, limit)
-    out = []
-    for i, c in enumerate(cands):
+    taken = [(c.center, max(c.length, c.height) / 2) for c in cands]
+    slots = [b for b in text_slots.find_slots(gray, texts, px_per_mm)
+             if not any(math.dist((b[0] + b[2] / 2, b[1] + b[3] / 2), p) < r for p, r in taken)]
+    jobs = [("kand", c) for c in cands] + [("stelle", b) for b in slots[:max(0, limit - len(cands))]]
+
+    def read(job):
         if should_stop and should_stop():
-            break
-        if progress:
-            progress(i, len(cands), f"Stelle {i + 1}")
-        crop = _prepare(_rotated_crop(gray, c.center[0], c.center[1], c.length, c.height,
-                                      c.angle))
-        msg = {"role": "user", "content": UNREAD_PROMPT, "images": [encode_image(crop, 768)]}
-        try:
-            res = parse_json(client.chat(model, [msg], fmt=UNREAD_SCHEMA, temperature=0.0))
-        except OllamaError:
-            continue
-        txt = str(res.get("text", "")).strip()
-        if not txt:
-            continue
-        a = c.angle + (180.0 if res.get("kopf") else 0.0)       # Leserichtung im Bild
-        r = math.radians(a)
-        ux, uy = math.cos(r), math.sin(r)
-        nx, ny = -uy, ux
-        bx = c.center[0] - ux * c.length / 2 + nx * c.height / 2
-        by = c.center[1] - uy * c.length / 2 + ny * c.height / 2
-        t = Text(txt, (float(bx), float(by)), float(c.height) * 0.8, (-a) % 360.0)
-        out.append(TextFix(t, "", txt, bool(res.get("sicher", False)), True,
-                           (c.center[0], c.center[1], c.length, c.height, c.angle)))
+            return None
+        kind, c = job
+        if kind == "kand":
+            box = (0, 0, int(c.length), int(c.height))
+            crops = [_prepare(_rotated_crop(gray, c.center[0], c.center[1], c.length, c.height,
+                                            c.angle, pad)) for pad in (0.4, 1.0)]
+            prompt, schema = UNREAD_PROMPT, UNREAD_SCHEMA
+        else:
+            box = c
+            crops = [_prepare(text_slots.slot_crop(gray, c, px_per_mm, p)) for p in SLOT_PADS_MM]
+            prompt, schema = SLOT_PROMPT, SLOT_SCHEMA
+        first = _ask(client, model, prompt, schema, crops[0])
+        a = text_slots.normalize(str(first.get("text", "")))
+        if not text_slots.plausible(a, box):           # zweite Lesung nur, wenn es sich lohnt
+            return None
+        second = _ask(client, model, prompt, schema, crops[1])
+        txt = text_slots.accept(a, str(second.get("text", "")), box)
+        return None if txt is None else (kind, c, txt, bool(first.get("kopf")))
+
+    out = []
+    with ThreadPoolExecutor(max(1, workers)) as ex:
+        for i, res in enumerate(ex.map(read, jobs)):
+            if progress:
+                progress(i, len(jobs), f"Stelle {i + 1}")
+            if res is None:
+                continue
+            kind, c, txt, kopf = res
+            if kind == "kand":
+                a = c.angle + (180.0 if kopf else 0.0)       # Leserichtung im Bild
+                r = math.radians(a)
+                ux, uy = math.cos(r), math.sin(r)
+                nx, ny = -uy, ux
+                bx = c.center[0] - ux * c.length / 2 + nx * c.height / 2
+                by = c.center[1] - uy * c.length / 2 + ny * c.height / 2
+                t = Text(txt, (float(bx), float(by)), float(c.height) * 0.8, (-a) % 360.0)
+                out.append(TextFix(t, "", txt, True, True,
+                                   (c.center[0], c.center[1], c.length, c.height, c.angle)))
+                continue
+            x, y, w, h = c
+            dil = 0.3 * px_per_mm                         # Rand aus dem Zusammenfassen der Zeichen
+            if text_slots.vertical(c):                    # von unten nach oben geschrieben
+                t = Text(txt, (float(x + w), float(y + h)), float(max(1.0, w - dil)), 90.0)
+            else:
+                t = Text(txt, (float(x), float(y + h)), float(max(1.0, h - dil)), 0.0)
+            old = text_slots.replaced(texts, c)
+            # ohne region: in der Stelle liegen Maßlinie und Sterne, Löschen kostete echte Geometrie
+            # (Trefferquote PLAN2_EG −0,4, PLAN3_UG1 −1,2 Punkte, Texte gleich)
+            out.append(TextFix(t, " / ".join(o.text for o in old), txt, True, True, None, old))
     if progress:
-        progress(len(cands), len(cands), "Fertig")
+        progress(len(jobs), len(jobs), "Fertig")
     return out
+
+
+def apply_text_fixes(d: Drawing, fixes: List[TextFix]) -> tuple:
+    """KI-Vorschläge übernehmen: Texte korrigieren, neue Texte einfügen und dabei die
+    Linienstücke der Buchstaben sowie ersetzte unsichere OCR-Lesungen entfernen.
+    Gibt (korrigiert, neu, entfernte Linienstücke) zurück."""
+    n = n_new = n_del = 0
+    for f in fixes:
+        if not f.is_new:
+            f.entity.text = f.new
+            n += 1
+            continue
+        if not f.new.strip():
+            continue
+        f.entity.text = f.new
+        gone = {id(e) for e in f.drop}
+        if f.region:
+            lines = {id(e) for e in entities_in_region(d.entities, f.region)}
+            n_del += len(lines)
+            gone |= lines
+        d.entities = [e for e in d.entities if id(e) not in gone]
+        d.entities.append(f.entity)
+        n_new += 1
+    return n, n_new, n_del
 
 
 def entities_in_region(ents: list, region: tuple, margin: float = 0.15) -> list:

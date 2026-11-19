@@ -70,7 +70,12 @@ def _one(job):
     s = load_settings(a.einstellungen) if a.einstellungen else None
     print(f"{os.path.basename(f)} …", file=sys.stderr, flush=True)
     if scan:
-        return run_real(f, scan, a.massstab or 0, s)
+        ki = None
+        if a.ki:
+            from traceify.ai import make_client
+            kind = "openai" if a.ki.rstrip("/").endswith("/v1") else "ollama"
+            ki = (make_client({"ki_server": kind, "openai_url": a.ki, "ollama_url": a.ki}), a.ki_modell)
+        return run_real(f, scan, a.massstab or 0, s, ki=ki)
     base = os.path.splitext(os.path.basename(f))[0]
     return run(f, os.path.join(out_dir, base + ".png"), s, a.massstab or 100.0, a.dpi, a.stift)
 
@@ -88,6 +93,9 @@ def main(argv=None) -> int:
     p.add_argument("--bericht")
     p.add_argument("--json")
     p.add_argument("--einstellungen", help="JSON-Einstellungsdatei aus der GUI")
+    p.add_argument("--ki", help="nur mit --scans: KI-Server (…/v1 = vLLM/OpenAI, sonst Ollama), "
+                                "liest danach unerkannte Schrift nach und übernimmt sie")
+    p.add_argument("--ki-modell", default="Gemma-4-26B-A4B", help="Bildmodell für --ki")
     a = p.parse_args(argv)
     files = sorted(glob.glob(os.path.join(a.quelle, "*.dxf"))) if os.path.isdir(a.quelle) \
         else [a.quelle]
