@@ -98,6 +98,9 @@ python3 -m traceify                 # GUI;  python3 -m traceify --selbsttest
   `ShortcutOverride` ab.
 - Performance-Referenz: A0 mit 400 dpi (13245×9362) ≈ 21 s mit OCR auf 2 Kernen.
 - PDF-DPI 0 = automatisch (`loader.resolve_dpi`): Scan-PDFs in Originalauflösung, sonst 300.
+- Vektor-PDF-Erkennung (`pdf_vector.has_vectors`, ab 15 Zeichenbefehlen): weiße Flächen ohne Strich (`_mask`, Abdeckungen über
+  Scans) zählen nicht – sonst wird ein Scan mit 4 weißen Rechtecken zur leeren Vektorzeichnung (0.38.11, `Testdaten Traceify/Fehler/erledigt/wolfgang.pdf`,
+  Scan ~65 dpi auf einem Teil der A3-Seite → 300 dpi gerendert, nicht `native_dpi`).
 - QThread: `finished` kommt, bevor der Thread wirklich endet – vor dem Loslassen `w.wait()`,
   sonst Absturz beim Beenden („Destroyed while thread is still running“, v. a. unter Windows).
 - Neue Exporte/Ansichten: `Drawing.export_view()` verwenden (dreht die Schräglage heraus).

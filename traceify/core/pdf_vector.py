@@ -158,10 +158,16 @@ def has_vectors(path: str, page: int = 0, settings: Optional[PdfVectorSettings] 
         return False
 
 
+def _mask(d: dict) -> bool:
+    """Weiße Fläche ohne Strich – Abdeckung über einem Scan (geschwärzte/weiße Stellen), keine Zeichnung."""
+    f = d.get("fill")
+    return d.get("color") is None and f is not None and min(f) >= 0.95
+
+
 def _page_items(path: str, page: int) -> list:
     import pymupdf
     with pymupdf.open(path) as doc:
-        return [it for d in doc.load_page(page).get_drawings() for it in d.get("items", [])]
+        return [it for d in doc.load_page(page).get_drawings() if not _mask(d) for it in d.get("items", [])]
 
 
 def is_stroke_scan(path: str, page: int = 0) -> bool:

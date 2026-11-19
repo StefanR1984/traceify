@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.38.11 – 19.11.2026
+### Behoben
+- **Scan-PDF ergab eine leere Zeichnung** („Quelle: PDF-Vektoren“, 0 Linien, Qualität „Probleme“): Die PDF enthielt neben dem Scan vier weiße Abdeckflächen. Ihre 16 Zeichenbefehle reichten, um die Seite als Vektor-PDF einzustufen – der Vektorimport fand dann nichts. Weiße Flächen ohne Strich zählen jetzt nicht mehr als Zeichnung; die Seite wird wie ein Scan vektorisiert.
+
 ## 0.38.10 – 18.11.2026
 ### OCR
 - **Wörterbuch:** Sicher gelesene Bruchstücke bekannter Begriffe („ammer“, „kerpool“) werden nicht mehr als Wort des Plans gelernt – sie verhinderten, dass zerschnittene Wörter („Putz ammer“) wieder zu „Putzkammer“ zusammengesetzt werden. Ein Linienrest als Apostroph am Wortstück („Putz’ ammer“) stört nicht mehr.
