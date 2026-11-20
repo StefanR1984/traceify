@@ -364,6 +364,13 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
 3. **Handschrift mit echter KI testen** – „Unerkannte Schrift mit KI lesen“ und vLLM sind nur mit
    Attrappen getestet. Mit echtem Ollama-Modell bzw. vLLM-Server des Nutzers an image-4 prüfen,
    Prompt nachschärfen. Den Workflow „Integration (echt)“ **nicht ungefragt starten**.
+   **0.40.4 (21.11.) image-4 mit Gemma 4:** echte Handschrift (Höhe 24–66 px) liest das Modell gut („Faßkeller“, „Heizraum-“,
+   „250“ auch kopfüber); Kandidaten 7–11 px sind Kleckse → erfundene Raumnamen (Küche/Wohnen – nicht im Vergleichs-DXF) →
+   `assistant.KAND_MIN_PX` 12. Zwei Lesungen bei Handschrift locker vergleichen (`_loose`). `text_slots`-Stellen auf Scans =
+   11× „3.50“ auf Wänden → nur bei Plots (25 %-Perzentil der Tinte ≤ 10 wie `ocr.recognize`; Scans 24–30, Plots 0, Plan 03 0).
+   image-4: 3 Vorschläge, alle richtig, 592 → 8 s; 5 Plots mit KI Texte +7, falsch +1 (Rauschen). Skript: Notizordner `hs.py`.
+   Offen: „Heizraum-“ / „Heizraum-
+Abluftschacht“ (zweite Lesung mit größerem Rand sieht die nächste Zeile), Plan 03 nicht geprüft.
 4. **Ortho-Anteil** (48 % / 43 % gegen 51 % / 49 %): Der Rest ist bei image-11 überwiegend ein
    echt schräger Flügel (≈39°); `straighten.second_axes` richtet ihn seit 0.17.0 aus – nur wo sich
    eine Linie ≤ ~0,3 mm verschiebt (`second_shift`), denn der Flügel ist im Scan um ±1,2° verzogen

@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import base64
+import re
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
@@ -260,6 +261,14 @@ SLOT_PADS_MM = (0.6, 1.5)        # zwei Lesungen mit verschiedenem Rand, beide m
 SLOT_CHECK_PADS_MM = (1.0, 2.5)  # Gegenprobe: eine davon muss dasselbe lesen (any() bricht früh ab)
 
 
+KAND_MIN_PX = 12
+
+
+def _loose(s: str) -> str:
+    """Vergleichsform für Handschrift: ohne Leerzeichen/Bindestriche, ß wie B gelesen, Groß/klein egal."""
+    return re.sub(r"[\s\-]", "", s.replace("ß", "b")).casefold()
+
+
 def _ask(client, model: str, prompt: str, schema: dict, crop: np.ndarray) -> dict:
     msg = {"role": "user", "content": prompt, "images": [encode_image(crop, 768)]}
     try:
@@ -287,9 +296,14 @@ def read_unrecognized(client: OllamaClient, model: str, gray: np.ndarray, bw: np
 
     from ..core import text_slots
     texts = d.by_type(Text)
-    cands = unread_candidates(bw, d, px_per_mm, limit)
+    # unter 12 px Höhe sind Schriftgruppen Kleckse – das Modell erfand dort Raumnamen (image-4: „Küche“)
+    cands = [c for c in unread_candidates(bw, d, px_per_mm, limit) if c.height >= KAND_MIN_PX]
     taken = [(c.center, max(c.length, c.height) / 2) for c in cands]
-    slots = [b for b in text_slots.find_slots(gray, texts, px_per_mm)
+    # Stellen nur bei Plots mit tiefschwarzer Tinte (wie ocr.recognize): auf dem verrauschten Scan
+    # image-4 las das Modell 11× „3.50“ auf Wänden und Schraffur, auch mit Gegenprobe
+    ink = gray < 128
+    plot = bool(ink.any()) and np.percentile(gray[ink], 25) <= 10
+    slots = [b for b in (text_slots.find_slots(gray, texts, px_per_mm) if plot else [])
              if not any(math.dist((b[0] + b[2] / 2, b[1] + b[3] / 2), p) < r for p, r in taken)]
     jobs = [("kand", c) for c in cands] + [("stelle", b) for b in slots[:max(0, limit - len(cands))]]
 
@@ -311,7 +325,10 @@ def read_unrecognized(client: OllamaClient, model: str, gray: np.ndarray, bw: np
         if not text_slots.plausible(a, box):           # zweite Lesung nur, wenn es sich lohnt
             return None
         second = _ask(client, model, prompt, schema, crops[1])
-        txt = text_slots.accept(a, str(second.get("text", "")), box)
+        b = str(second.get("text", ""))
+        if kind == "kand" and _loose(a) == _loose(text_slots.normalize(b)):
+            b = a                                       # Handschrift: „FaB Keller“ = „Fabkeller“
+        txt = text_slots.accept(a, b, box)
         if txt is not None and kind == "stelle":
             # Gegenprobe: das Modell antwortet auch bei Temperatur 0 nicht immer gleich – eine
             # dritte (oder vierte) Lesung mit anderem Rand muss es bestätigen

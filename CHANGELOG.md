@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.40.4 – 21.11.2026
+### KI
+- **Unerkannte Schrift mit KI lesen – auf Scans getestet** (Gemma 4 über vLLM, Kellerplan mit Handschrift): Maß-Stellen (`text_slots`) werden nur noch bei Plots mit tiefschwarzer Tinte gelesen – auf dem verrauschten Scan las das Modell 11× „3.50“ auf Wänden und Schraffur, trotz Gegenprobe. Schriftgruppen unter 12 px Höhe werden nicht mehr gefragt (Kleckse, das Modell erfand „Küche“, „Wohnen“). Handschrift gilt als zweimal gleich gelesen, auch wenn Leerzeichen, Bindestrich oder ß/B abweichen („FaB Keller“ = „Fabkeller“).
+- Gemessen: Kellerplan 3 statt 14 Vorschläge, alle 3 richtig (vorher 12 erfunden), 592 → 8 s. 5 Plots mit KI: Texte 1384 → 1391, falsche Wörter 127 → 128 (Schwankung des Servers).
+
 ## 0.40.3 – 20.11.2026
 ### Schrift
 - Wortende-Ergänzung nur noch, wenn mindestens 4 Buchstaben fehlen: OCR verliert bei Abkürzungen oft den Punkt („Waschr.“ → „Waschr“), die wurden zu „Waschraum“ (PLAN3_OG1/OG4 je ein Text weniger). Abkürzungen auf -raum/-haus lassen genau 3 weg.

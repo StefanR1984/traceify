@@ -146,3 +146,33 @@ def test_apply_korrigiert_nur_den_text():
     korrigiert, neu, _ = apply_text_fixes(d, [TextFix(t, "2.4", "2.40", True)])
     assert korrigiert == 1 and neu == 0
     assert t.text == "2.40" and t.position == (10.0, 20.0) and t.height == 18.0
+
+
+def _kand(h):
+    from traceify.core.textlines import Candidate
+    return Candidate((200.0, 300.0), 0.0, 120.0, float(h), 5, np.zeros((0, 2)))
+
+
+def test_handschrift_locker_verglichen_und_kleckse_ausgelassen(monkeypatch):
+    # Handschrift: „FaB Keller“ und „Fabkeller“ sind dieselbe Lesung (0.40.4, image-4)
+    monkeypatch.setattr(text_slots, "find_slots", lambda *a, **k: [])
+    monkeypatch.setattr("traceify.ai.assistant.unread_candidates", lambda *a, **k: [_kand(30)])
+    fixes = _lesen(FakeClient(["FaB Keller", "Fabkeller"]), workers=1)
+    assert [f.new for f in fixes] == ["FaB Keller"]
+    # unter 12 px Höhe gar nicht erst fragen (Kleckse, Modell erfindet Raumnamen)
+    monkeypatch.setattr("traceify.ai.assistant.unread_candidates", lambda *a, **k: [_kand(9)])
+    client = FakeClient("Küche")
+    assert _lesen(client, workers=1) == [] and client.calls == []
+
+
+def test_stellen_nur_bei_plots(monkeypatch):
+    # graue Scan-Tinte (Wert 40): keine Maß-Stellen – auf Scans erfand das Modell „3.50“ (0.40.4)
+    monkeypatch.setattr("traceify.ai.assistant.unread_candidates", lambda *a, **k: [])
+    gefragt = []
+    monkeypatch.setattr(text_slots, "find_slots", lambda *a, **k: gefragt.append(1) or [])
+    img = np.where(_bild() < 128, 40, 255).astype(np.uint8)
+    d = Drawing(width=800, height=400, scale=1 / 12, entities=[])
+    read_unrecognized(FakeClient("2.40"), "m", img, 255 - img, d, PX, workers=1)
+    assert not gefragt
+    _lesen(FakeClient("2.40"), workers=1)
+    assert gefragt
