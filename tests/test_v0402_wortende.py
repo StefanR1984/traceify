@@ -17,5 +17,7 @@ def test_wortende_nur_wenn_eindeutig_und_am_ende():
     assert _fix("Pod") == "Pod"                      # zu kurz
     assert _fix("2.04 Waschr.") == "2.04 Waschr."    # Abkürzung mit Punkt
     assert _fix("Treppenh.") == "Treppenh."
+    assert _fix("2.04 Waschr") == "2.04 Waschr"      # Punkt nicht gelesen
+    assert _fix("Lagerr") == "Lagerr"
     assert _fix("Klasse") == "Klasse"                # bekanntes Wort bleibt
     assert _fix("2.20 Büro") == "2.20 Büro"

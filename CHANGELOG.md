@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.40.3 – 20.11.2026
+### Schrift
+- Wortende-Ergänzung nur noch, wenn mindestens 4 Buchstaben fehlen: OCR verliert bei Abkürzungen oft den Punkt („Waschr.“ → „Waschr“), die wurden zu „Waschraum“ (PLAN3_OG1/OG4 je ein Text weniger). Abkürzungen auf -raum/-haus lassen genau 3 weg.
+- Gemessen gegen 0.40.1: echte Plots Texte 1983 → 1984, falsche Wörter 285 → 281; Simulation 1258 → 1260, falsch 639 → 637; Scans: image-11 „Handver“ → „Handverkauf“ (Texte 100 → 101), sonst unverändert.
+
 ## 0.40.2 – 20.11.2026
 ### Schrift
 - **Am Textende abgeschnittene Raumnamen** werden ergänzt („20 Putzka“ → „20 Putzkammer“, „0.27 Drucke“ → „0.27 Druckerpool“): Stück ab 5 Buchstaben ohne Punkt am Ende, genau ein bekannter Begriff ab 8 Buchstaben beginnt damit und ist mindestens 2 länger. Abkürzungen mit Punkt („Waschr.“, „Treppenh.“) bleiben. Neu im Wörterbuch: Tresor, Abmessungen, Hersteller („Abmes ungen“ → „Abmessungen“).

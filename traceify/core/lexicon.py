@@ -304,12 +304,12 @@ def _join_cut(toks: List[str], lex: Lexicon) -> List[str]:
 
 def _cut_end(core: str, lex: Lexicon) -> Optional[Tuple[str, float]]:
     """Am Textende abgeschnittenes Wort („Putzka“ → „Putzkammer“): Stück ≥ 5 Buchstaben, genau ein
-    bekannter Begriff ≥ 8 beginnt damit und ist mindestens 2 Buchstaben länger („Drucke“ → „Druckerpool“,
-    „Drucker“ ist zu kurz)."""
+    bekannter Begriff ≥ 8 beginnt damit und ist mindestens 4 Buchstaben länger („Drucke“ → „Druckerpool“).
+    Abkürzungen auf -raum/-haus lassen 3 weg, und OCR verliert oft deren Punkt („Waschr.“ → „Waschr“)."""
     if len(core) < 5 or not core.isalpha():
         return None
     f = _fold(core)
-    hits = {v for k, v in lex.words.items() if len(k) >= 8 and len(k) >= len(f) + 2 and k.startswith(f)}
+    hits = {v for k, v in lex.words.items() if len(k) >= 8 and len(k) >= len(f) + 4 and k.startswith(f)}
     return (hits.pop(), 0.0) if len(hits) == 1 else None
 
 
