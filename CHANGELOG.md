@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.40.1 – 20.11.2026
+### Behoben
+- **Binärbild-Vorschau** zeigt jetzt dasselbe Bild, das umgewandelt wird – mit „Automatisch aufbereiten“ (geschlossene Sprenkelwände). Bisher fehlte der Vorschau die Auflösung, die Aufbereitung blieb dort aus.
+
 ## 0.40.0 – 20.11.2026
 ### Eingabe
 - **In Teilen gescannte Pläne zusammensetzen:** Liegen auf einer PDF-Seite zwei (oder mehr) Scanteile mit weißer Fuge neben- oder untereinander (z. B. ein großer Plan, auf A3 in zwei Hälften gescannt), setzt Traceify sie vor dem Umwandeln zu einem Bild zusammen. Erkannt wird das an den Bildern der Seite (gleich hoch, nicht überdeckt, Fuge höchstens 10 % der Teilbreite; Seiten mit Vektorzeichnung bleiben unberührt). Echte Überlappung wird per Kreuzkorrelation in mehreren Bändern gesucht und über die ganze Überlappung gegengeprüft – ohne die waagrechten Linien, die auch beim Stoß weiterlaufen, und mit Schwelle 0,8 (Schraffur ähnelt sich sonst schon mit 0,67). Ohne Überlappung stoßen die Teile aneinander, die Höhenlage kommt aus dem Zeilenprofil der Ränder. Tinte, die ganz im 1-mm-Streifen an der Fuge liegt (Scankante), wird entfernt.

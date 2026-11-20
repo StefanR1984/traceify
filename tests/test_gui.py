@@ -573,3 +573,31 @@ def test_gui_tooltips_bei_mauszeiger(tmp_path, monkeypatch):
     p.set_settings(type(s)())
     assert p.auto_prep.isChecked()
     w.close()
+
+
+def test_gui_binaervorschau_mit_aufbereitung(tmp_path, monkeypatch):
+    """Die Binärbild-Vorschau zeigt die automatische Aufbereitung wie beim Umwandeln."""
+    import sys
+    sys.path.insert(0, os.path.dirname(__file__))
+    from test_aufbereitung import _sprenkelwand
+    from traceify import config
+    monkeypatch.setattr(config, "CONFIG_PATH", str(tmp_path / "config.json"))
+    f = tmp_path / "wand.png"
+    cv2.imwrite(str(f), 255 - _sprenkelwand(np.random.default_rng(2)))
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    QtTest = pytest.importorskip("PySide6.QtTest")
+    from traceify.gui.main_window import MainWindow
+    w = MainWindow()
+    w.open_file(str(f))
+    app.processEvents()
+    w.preview_binary()
+    an = int((w.binary[50:350, 50:110] == 0).sum())
+    # Kästchen „Automatisch aufbereiten“ per Maus aus → Vorschau wie bisher, mehr Sprenkel offen
+    p = w.panel
+    p.ensureWidgetVisible(p.auto_prep)
+    QtTest.QTest.mouseClick(p.auto_prep, QtCore.Qt.LeftButton, QtCore.Qt.NoModifier,
+                            QtCore.QPoint(8, p.auto_prep.height() // 2))
+    w.preview_binary()
+    aus = int((w.binary[50:350, 50:110] == 0).sum())
+    assert an < 0.85 * aus
+    w.close()

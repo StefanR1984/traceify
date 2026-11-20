@@ -706,7 +706,7 @@ class MainWindow(QMainWindow):
         if self.gray is None:
             return
         s = self.panel.settings()
-        self.binary = preprocess.to_binary(self.gray, s.preprocess)
+        self.binary = preprocess.to_binary(self.gray, s.preprocess, 1.0 / self.img_scale)  # wie beim Umwandeln
         self.a_show_bin.setChecked(True)
         self.canvas.set_raster(255 - self.binary, keep_view=True)
         self.canvas.set_raster_opacity(1.0 if not self.drawing else self.opacity.value() / 100)
@@ -716,7 +716,8 @@ class MainWindow(QMainWindow):
             return
         if on:
             if self.binary is None or self.binary.shape != self.gray.shape:
-                self.binary = preprocess.to_binary(self.gray, self.panel.settings().preprocess)
+                self.binary = preprocess.to_binary(self.gray, self.panel.settings().preprocess,
+                                                   1.0 / self.img_scale)
             self.canvas.set_raster(255 - self.binary, keep_view=True)
         else:
             self.canvas.set_raster(self.gray, keep_view=True)
@@ -1119,7 +1120,8 @@ class MainWindow(QMainWindow):
 
     def _show_current_raster(self):
         if self.a_show_bin.isChecked():
-            self.binary = preprocess.to_binary(self.gray, self.panel.settings().preprocess)
+            self.binary = preprocess.to_binary(self.gray, self.panel.settings().preprocess,
+                                               1.0 / self.img_scale)
             self.canvas.update_raster(255 - self.binary)
         else:
             self.canvas.update_raster(self.gray)
