@@ -244,6 +244,7 @@ Türmaße ±0; Simulation Texte −25 (PLAN1_UG −11, PLAN3_UG1 −8), echt −
 Textboxen → andere Geometrie), Zeit +30 %. Auch nur für Plots wäre es netto ~0. Code: Notizordner `ocr_boegen_verworfen.py` (nicht im Repo).
 Dabei gefunden und behalten (0.38.10, Messung unverändert – greift erst, wenn ein Bruchstück sicher gelesen wird): `Lexicon.add_own` lernt keine Bruchstücke bekannter Begriffe mehr
 („ammer“ blockierte „Putz ammer“ → „Putzkammer“), `_join_cut` nimmt „Putz’ ammer“ (Linienrest als Apostroph).
+**0.40.2:** `lexicon._cut_end` ergänzt abgeschnittene Wortenden am Textende („Putzka“, „Drucke“; nur ohne Punkt – sonst „Waschr.“ → „Waschraum.“, gefunden über alle Original-DXF-Texte: `correct` darf keinen ändern). Echt falsch 285 → 282, Texte gleich. Rest Raumstempel PLAN2: „0 21a“/„121WCD“ (Zahlen nie ändern), Stempel ganz ungelesen, „Pod t2“.
 
 **Wahrheits-Prüfstand, Stand 0.17.0** (18 Allplan-Pläne, 1:100, 150 dpi, ohne Tesseract gemessen):
 Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %), Lagefehler

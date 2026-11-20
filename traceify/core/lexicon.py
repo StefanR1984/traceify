@@ -42,6 +42,7 @@ Achse Bestand Neubau Abbruch Umbau Anbau Planung Entwurf Genehmigung Bauherr Arc
 Personal Personalraum Aufenthalt Aufenthaltsraum Sozialraum Umkleide Pausenraum
 Klasse Klassenzimmer Fachraum Werkraum Lehrer Lehrerzimmer Werkstatt
 Teeküche Druckerpool Putzkammer Putzraum Garderobe Besprechung Vorstand Kopierer Drucker
+Tresor Abmessungen Hersteller
 Labor Rezeptur Notdienst Beratung Verkauf Verkaufsraum Handverkauf Offizin Sichtwahl
 Freiwahl Arbeitsplatz Kasse Theke Tresen Schübe Regal Regale Schrank Schränke
 Helferinnen Mitarbeiter Empfang Anmeldung Wartezimmer Warteraum Behandlung
@@ -270,7 +271,7 @@ def correct(text: str, lex: Lexicon, sure: bool = False) -> Tuple[str, int, int]
             n_known += 1
             out.append(t)
             continue
-        hit = lex.best(core, loose=not sure)
+        hit = lex.best(core, loose=not sure) or (_cut_end(core, lex) if i == len(toks) - 1 and not tail else None)
         if hit is None:
             out.append(t)
             continue
@@ -299,6 +300,17 @@ def _join_cut(toks: List[str], lex: Lexicon) -> List[str]:
                 out[i:i + 2] = [_case_like(a, hits.pop()) + tail]
         i += 1
     return out
+
+
+def _cut_end(core: str, lex: Lexicon) -> Optional[Tuple[str, float]]:
+    """Am Textende abgeschnittenes Wort („Putzka“ → „Putzkammer“): Stück ≥ 5 Buchstaben, genau ein
+    bekannter Begriff ≥ 8 beginnt damit und ist mindestens 2 Buchstaben länger („Drucke“ → „Druckerpool“,
+    „Drucker“ ist zu kurz)."""
+    if len(core) < 5 or not core.isalpha():
+        return None
+    f = _fold(core)
+    hits = {v for k, v in lex.words.items() if len(k) >= 8 and len(k) >= len(f) + 2 and k.startswith(f)}
+    return (hits.pop(), 0.0) if len(hits) == 1 else None
 
 
 def _abbrev(core: str, lex: Lexicon) -> Optional[str]:

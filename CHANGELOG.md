@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.40.2 – 20.11.2026
+### Schrift
+- **Am Textende abgeschnittene Raumnamen** werden ergänzt („20 Putzka“ → „20 Putzkammer“, „0.27 Drucke“ → „0.27 Druckerpool“): Stück ab 5 Buchstaben ohne Punkt am Ende, genau ein bekannter Begriff ab 8 Buchstaben beginnt damit und ist mindestens 2 länger. Abkürzungen mit Punkt („Waschr.“, „Treppenh.“) bleiben. Neu im Wörterbuch: Tresor, Abmessungen, Hersteller („Abmes ungen“ → „Abmessungen“).
+- Gemessen: echte Plots Texte 1983 gleich, falsche Wörter 285 → 282; PLAN2 Buchstaben-Texte 95 → 96 von 121; Simulation 1258 → 1259 Texte, falsch 639 → 637; Scans unverändert.
+
 ## 0.40.1 – 20.11.2026
 ### Behoben
 - **Binärbild-Vorschau** zeigt jetzt dasselbe Bild, das umgewandelt wird – mit „Automatisch aufbereiten“ (geschlossene Sprenkelwände). Bisher fehlte der Vorschau die Auflösung, die Aufbereitung blieb dort aus.
