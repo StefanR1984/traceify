@@ -17,6 +17,10 @@ SETTINGS = {
               "Setzt alle Werte unten passend; danach kannst du einzelne Werte anpassen.",
     "btn_convert": "Wandelt das geöffnete Bild mit den aktuellen Einstellungen in Vektoren um (F5).",
     # Raster
+    "auto_prep": "Bereitet den Scan selbst auf: Bei blassen Scans (Kopie, grau gedruckt) zählen auch "
+                 "hellere Bildpunkte, wenn sie an einer Linie hängen – zerfallene Linien und kleine "
+                 "Schrift wachsen wieder zusammen. Grau angelegte Wände, die im Scan schwarz mit "
+                 "weißen Sprenkeln erscheinen, werden geschlossen statt in hunderte Linien zerlegt.",
     "threshold": "Grauwert, ab dem ein Bildpunkt als Linie zählt (0–254). „automatisch“ ermittelt "
                  "ihn selbst; höher = auch blasse Linien, aber mehr Rauschen.",
     "adaptive": "Schwellwert örtlich anpassen – hilft bei ungleichmäßig belichteten Scans, "

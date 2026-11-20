@@ -57,9 +57,11 @@ Alternativ gibt es eine **portable ZIP** (entpacken, `Traceify.exe` starten). Ei
 - **Gescannte PDFs** werden in ihrer Originalauflösung gelesen – ohne künstliches Hochrechnen, dadurch schneller und mit weniger Kleinteilen (einstellbar unter „PDF-Render-DPI“).
 - **Vektor-PDFs** aus CAD-Programmen werden direkt übernommen: Linien, Kreise, Bögen, Texte, Farben, Strichstärken und Strichlinien – millimetergenau, ohne Umweg über ein Rasterbild (abschaltbar unter „Vektor-PDF“).
 - Scans, die nur als Tausende Pixel-Striche im PDF stecken, werden erkannt und wie ein Scan vektorisiert.
+- **In Teilen gescannte Pläne:** Liegen zwei (oder mehr) Scanteile mit weißer Fuge neben- oder untereinander auf der Seite, setzt Traceify sie vor dem Umwandeln zu einem Bild zusammen. Den Versatz bestimmt es selbst – bei echter Überlappung per Kreuzkorrelation, sonst Stoß an Stoß mit der Höhenlage aus den Linien, die über die Fuge laufen. Die Scankante an der Fuge wird entfernt.
 
 ### Raster vorbereiten
 
+- **Automatisch aufbereiten** (Standard an): Bei blassen Scans (Kopie, grau gedruckt) zählen auch hellere Bildpunkte, wenn sie an einer Linie hängen – an der Schwelle zerfallene Linien und kleine Schrift wachsen wieder zusammen. Grau angelegte Wände, die im Scan schwarz mit weißen Sprenkeln erscheinen, werden geschlossen statt in Hunderte Linien zerlegt; Buchstaben und Aussparungen in Symbolen bleiben offen.
 - Schwellwert (automatisch, fest oder adaptiv), Flecken entfernen, Löcher füllen, Glätten, Lücken schließen, Invertieren, Drehen, Zuschneiden, Schräglage begradigen; die **Binärbild-Vorschau** zeigt das Ergebnis.
 - **Radierer** (E) für Flecken, Stempel und Lochungen, **Stift** (P) zum Nachziehen unterbrochener Linien – Pinselgröße in der Werkzeugleiste.
 - **Bereiche** (R): Rechteck aufziehen und festlegen – *ignorieren*, *CAD – Mittellinie*, *CNC – Umriss* oder *nur Text*. So wird z. B. der Plan als Linien, das Logo im Schriftfeld als Umriss und die Legende gar nicht übernommen. Rechtsklick ändert oder entfernt einen Bereich.
@@ -84,7 +86,7 @@ Alternativ gibt es eine **portable ZIP** (entpacken, `Traceify.exe` starten). Ei
 - **Strichstärken** werden gemessen und als DXF-Strichstärke übernommen; dicke Linien (Wände) kommen auf DICKE_LINIEN – auf Wunsch als **Umriss (Doppellinie)** auf WAENDE.
 - **Schraffur** (schräge, parallele Linien in regelmäßigem Abstand) kommt auf SCHRAFFUR und wird im DXF/DWG als **echte Schraffur-Fläche (HATCH)** mit Winkel und Abstand ausgegeben – auch bei zerrissenen Linien, schwankendem Abstand und versetztem Raster. Die Fläche reicht von Wandkante zu Wandkante; lose Striche darin gehen in ihr auf. Auch handgezeichnetes Mauerwerk zählt als Schraffur. Zeichenfläche und SVG zeigen dieselben Flächen (ein Klick wählt die ganze Schraffur).
 - **Keine Verwechslung:** Wände und Möbel in schrägen Gebäudeteilen, **schräge Treppen** (Stufen stoßen rechtwinklig auf die Wangen) und einzelne schräge Striche (Handschrift) bleiben normale Linien.
-- **Kies und Punktmuster** (auch hellgrau geplottete Ringe) werden kleine Kreise auf KIES, im DXF/DWG/SVG eine **Kies-Fläche** (HATCH mit Punktmuster). Einzelne Punkte, Rauschen und Strichpunktlinien bleiben außen vor.
+- **Kies und Punktmuster** (auch hellgrau geplottete Ringe) werden kleine Kreise auf KIES, im DXF/DWG/SVG eine **Kies-Fläche** (HATCH mit Punktmuster). Einzelne Punkte, Rauschen, Strichpunktlinien und gepunktete Raster (Fliesenraster, Achsen) bleiben außen vor.
 - **Farbige Pläne** lassen sich nach Farbe auf eigene Layer trennen (FARBE_ROT, FARBE_BLAU, …) – auch bei Vektor-PDFs.
 
 Umschalten: Ansicht → **Schraffur als Fläche** (Flächen oder Einzellinien, gilt auch für Kies und für DXF/SVG). Die übrigen Schalter stehen in den Einstellungen unter „Linien, Farben, Symbole“.

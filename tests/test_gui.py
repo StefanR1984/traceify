@@ -563,4 +563,13 @@ def test_gui_tooltips_bei_mauszeiger(tmp_path, monkeypatch):
     assert s.style.spurs_mm == 0.0 and s.ocr.dictionary is False
     p.set_settings(type(s)())
     assert p.spurs.value() == 1.5 and p.ocr_dict.isChecked()
+    # „Automatisch aufbereiten“ per Mausklick aus- und wieder einschalten
+    assert p.auto_prep.isChecked() and p.settings().preprocess.auto
+    p.ensureWidgetVisible(p.auto_prep)
+    app.processEvents()
+    QtTest.QTest.mouseClick(p.auto_prep, QtCore.Qt.LeftButton, QtCore.Qt.NoModifier,
+                            QtCore.QPoint(8, p.auto_prep.height() // 2))
+    assert not p.settings().preprocess.auto
+    p.set_settings(type(s)())
+    assert p.auto_prep.isChecked()
     w.close()

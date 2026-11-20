@@ -22,9 +22,12 @@ class PreprocessSettings:
     deskew: bool = False          # Schräglage korrigieren
     smooth: int = 0               # 0 = aus, sonst Kernelgröße für Glättung
     thicken: int = 0              # Linien um n Pixel verdicken (Lücken schließen)
+    auto: bool = True             # automatische Bildaufbereitung (siehe `enhance_binary`)
 
 
-def to_binary(gray: np.ndarray, s: PreprocessSettings) -> np.ndarray:
+def to_binary(gray: np.ndarray, s: PreprocessSettings, px_per_mm: float = 0.0) -> np.ndarray:
+    """Graubild → Binärbild (Zeichnung weiß). Mit ``px_per_mm`` und ``s.auto`` zusätzlich die
+    automatische Aufbereitung, die die Auflösung kennen muss."""
     img = gray
     if s.smooth and s.smooth > 1:
         k = s.smooth | 1
@@ -40,6 +43,8 @@ def to_binary(gray: np.ndarray, s: PreprocessSettings) -> np.ndarray:
 
     if s.invert:
         bw = 255 - bw
+    if s.auto and px_per_mm > 0:
+        bw = enhance_binary(bw, px_per_mm)
     if s.deskew:
         bw = deskew(bw)
     if s.despeckle:
@@ -50,6 +55,86 @@ def to_binary(gray: np.ndarray, s: PreprocessSettings) -> np.ndarray:
         k = 2 * s.thicken + 1
         bw = cv2.dilate(bw, np.ones((k, k), np.uint8))
     return bw
+
+
+# Rasterfüllung (z. B. Wand grau angelegt, im Scan schwarz mit weißen Sprenkeln)
+HOLE_MAX_MM2 = 1.5      # größtes Loch
+HOLE_MIN_MM2 = 0.04     # Sprenkel ab dieser Fläche zählen für die Dichte
+HOLE_MAX_ELONG = 3.0    # Länge/Breite: Sprenkel bis 2,8 (90 %), Schraffurlücken länger
+HOLE_RING_MM = 0.6      # Umgebung des Lochs …
+HOLE_DENSITY = 0.6      # … muss so dicht schwarz sein
+HOLE_NEAR_MM = 1.5      # und so nah …
+HOLE_MIN_NEAR = 5       # … so viele weitere Löcher liegen (einzelne Löcher sind gezeichnet)
+HOLE_MIN_CV = 0.7       # Sprenkel sind ungleich groß (Variationskoeffizient der Lochflächen ringsum);
+                        # Gitter, Treppenroste, Dämmung, Schriftknäuel haben gleich große Zellen
+
+
+def _elongation(lab: np.ndarray, n: int, sel: np.ndarray) -> np.ndarray:
+    """Länge/Breite (Wurzel der Hauptachsen-Varianzen) der ausgewählten Komponenten (sonst 0)."""
+    ys, xs = np.nonzero(sel[lab])
+    L = lab[ys, xs]
+    xs, ys = xs.astype(np.float64), ys.astype(np.float64)
+    a = np.maximum(np.bincount(L, minlength=n), 1).astype(float)
+    mx, my = np.bincount(L, xs, n) / a, np.bincount(L, ys, n) / a
+    sxx = np.bincount(L, xs * xs, n) / a - mx * mx + 1 / 12
+    syy = np.bincount(L, ys * ys, n) / a - my * my + 1 / 12
+    sxy = np.bincount(L, xs * ys, n) / a - mx * my
+    tr, det = sxx + syy, sxx * syy - sxy * sxy
+    d = np.sqrt(np.maximum(tr * tr / 4 - det, 0))
+    return np.where(sel, np.sqrt((tr / 2 + d) / np.maximum(tr / 2 - d, 1e-6)), 0.0)
+
+
+def fill_speckle_holes(bw: np.ndarray, px_per_mm: float, max_mm2: float = HOLE_MAX_MM2) -> np.ndarray:
+    """Weiße Sprenkel in dunklen Füllflächen schließen. Eine grau angelegte Wand wird im Scan zu
+    Schwarz mit vielen kleinen weißen Löchern – jedes Loch würde zu einem Ring aus Linien.
+    Gefüllt wird nur, wo das Loch klein ist, ringsum fast alles schwarz ist und viele weitere
+    solche Löcher dicht daneben liegen, die ungleich groß sind; Buchstaben-Innenräume (Umgebung
+    halb weiß), einzeln gezeichnete Aussparungen in Symbolen, Schraffurlücken und Gitter mit
+    gleich großen Zellen bleiben."""
+    ppm = float(px_per_mm)
+    area = max(4, int(max_mm2 * ppm * ppm))
+    n, lab, st, cen = cv2.connectedComponentsWithStats((bw == 0).astype(np.uint8), connectivity=4)
+    small = st[:, cv2.CC_STAT_AREA] <= area
+    small[0] = False
+    if not small.any():
+        return bw
+    k = max(3, int(round(2 * HOLE_RING_MM * ppm)) | 1)
+    dens = cv2.boxFilter((bw > 0).astype(np.float32), -1, (k, k))
+    mean = np.bincount(lab.ravel(), dens.ravel(), n) / np.maximum(1, st[:, cv2.CC_STAT_AREA])
+    cand = small & (mean >= HOLE_DENSITY)
+    if not cand.any():
+        return bw
+    # gezählt werden nur Sprenkel ab HOLE_MIN_MM2 – feine Schraffur in Plots wird an der Schwelle
+    # schwarz mit 1–2-px-Löchern (Allplan-Wände), die bleibt Schraffur
+    # und nur rundliche: die Lücken zwischen Schraffurlinien sind lange, schmale Streifen
+    big = cand & (st[:, cv2.CC_STAT_AREA] >= HOLE_MIN_MM2 * ppm * ppm)
+    big &= _elongation(lab, n, big) < HOLE_MAX_ELONG
+    cb = np.clip(np.round(cen[big]).astype(int), 0, [bw.shape[1] - 1, bw.shape[0] - 1])
+    ab = st[big, cv2.CC_STAT_AREA].astype(np.float64)
+    kk = max(3, int(round(2 * HOLE_NEAR_MM * ppm)) | 1)
+    c = np.clip(np.round(cen[cand]).astype(int), 0, [bw.shape[1] - 1, bw.shape[0] - 1])
+    sums = []
+    for w in (np.ones_like(ab), ab, ab * ab):        # Anzahl, Σ Fläche, Σ Fläche² ringsum
+        pts = np.zeros(bw.shape, np.float64)
+        np.add.at(pts, (cb[:, 1], cb[:, 0]), w)
+        sums.append(cv2.boxFilter(pts, -1, (kk, kk), normalize=False)[c[:, 1], c[:, 0]])
+    cnt, s1, s2 = sums
+    mean = s1 / np.maximum(cnt, 1)
+    cv = np.sqrt(np.maximum(s2 / np.maximum(cnt, 1) - mean * mean, 0)) / np.maximum(mean, 1e-9)
+    ok = np.zeros(n, bool)
+    ok[cand] = (cnt >= HOLE_MIN_NEAR) & (cv >= HOLE_MIN_CV)
+    fill = cand & ok
+    if not fill.any():
+        return bw
+    out = bw.copy()
+    out[fill[lab]] = 255
+    return out
+
+
+def enhance_binary(bw: np.ndarray, px_per_mm: float) -> np.ndarray:
+    """Automatische Aufbereitung des Binärbilds (Befund an echten Scans, siehe CHANGELOG 0.40)."""
+    # zweimal: nach dem ersten Füllen ist die Umgebung der übrigen Löcher dichter
+    return fill_speckle_holes(fill_speckle_holes(bw, px_per_mm), px_per_mm)
 
 
 def remove_small(bw: np.ndarray, max_area: int) -> np.ndarray:

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.40.0 – 20.11.2026
+### Eingabe
+- **In Teilen gescannte Pläne zusammensetzen:** Liegen auf einer PDF-Seite zwei (oder mehr) Scanteile mit weißer Fuge neben- oder untereinander (z. B. ein großer Plan, auf A3 in zwei Hälften gescannt), setzt Traceify sie vor dem Umwandeln zu einem Bild zusammen. Erkannt wird das an den Bildern der Seite (gleich hoch, nicht überdeckt, Fuge höchstens 10 % der Teilbreite; Seiten mit Vektorzeichnung bleiben unberührt). Echte Überlappung wird per Kreuzkorrelation in mehreren Bändern gesucht und über die ganze Überlappung gegengeprüft – ohne die waagrechten Linien, die auch beim Stoß weiterlaufen, und mit Schwelle 0,8 (Schraffur ähnelt sich sonst schon mit 0,67). Ohne Überlappung stoßen die Teile aneinander, die Höhenlage kommt aus dem Zeilenprofil der Ränder. Tinte, die ganz im 1-mm-Streifen an der Fuge liegt (Scankante), wird entfernt.
+- PLAN6_UG: rechter Teil lag 12 px tiefer und 25 px abgesetzt, jetzt deckungsgleich (Objekte 3050 → 3037, Splitter 864 → 841, Texte 113 → 114).
+
+### Bildaufbereitung
+- **Automatisch aufbereiten** (Raster-Vorverarbeitung, Standard an): Grau angelegte Wände, die im Scan schwarz mit weißen Sprenkeln erscheinen, werden geschlossen. Gefüllt wird ein Loch nur, wenn es klein ist (≤ 1,5 mm²), ringsum dunkel ist und viele weitere, **ungleich große** Sprenkel daneben liegen (Variationskoeffizient ≥ 0,7). Buchstaben-Innenräume, einzelne Aussparungen in Symbolen, Schraffurlücken (lange Streifen) und Gitter mit gleich großen Zellen (Treppenroste, Dämmung, Schriftknäuel) bleiben offen. Die Texterkennung liest weiter das unveränderte Bild.
+- **Gepunktete Raster sind kein Kies mehr:** Fliesen- und Achsraster aus Punktreihen wurden zu Tausenden Kies-Kreisen. Jetzt wird je Punktfeld gezählt, wie oft die beiden nächsten Nachbarn genau gegenüber und gleich weit weg liegen (Raster 57 %, Allplan-Kies 8–9 %); ab 35 % kein Kies.
+- **Gemessen** (Prüfstand, 9 neue Scans): Plan4_EG Objekte 5972 → 3625 (Kies-Kreise 2352 → 7), Plan7_EG 5741 → 5541 (Splitter 1327 → 1274), Plan7_OG1 4953 → 4855; Texte überall gleich. Wahrheits-Prüfstand (17 echte Plots, 18 simulierte Pläne): Trefferquote/Genauigkeit ±0,1 Punkte, Texte 1983/1258 unverändert. Alte Scans (16): Objekte gleich oder weniger (image 27: 3546 → 3503, offene Enden 453 → 440).
+- **Untersucht und verworfen:** Hysterese-Schwelle für blasse Scans (Tinte im Median ≥ 100) – auf Plan4/Plan6_OG2 mehr Texte (+8/+11), aber die simulierten Scans haben dieselbe Tintenhelligkeit, dort Texte 1258 → 870. Flecken nach Fläche in mm² entfernen (0,15/0,3 mm²) löscht dünne Handschrift und Teile blasser Linien. Erste Fassung des Füllens (ohne Größenstreuung) machte Allplan-Schraffurwände und Treppenroste zu Vollflächen (PLAN1_OG1 Trefferquote 93,6 → 69,6 %).
+- **KI-Einstellungsvorschlag geprüft** (Gemma 4 26B über vLLM): bei allen 9 Scans „nicht verrauscht, nicht schief, gleichmäßig beleuchtet“ – also wie die Standardwerte; zweimal „Umriss“ statt Mittellinie für einen Grundriss (Plan7: Texte 53 → 0, Abdeckung 97,6 → 85,6 %). Nicht eingebaut.
+
 ## 0.39.1 – 19.11.2026
 ### KI
 - **Gegenprobe beim Nachlesen:** Stimmen die zwei Lesungen einer Stelle überein, liest das Bildmodell sie noch einmal mit anderem Ausschnitt (1,0 mm Rand, bei Abweichung zusätzlich 2,5 mm). Nur wenn eine dieser Lesungen dasselbe ergibt, wird der Text vorgeschlagen. Das Modell antwortet auch bei Temperatur 0 nicht immer gleich, besonders unter Last.

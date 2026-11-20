@@ -65,6 +65,9 @@ class SettingsPanel(QScrollArea):
         # ---- Raster ----
         g = QGroupBox("Raster-Vorverarbeitung")
         f = QFormLayout(g)
+        self.auto_prep = QCheckBox("Automatisch aufbereiten (blasse Scans, Wandfüllung)")
+        self.auto_prep.setChecked(True)
+        f.addRow(self.auto_prep)
         self.threshold = _spin(0, 254, 0)
         self.threshold.setSpecialValueText("automatisch")
         f.addRow("Schwellwert:", self.threshold)
@@ -344,6 +347,7 @@ class SettingsPanel(QScrollArea):
     def settings(self) -> ConvertSettings:
         s = ConvertSettings()
         pp, v, o = s.preprocess, s.vectorize, s.ocr
+        pp.auto = self.auto_prep.isChecked()
         pp.threshold = self.threshold.value()
         pp.adaptive = self.adaptive.isChecked()
         pp.invert = self.invert.isChecked()
@@ -396,6 +400,7 @@ class SettingsPanel(QScrollArea):
 
     def set_settings(self, s: ConvertSettings):
         pp, v, o = s.preprocess, s.vectorize, s.ocr
+        self.auto_prep.setChecked(pp.auto)
         self.threshold.setValue(pp.threshold)
         self.adaptive.setChecked(pp.adaptive)
         self.invert.setChecked(pp.invert)

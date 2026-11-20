@@ -24,6 +24,7 @@ MIN_NEIGHBOURS = 6    # so viele Kleckse im Umkreis
 SPREAD_MM = 0.5       # Nachbarn müssen flächig liegen (kleinere Streuung quer = Reihe)
 MIN_GROUP = 30        # Mindestgröße eines Punktfelds
 FREE_MM = 0.25        # so weit um den Klecks keine andere Tinte (Schrift, Linien)
+MAX_REGULAR = 0.35    # Anteil Punkte mit Nachbarn genau gegenüber in gleichem Abstand: gepunktete Linien
 
 
 def find_dots(gray: np.ndarray, px_per_mm: float, boxes: Sequence[Tuple[int, int, int, int]] = (),
@@ -82,6 +83,12 @@ def find_dots(gray: np.ndarray, px_per_mm: float, boxes: Sequence[Tuple[int, int
     _, grp = connected_components(coo_matrix((np.ones(len(pairs)), (pairs[:, 0], pairs[:, 1])),
                                              shape=(len(P), len(P))), directed=False)
     sel = np.bincount(grp)[grp] >= MIN_GROUP
+    if sel.any():
+        # gepunktete Linien (Fliesenraster, Achsen) bilden auch Flächen – dort liegen die beiden
+        # nächsten Nachbarn fast immer genau gegenüber und gleich weit weg; Kies liegt zufällig
+        reg = regular_share(P)
+        share = np.bincount(grp, reg) / np.maximum(1, np.bincount(grp))
+        sel &= share[grp] < MAX_REGULAR
     out = []
     for i, p in zip(idx[sel], P[sel]):
         d = (w[i] + h[i]) / 2.0
@@ -89,6 +96,18 @@ def find_dots(gray: np.ndarray, px_per_mm: float, boxes: Sequence[Tuple[int, int
         out.append(Circle((float(p[0]), float(p[1])), max(d / 2 - 0.5, d / 4), LAYER_GRAVEL))
     mask[np.isin(lab, idx[sel] + 1)] = 255
     return out, mask
+
+
+def regular_share(P: np.ndarray) -> np.ndarray:
+    """Je Punkt: liegen die beiden nächsten Nachbarn gegenüber (±20°) in fast gleichem Abstand?
+    (Messung: Fliesenraster aus Punkten 57 %, Allplan-Kies 8–9 %)"""
+    from scipy.spatial import cKDTree
+    if len(P) < 3:
+        return np.zeros(len(P))
+    d, i = cKDTree(P).query(P, 3)
+    v1, v2 = P[i[:, 1]] - P, P[i[:, 2]] - P
+    cos = (v1 * v2).sum(1) / (np.linalg.norm(v1, axis=1) * np.linalg.norm(v2, axis=1) + 1e-9)
+    return ((cos < -0.94) & (d[:, 2] < 1.3 * np.maximum(d[:, 1], 1e-9))).astype(float)
 
 
 @dataclass

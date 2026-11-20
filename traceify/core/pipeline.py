@@ -165,7 +165,8 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
             progress(p, msg)
 
     step(5, "Vorverarbeitung …")
-    bw = to_binary(gray, settings.preprocess)
+    bw = to_binary(gray, settings.preprocess, 1.0 / dpi_scale)
+    bw_ocr = to_binary(gray, settings.preprocess) if settings.preprocess.auto else bw
     regions = _regions(settings)
     for r in regions:
         if r.mode == REGION_IGNORE:
@@ -174,7 +175,9 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
     texts, boxes = [], []
     if settings.ocr.enabled:
         step(25, "Texterkennung (OCR) …")
-        ocr_src = 255 - bw  # sauberes Schwarz-auf-Weiß-Bild für Tesseract
+        # sauberes Schwarz-auf-Weiß-Bild für Tesseract – ohne die automatische Aufbereitung
+        # (gefüllte Löcher fetter Schrift kosten Lesungen)
+        ocr_src = 255 - _ignore(bw_ocr, regions) if bw_ocr is not bw else 255 - bw
         ppm = 1.0 / dpi_scale
         pp_ocr = settings.preprocess
         if settings.ocr.despeckle < pp_ocr.despeckle and not pp_ocr.deskew:

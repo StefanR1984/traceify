@@ -69,7 +69,64 @@ def load_pdf_page(path: str, page: int = 0, dpi: int = 0) -> Tuple[np.ndarray, f
         pg = doc.load_page(page)
         pix = pg.get_pixmap(dpi=dpi, colorspace=fitz.csGRAY, alpha=False)
         img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width)
+        tiles = scan_tiles(pg)
+    if tiles:
+        img = _stitch_page(img, img, tiles, dpi)
     return img.copy(), 25.4 / dpi
+
+
+STITCH_MARGIN_MM = 5.0
+
+
+def scan_tiles(pg):
+    """Mehrere gescannte Teile eines Plans nebeneinander auf der Seite (mit Fuge dazwischen)?
+
+    Gibt (Achse, [Rechtecke in pt, in Reihenfolge]) zurück, sonst None. Seiten mit Vektor-
+    zeichnung bleiben unberührt (dort passen sonst Vektoren und Bild nicht mehr aufeinander).
+    """
+    from .stitch import tile_order
+    try:
+        if sum(len(d.get("items", [])) for d in pg.get_drawings()) >= 15:
+            return None
+        rects = []
+        for info in pg.get_images(full=True):
+            for r in pg.get_image_rects(info[0]):
+                if r.width > 0.1 * pg.rect.width or r.height > 0.1 * pg.rect.height:
+                    rects.append((r.x0, r.y0, r.x1, r.y1))
+    except Exception:
+        return None
+    found = tile_order(rects)
+    return (found[0], [rects[i] for i in found[1]]) if found else None
+
+
+def _stitch_page(gray: np.ndarray, img: np.ndarray, tiles, dpi: int) -> np.ndarray:
+    """Teile aus der gerenderten Seite schneiden, Versatz am Graubild bestimmen, zusammensetzen."""
+    import logging
+    from .stitch import chain_offsets, compose, edge_specks
+    axis, rects = tiles
+    f = dpi / 72.0
+    boxes = [tuple(int(round(v * f)) for v in r) for r in rects]
+    boxes = [(max(0, x0), max(0, y0), min(gray.shape[1], x1), min(gray.shape[0], y1))
+             for x0, y0, x1, y1 in boxes]
+    g_parts = [gray[y0:y1, x0:x1].copy() for x0, y0, x1, y1 in boxes]
+    i_parts = [img[y0:y1, x0:x1].copy() for x0, y0, x1, y1 in boxes]
+    band = max(3, int(round(1.0 / 25.4 * dpi)))  # Scankante: 1 mm an der Fuge (Punkte entfernt das Entflecken)
+    sides = ("left", "right") if axis == "x" else ("top", "bottom")
+    for i in range(len(boxes)):
+        for side, use in ((sides[0], i > 0), (sides[1], i < len(boxes) - 1)):
+            if use:
+                m = edge_specks(g_parts[i], side, band)
+                g_parts[i][m] = 255
+                i_parts[i][m] = 255
+    q = 1 if axis == "x" else 0  # Querlage aus der Seite als Rückfall
+    dy0 = [boxes[i + 1][q] - boxes[i][q] for i in range(len(boxes) - 1)]
+    offs, kinds = chain_offsets(g_parts, axis, dy0)
+    logging.getLogger("traceify").info("Seite aus %d Scanteilen zusammengesetzt (%s, %s)",
+                                       len(boxes), ", ".join(kinds), offs)
+    out = compose(i_parts, offs)
+    m = int(round(STITCH_MARGIN_MM / 25.4 * dpi))
+    pad = ((m, m), (m, m)) + ((0, 0),) * (out.ndim - 2)
+    return np.pad(out, pad, constant_values=255)
 
 
 def load_image(path: str) -> Tuple[np.ndarray, float]:
@@ -98,8 +155,12 @@ def load_color(path: str, page: int = 0, dpi: int = 0):
         import pymupdf as fitz
         dpi = resolve_dpi(path, page, dpi)
         with fitz.open(path) as doc:
-            pix = doc.load_page(page).get_pixmap(dpi=dpi, colorspace=fitz.csRGB, alpha=False)
+            pg = doc.load_page(page)
+            pix = pg.get_pixmap(dpi=dpi, colorspace=fitz.csRGB, alpha=False)
             rgb = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+            tiles = scan_tiles(pg)
+        if tiles:  # gleiche Zusammensetzung wie load_pdf_page (Versatz am Graubild)
+            rgb = _stitch_page(cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY), rgb, tiles, dpi)
         return np.ascontiguousarray(rgb[..., ::-1])
     if ext in IMAGE_EXT:
         from PIL import Image

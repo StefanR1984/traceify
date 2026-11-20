@@ -42,7 +42,8 @@ export PATH="/d/Programme/Tesseract:$PATH" PYTHONIOENCODING=utf-8   # sonst miss
   Koordinaten in **Bildpixeln, y nach unten**; Bogenwinkel in Grad im Bildsystem
   (DXF-Export spiegelt: start=-end, end=-start). Layer-Konstanten + `layer_color`.
 - `core/pipeline.py` – `ConvertSettings`, `convert`/`convert_source`, Bereiche (Region).
-- `core/preprocess.py`, `vectorize.py` (Kachel-Skelett, Fransen, Fit),
+- `core/stitch.py` – in Teilen gescannte Pläne (mehrere Bilder mit Fuge auf einer PDF-Seite) zusammensetzen; Aufruf in `loader.load_pdf_page`/`load_color` (`scan_tiles`, `_stitch_page`), Bild wird dadurch kleiner als die Seite.
+- `core/preprocess.py` (`auto` = Sprenkel in Wandfüllung schließen, nur fürs Vektorisieren, OCR liest ohne), `vectorize.py` (Kachel-Skelett, Fransen, Fit),
   `style.py` (Strichlinien, Strichstärken, Schraffur-Layer, Wände als Umriss), `colors.py`,
   `ocr.py` (Tesseract, 4 Richtungen, Maßzahlen), `textlines.py` (schräge Texte nachlesen),
   `lexicon.py` (Wörterbuch für Planbegriffe, OCR-Verwechslungen; Zahlen nie ändern),
@@ -418,6 +419,19 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    desselben Paars dürfen überlappen (**0.30.0:** Maßstab aus `Text.dim` → `dimensions.scale_from_dims`, Vorrang in
    `pipeline.apply_auto_scale`; echte Plots 1:200): EG 140, UG 96, Wörter echt 129/37, simuliert 536/199. Verworfen: Höhe
    ±1 px (EG +2/−1, „86⁵“, Zeit ×3); Wortschatz für die Höhe (EG hat kein sicheres „2.12⁵“).
+2a. **Neue Testdaten (0.40.0, 20.11.):** `Testdaten Traceify/Testdaten neu/Testdaten neu/Plan4–7*.pdf` (9 Scans, auf A3-Teilfläche,
+   135–300 dpi; Plan4_EG.jpg = Duplikat). Befund: Papier überall sauber weiß (keine Vergilbung/Verläufe, Hintergrund-Ausgleich
+   nutzlos). Ursachen schlechter DXF: (a) Plan4 Fliesenraster aus Punktreihen → 2352 Kies-Kreise → `dots.regular_share`
+   (MAX_REGULAR 0,35); (b) Plan7_EG/OG1 grau angelegte Wände = schwarz mit weißen Sprenkeln → `preprocess.fill_speckle_holes`
+   (Löcher ≤ 1,5 mm², Ring ≥ 60 % schwarz, ≥ 5 Sprenkel ≥ 0,04 mm² mit Länge/Breite < 3 in 1,5 mm, deren Flächen-CV ≥ 0,7);
+   Wand am Rand bleibt teils offen (Sprenkel mit Verbindung nach außen sind keine Löcher) – Gewinn nur −2…−3,5 % Objekte;
+   (c) PLAN6_UG zwei Scanteile → `stitch`; (d) Plan6_OG1 Tonerspritzer (nicht gelöst), Plan5/Plan4 blasse Graulinien zerfallen.
+   Gemessen: Plan4 Objekte 5972 → 3625, Plan7_EG 5741 → 5541, OG1 4953 → 4855, Texte gleich; Wahrheit echt/Sim ±0,1, Texte gleich.
+   **Verworfen:** Hysterese bei blasser Tinte (Median ≥ 100: Plan4/6_OG2 Texte +8/+11, aber Simulation hat Median 104–111 →
+   Texte 1258 → 870); despeckle in mm² (0,15/0,3 mm² löscht Handschrift, Linienreste); Füllen ohne CV/Länge-Prüfung (Allplan-
+   Schraffurwände werden an Otsu schwarz mit 1–2-px-Löchern bzw. Streifen → Vollfläche, PLAN1_OG1 93,6 → 69,6 %); CV 0,5/0,4
+   (mehr Plan7, aber Gitter in PLAN3/Sim). KI `suggest_settings`: alle 9 „sauber“ = Standard, 2× „umriss“ (falsch) → nicht eingebaut.
+   Messskripte im Notizordner (`exp.py`, `wcmp.py`).
 3a. **KI-Nachlesen echt getestet (0.39.0, 19.11.)** mit Gemma-4-26B-A4B über vLLM (`http://192.168.0.160:11435/v1`):
    `core/text_slots.py` (Stellen ohne sichere Lesung, Linien ≥ 3 mm weg; `normalize`, `plausible`, `accept`),
    `ai.read_unrecognized` liest jede Stelle zweimal (Rand 0,6/1,5 mm, 8 Threads, ~4 Stellen/s), `apply_text_fixes`.
