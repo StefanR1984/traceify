@@ -374,6 +374,11 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    Folgezeile zählt (`Heizraum`). Plan 03 → 29 (Rest meist abgeschnittene Wortanfänge „AUFENTH“, „HENBA“ – Kandidat endet am
    Wortrand), 5 Plots mit KI Texte +2, falsch −1, aber PLAN3_UG1 −6 (echte wiederholte Maße im Knäuel). Offen: Kandidaten-
    Ausschnitt länger machen, damit ganze Wörter gelesen werden.
+   **0.40.6:** Ursache war die Stellensuche, nicht der Ausschnitt: `find_slots` zerlegt Punktschrift (Teile < 0,5 mm fallen weg) in
+   Stücke → `text_slots.merge_row` (Union-Find, kleineres Teil in der Zeile des größeren, Mitten ≤ 0,2 h, Höhe ≤ 2,5×, Lücke ≤ 1,2 h;
+   Gruppe höher als 1,6 × breitester Teil → einzeln lassen, sonst Ketten über Treppensymbole), Stelle bis 60 mm. Plan 03 26 → 34
+   Vorschläge (ganze Wörter, „VORPACH“ statt VORDACH; neu Unsinn „II“, „VERB“, „UG“), 5 Plots mit KI Texte 1255 → 1260, falsch
+   117 → 115. Rest: „HENBA“, „SCH(MUTZWASSER)“ – Sicherung greift, weil das Wort über Zeichnungsteile kettet.
 4. **Ortho-Anteil** (48 % / 43 % gegen 51 % / 49 %): Der Rest ist bei image-11 überwiegend ein
    echt schräger Flügel (≈39°); `straighten.second_axes` richtet ihn seit 0.17.0 aus – nur wo sich
    eine Linie ≤ ~0,3 mm verschiebt (`second_shift`), denn der Flügel ist im Scan um ±1,2° verzogen

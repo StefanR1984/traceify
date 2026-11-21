@@ -55,13 +55,58 @@ def find_slots(gray: np.ndarray, texts: List[Text], px_per_mm: float,
     g = cv2.dilate(m, np.ones((int(0.3 * px_per_mm) | 1, int(0.6 * px_per_mm) | 1), np.uint8))
     n, _, st, _ = cv2.connectedComponentsWithStats(g, connectivity=8)
     out = []
-    for i in range(1, n):
-        x, y, w, h = (int(v) for v in st[i, :4])
-        if max(w, h) > 30 * px_per_mm or min(w, h) < 0.7 * px_per_mm:
+    for x, y, w, h in merge_row([tuple(int(v) for v in st[i, :4]) for i in range(1, n)]):
+        # 60 mm: zusammengefasste Zeilen („STAHLBETONTREPPENHAUS“ ~40 mm)
+        if max(w, h) > 60 * px_per_mm or min(w, h) < 0.7 * px_per_mm:
             continue
         if (m[y:y + h, x:x + w] > 0).sum() < 0.3 * px_per_mm * px_per_mm:
             continue
         out.append((x, y, w, h))
+    return out
+
+
+def merge_row(boxes: List[Box]) -> List[Box]:
+    """Wortteile auf derselben Zeile zusammenfassen. Aus Punkten gedruckte Schrift (Plan 03)
+    zerfällt beim Gruppieren in Stücke („STAHL“ | „LBET“ | „ONT“, „TREPPENANLA“ + halbes „GE“
+    1,1 Höhen daneben) – die KI las dann nur „TREPPENANLA“. Zwei Teile gehören zusammen, wenn
+    das kleinere senkrecht in der Zeile des größeren liegt (±20 % von dessen Höhe, Mitten ≤ 0,2
+    Höhen versetzt, höchstens 2,5-mal so hoch) und die Lücke ≤ 1,2 × dessen Höhe ist; Ketten
+    verbinden (Union-Find).
+    shortcut: nur waagrecht – senkrechte Wörter bleiben in Stücken, falls das vorkommt."""
+    if not boxes:
+        return []
+    b = np.array(boxes, float)
+    x0, y0, x1, y1 = b[:, 0], b[:, 1], b[:, 0] + b[:, 2], b[:, 1] + b[:, 3]
+    h = b[:, 3]
+    root = list(range(len(b)))
+
+    def find(i):
+        while root[i] != i:
+            root[i] = root[root[i]]
+            i = root[i]
+        return i
+
+    for i in range(len(b) - 1):
+        j = np.arange(i + 1, len(b))
+        big = h[j] >= h[i]                        # Zeile des größeren Teils
+        H = np.maximum(h[i], h[j])
+        ty = np.where(big, y0[j], y0[i])
+        sy0, sy1 = np.where(big, y0[i], y0[j]), np.where(big, y1[i], y1[j])
+        inrow = (sy0 >= ty - 0.2 * H) & (sy1 <= ty + 1.2 * H)             & (np.abs((y0[j] + y1[j]) - (y0[i] + y1[i])) / 2 <= 0.2 * H)             & (H <= 2.5 * np.minimum(h[i], h[j]))     # kein hohes Symbol als Brücke zwischen Zeilen
+        gap = np.maximum(x0[i], x0[j]) - np.minimum(x1[i], x1[j])
+        for k in j[inrow & (gap <= 1.2 * H)]:
+            root[find(int(k))] = find(i)
+    groups = {}
+    for i, bx in enumerate(boxes):
+        groups.setdefault(find(i), []).append(bx)
+    out = []
+    for g in groups.values():
+        gx0, gy0 = min(q[0] for q in g), min(q[1] for q in g)
+        gx1, gy1 = max(q[0] + q[2] for q in g), max(q[1] + q[3] for q in g)
+        if gy1 - gy0 > 1.6 * max(g, key=lambda q: q[2])[3]:
+            out += g                               # über Zeichnungsteile gekettet: einzeln lassen
+        else:
+            out.append((gx0, gy0, gx1 - gx0, gy1 - gy0))
     return out
 
 

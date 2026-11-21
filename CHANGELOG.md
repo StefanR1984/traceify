@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.40.6 – 21.11.2026
+### KI
+- **Unerkannte Schrift mit KI lesen – ganze Wörter statt Bruchstücke:** Aus Punkten gedruckte Schrift (Plan 03) zerfiel bei der Stellensuche in mehrere Stücke („STAHL“ | „LBET“ | „ONT“), die KI las dann nur „TREPPENANLA“ oder „AUFENTH“. Teile derselben Zeile werden jetzt zu einer Stelle zusammengefasst (Lücke bis 1,2 Schrifthöhen, gleiche Zeilenmitte, kein hohes Symbol als Brücke); eine Stelle darf bis 60 mm lang sein.
+- Gemessen: Plan 03 26 → 34 Vorschläge, jetzt ganz gelesen u. a. „PAUSENAUFENTHALT“, „STAHLBETONTREPPEN“, „TREPPENANLAGE“, „REGALLAGER“; 5 Plots mit KI Texte 1255 → 1260, falsche Wörter 117 → 115 (im Rahmen der Server-Schwankung).
+
 ## 0.40.5 – 21.11.2026
 ### KI
 - **Unerkannte Schrift mit KI lesen – weniger Erfundenes:** Liest das Modell an drei oder mehr Stellen dasselbe Maß, das die Texterkennung nirgends sicher gelesen hat, fällt es weg (Plan 03: 20× „3.50“ auf Linien; echte häufige Maße wie „1.01“ liest auch die Texterkennung). Einzelne Buchstaben werden nicht mehr übernommen (H, F, T, K aus Linienkreuzungen). Bei Handschrift zählt auch eine zweite Lesung, die zusätzlich die nächste Zeile enthält („Heizraum“ / „Heizraum-Abluftschacht“).

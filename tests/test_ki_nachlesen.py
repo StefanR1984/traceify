@@ -94,6 +94,21 @@ def test_find_slots_sicherer_text_wird_ausgespart():
     assert not any(290 <= x + w / 2 <= 380 and 170 <= y + h / 2 <= 215 for x, y, w, h in boxen)
 
 
+def test_merge_row_fasst_wortteile_einer_zeile_zusammen():
+    # Plan 03 (aus Punkten gedruckt): „TREPPENANLA“ + halbes „GE“ 40 px daneben; Splitter unter
+    # der Grundlinie und Teil der Zeile darüber bleiben für sich
+    teile = [(9874, 1104, 349, 37), (10263, 1112, 56, 17), (10101, 1131, 30, 11), (10230, 1060, 61, 21)]
+    assert sorted(text_slots.merge_row(teile)) == [(9874, 1104, 445, 37), (10101, 1131, 30, 11),
+                                                    (10230, 1060, 61, 21)]
+
+
+def test_merge_row_trennt_zeilen_und_weite_luecken():
+    oben, unten = (0, 0, 100, 30), (0, 40, 100, 30)           # zwei Zeilen übereinander
+    gross = (110, 0, 60, 80)                                  # andere Zeilenmitte (Symbol)
+    weit = (200, 0, 50, 30)                                   # Lücke zu oben 100 px > 1,2 Höhe
+    assert sorted(text_slots.merge_row([oben, unten, weit, gross])) == sorted([oben, unten, weit, gross])
+
+
 def test_nachlesen_gleiche_lesung_wird_uebernommen():
     fixes = _lesen(FakeClient("2.40"))
     treffer = [f for f in fixes if f.new == "2.40"]
