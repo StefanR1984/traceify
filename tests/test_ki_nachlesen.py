@@ -159,6 +159,8 @@ def test_handschrift_locker_verglichen_und_kleckse_ausgelassen(monkeypatch):
     monkeypatch.setattr("traceify.ai.assistant.unread_candidates", lambda *a, **k: [_kand(30)])
     fixes = _lesen(FakeClient(["FaB Keller", "Fabkeller"]), workers=1)
     assert [f.new for f in fixes] == ["FaB Keller"]
+    fixes = _lesen(FakeClient(["Heizraum", "Heizraum-\nAbluftschach"]), workers=1)
+    assert [f.new for f in fixes] == ["Heizraum"]
     # unter 12 px Höhe gar nicht erst fragen (Kleckse, Modell erfindet Raumnamen)
     monkeypatch.setattr("traceify.ai.assistant.unread_candidates", lambda *a, **k: [_kand(9)])
     client = FakeClient("Küche")
@@ -176,3 +178,19 @@ def test_stellen_nur_bei_plots(monkeypatch):
     assert not gefragt
     _lesen(FakeClient("2.40"), workers=1)
     assert gefragt
+
+
+def test_einzelbuchstabe_nicht_plausibel():
+    assert not text_slots.plausible("H", (0, 0, 20, 20))
+    assert text_slots.plausible("WC", (0, 0, 30, 20))
+
+
+def test_wiederholte_stellenlesung_ohne_ocr_faellt_weg(monkeypatch):
+    # dreimal „3.50“ an verschiedenen Stellen, OCR hat es nirgends sicher gelesen (0.40.5, Plan 03)
+    monkeypatch.setattr("traceify.ai.assistant.unread_candidates", lambda *a, **k: [])
+    boxes = [(298, 181, 60, 20), (100, 500, 60, 20), (200, 650, 60, 20)]
+    monkeypatch.setattr(text_slots, "find_slots", lambda *a, **k: boxes)
+    assert _lesen(FakeClient("3.50"), workers=1) == []
+    sicher = Text("3.50", (10.0, 390.0), 20.0, 0.0)
+    fixes = _lesen(FakeClient("3.50"), texts=[sicher], workers=1)
+    assert len(fixes) == 3

@@ -369,8 +369,11 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    `assistant.KAND_MIN_PX` 12. Zwei Lesungen bei Handschrift locker vergleichen (`_loose`). `text_slots`-Stellen auf Scans =
    11× „3.50“ auf Wänden → nur bei Plots (25 %-Perzentil der Tinte ≤ 10 wie `ocr.recognize`; Scans 24–30, Plots 0, Plan 03 0).
    image-4: 3 Vorschläge, alle richtig, 592 → 8 s; 5 Plots mit KI Texte +7, falsch +1 (Rauschen). Skript: Notizordner `hs.py`.
-   Offen: „Heizraum-“ / „Heizraum-
-Abluftschacht“ (zweite Lesung mit größerem Rand sieht die nächste Zeile), Plan 03 nicht geprüft.
+   **0.40.5:** Plan 03 (Scan als Pixelstriche, Tor sagt „Plot“) gab 67 Vorschläge, davon ~20× „3.50“ und Einzelbuchstaben auf
+   Linien → Stellen-Lesung ≥ 3× ohne sichere OCR-Lesung im Plan fällt weg, Einzelbuchstaben unplausibel, zweite Lesung mit
+   Folgezeile zählt (`Heizraum`). Plan 03 → 29 (Rest meist abgeschnittene Wortanfänge „AUFENTH“, „HENBA“ – Kandidat endet am
+   Wortrand), 5 Plots mit KI Texte +2, falsch −1, aber PLAN3_UG1 −6 (echte wiederholte Maße im Knäuel). Offen: Kandidaten-
+   Ausschnitt länger machen, damit ganze Wörter gelesen werden.
 4. **Ortho-Anteil** (48 % / 43 % gegen 51 % / 49 %): Der Rest ist bei image-11 überwiegend ein
    echt schräger Flügel (≈39°); `straighten.second_axes` richtet ihn seit 0.17.0 aus – nur wo sich
    eine Linie ≤ ~0,3 mm verschiebt (`second_shift`), denn der Flügel ist im Scan um ±1,2° verzogen

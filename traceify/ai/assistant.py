@@ -326,8 +326,11 @@ def read_unrecognized(client: OllamaClient, model: str, gray: np.ndarray, bw: np
             return None
         second = _ask(client, model, prompt, schema, crops[1])
         b = str(second.get("text", ""))
-        if kind == "kand" and _loose(a) == _loose(text_slots.normalize(b)):
-            b = a                                       # Handschrift: „FaB Keller“ = „Fabkeller“
+        nb = text_slots.normalize(b)
+        # Handschrift: „FaB Keller“ = „Fabkeller“; der größere Rand sieht oft die nächste Zeile mit
+        # („Heizraum“ / „Heizraum-\nAbluftschach“) – dann zählt deren erste Zeile
+        if kind == "kand" and _loose(a) in (_loose(nb), _loose((nb.splitlines() or [""])[0])):
+            b = a
         txt = text_slots.accept(a, b, box)
         if txt is not None and kind == "stelle":
             # Gegenprobe: das Modell antwortet auch bei Temperatur 0 nicht immer gleich – eine
@@ -369,7 +372,12 @@ def read_unrecognized(client: OllamaClient, model: str, gray: np.ndarray, bw: np
             out.append(TextFix(t, " / ".join(o.text for o in old), txt, True, True, None, old))
     if progress:
         progress(len(jobs), len(jobs), "Fertig")
-    return out
+    # dieselbe Stellen-Lesung ≥ 3× ohne sichere OCR-Lesung irgendwo im Plan ist ein Muster des
+    # Modells (Plan 03: 20× „3.50“ auf Linien); echte häufige Maße liest auch die OCR („1.01“ 53×)
+    from collections import Counter
+    sure = {t.text for t in texts if text_slots.is_sure(t)}
+    n = Counter(f.new for f in out if f.region is None)
+    return [f for f in out if f.region is not None or n[f.new] < 3 or f.new in sure]
 
 
 def apply_text_fixes(d: Drawing, fixes: List[TextFix]) -> tuple:

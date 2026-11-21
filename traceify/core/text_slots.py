@@ -120,6 +120,9 @@ def plausible(s: str, box: Box) -> bool:
         # kurze Buchstabenfolgen nur als Abkürzung in Großbuchstaben („WC“, „TRH“), nicht „qrr“
         if all(LETTER.search(t) for t in tok) and len(s.replace(" ", "")) < 4 and not s.isupper():
             return False
+        # einzelne Buchstaben liest das Modell aus Linienkreuzungen (Plan 03: H, F, T, K)
+        if len(s.replace(" ", "")) < 2:
+            return False
     w, h = (box[3], box[2]) if vertical(box) else (box[2], box[3])
     r = _length(s) * h * 0.55 / max(1, w)
     return 0.35 <= r <= 1.6

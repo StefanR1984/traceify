@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.40.5 – 21.11.2026
+### KI
+- **Unerkannte Schrift mit KI lesen – weniger Erfundenes:** Liest das Modell an drei oder mehr Stellen dasselbe Maß, das die Texterkennung nirgends sicher gelesen hat, fällt es weg (Plan 03: 20× „3.50“ auf Linien; echte häufige Maße wie „1.01“ liest auch die Texterkennung). Einzelne Buchstaben werden nicht mehr übernommen (H, F, T, K aus Linienkreuzungen). Bei Handschrift zählt auch eine zweite Lesung, die zusätzlich die nächste Zeile enthält („Heizraum“ / „Heizraum-Abluftschacht“).
+- Gemessen: Plan 03 67 → 29 Vorschläge; Kellerplan „Heizraum“ jetzt erkannt; 5 Plots mit KI Texte 1384 → 1386, falsche Wörter 127 → 126 (PLAN3_UG1 −6 Texte im Maß-Knäuel).
+
 ## 0.40.4 – 21.11.2026
 ### KI
 - **Unerkannte Schrift mit KI lesen – auf Scans getestet** (Gemma 4 über vLLM, Kellerplan mit Handschrift): Maß-Stellen (`text_slots`) werden nur noch bei Plots mit tiefschwarzer Tinte gelesen – auf dem verrauschten Scan las das Modell 11× „3.50“ auf Wänden und Schraffur, trotz Gegenprobe. Schriftgruppen unter 12 px Höhe werden nicht mehr gefragt (Kleckse, das Modell erfand „Küche“, „Wohnen“). Handschrift gilt als zweimal gleich gelesen, auch wenn Leerzeichen, Bindestrich oder ß/B abweichen („FaB Keller“ = „Fabkeller“).
