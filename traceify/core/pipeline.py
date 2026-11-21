@@ -247,6 +247,20 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
             ents += part
     else:
         ents = _style_post(vectorize(main, settings.vectorize), main, dpi_scale, settings)
+        if settings.style.detect_dashed and settings.vectorize.mode == MODE_CENTERLINE \
+                and not settings.preprocess.deskew:
+            # feine Strichlinien: Striche < 0,8 mm fallen dem Entflecken zum Opfer
+            from .dashes import JOIN_MM, chain_dashes, drop_covered, join_chains, small_dashes
+            raw = to_binary(gray, replace(settings.preprocess, despeckle=0, auto=False,
+                                          fill_holes=0, thicken=0))
+            raw = _ignore(ocr_mod.erase_boxes(raw, boxes, settings.ocr.erase_padding)
+                          if boxes else raw, regions)
+            for r in special:
+                raw[r.slices(raw.shape)] = 0
+            if gravel:
+                raw[dot_mask > 0] = 0
+            fine = join_chains(chain_dashes(small_dashes(raw, 1.0 / dpi_scale)), JOIN_MM / dpi_scale)
+            ents = drop_covered(ents, fine, max(1.5, 0.15 / dpi_scale)) + fine
     for r in special:
         if r.mode not in (MODE_CENTERLINE, MODE_OUTLINE):
             continue  # nur Text: keine Linien

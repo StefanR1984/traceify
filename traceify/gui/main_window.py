@@ -2105,6 +2105,8 @@ class MainWindow(QMainWindow):
             "Export gerade gedreht, ein schräger Gebäudeflügel wird in sich ausgerichtet. "
             "Linien, die im Scan knapp vor einem anderen Objekt abreißen, werden verbunden, "
             "Schraffurlinien bis zur Wandkante gezogen. "
+            "<b>Strichlinien</b> werden eine Linie mit Linientyp auf STRICHLINIEN – auch feine, "
+            "grau gedruckte aus Strichen unter 0,8 mm. "
             "Schraffur kommt auf den Layer SCHRAFFUR und erscheint in der Zeichenfläche, "
             "im SVG und im DXF/DWG als Schraffur-Fläche (HATCH; Ansicht → Schraffur als "
             "Fläche schaltet auf Einzellinien um; ein Klick wählt die ganze Fläche; schraffierte Wände "

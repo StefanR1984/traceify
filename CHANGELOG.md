@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.41.0 – 21.11.2026
+### Linien
+- **Feine Strichlinien:** Grau gedruckte Strichlinien (Möbel, Verdecktes) bestehen im Scan aus Strichen von etwa 0,4 × 0,15 mm. Entflecken und Mindestlänge warfen sie weg, übrig blieben Splitter. Jetzt werden kleine längliche Teile direkt im ungefilterten Binärbild gesucht und zu Reihen verfolgt (Strichrichtung passt zur Reihe, Mitten auf einer Geraden, regelmäßige Lücken, mindestens 5 Striche). Jede Reihe wird eine Linie mit Linientyp DASHED auf STRICHLINIEN, auch über Kreuzungen hinweg (Lücke bis 2 mm). Strichreste darunter fallen weg. Schalter: „Strichlinien erkennen“.
+- Gemessen: Plan4 Objekte 3625 → 3521, offene Enden 1242 → 1012; Scan image-99 (feine Strichlinien an allen Außenwänden) Objekte 1701 → 1537, offene Enden 951 → 550, Abdeckung 98,5 → 99,6 %. Simulation PLAN3_OG3 Trefferquote 87,8 → 90,3 %, echte Plots +0,1 bis +0,2 Punkte (PLAN2), Texte überall gleich. Die Genauigkeit im Prüfstand sinkt dort (image-99 99,9 → 91,4 %), weil er eine Strichlinie wie eine durchgezogene misst – die Lücken zählen als „neben der Tinte“. Zeit +0,6 s je Plan.
+
 ## 0.40.6 – 21.11.2026
 ### KI
 - **Unerkannte Schrift mit KI lesen – ganze Wörter statt Bruchstücke:** Aus Punkten gedruckte Schrift (Plan 03) zerfiel bei der Stellensuche in mehrere Stücke („STAHL“ | „LBET“ | „ONT“), die KI las dann nur „TREPPENANLA“ oder „AUFENTH“. Teile derselben Zeile werden jetzt zu einer Stelle zusammengefasst (Lücke bis 1,2 Schrifthöhen, gleiche Zeilenmitte, kein hohes Symbol als Brücke); eine Stelle darf bis 60 mm lang sein.

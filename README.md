@@ -82,7 +82,7 @@ Alternativ gibt es eine **portable ZIP** (entpacken, `Traceify.exe` starten). Ei
 
 ### Baupläne: Linien, Wände, Schraffur, Kies
 
-- **Strichlinien** (gestrichelt, Strichpunkt) werden echte Linientypen (DASHED, CENTER) auf STRICHLINIEN.
+- **Strichlinien** (gestrichelt, Strichpunkt) werden echte Linientypen (DASHED, CENTER) auf STRICHLINIEN – auch feine, grau gedruckte Strichlinien aus Strichen unter 0,8 mm (Möbel, Verdecktes), die sonst beim Entflecken verloren gingen.
 - **Strichstärken** werden gemessen und als DXF-Strichstärke übernommen; dicke Linien (Wände) kommen auf DICKE_LINIEN – auf Wunsch als **Umriss (Doppellinie)** auf WAENDE.
 - **Schraffur** (schräge, parallele Linien in regelmäßigem Abstand) kommt auf SCHRAFFUR und wird im DXF/DWG als **echte Schraffur-Fläche (HATCH)** mit Winkel und Abstand ausgegeben – auch bei zerrissenen Linien, schwankendem Abstand und versetztem Raster. Die Fläche reicht von Wandkante zu Wandkante; lose Striche darin gehen in ihr auf. Auch handgezeichnetes Mauerwerk zählt als Schraffur. Zeichenfläche und SVG zeigen dieselben Flächen (ein Klick wählt die ganze Schraffur).
 - **Keine Verwechslung:** Wände und Möbel in schrägen Gebäudeteilen, **schräge Treppen** (Stufen stoßen rechtwinklig auf die Wangen) und einzelne schräge Striche (Handschrift) bleiben normale Linien.

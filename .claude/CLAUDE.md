@@ -54,6 +54,10 @@ export PATH="/d/Programme/Tesseract:$PATH" PYTHONIOENCODING=utf-8   # sonst miss
   Ausgleichsgerade, Reste anhängen), `cad.py` (Fang, Schnittpunkte, Stutzen, Dehnen, SnapIndex,
   `close_gaps`, `remove_spurs`, `join_collinear` = an Kreuzungen zerfallene Linien durchziehen,
   `isolate_specks` = frei stehende Scanpunkte < 1 mm auf Layer SCANPUNKTE).
+- `core/dashes.py` – feine Strichlinien (Striche < 0,8 mm, die Entflecken/Mindestlänge verlieren): `small_dashes` im
+  nicht entfleckten Binärbild, `chain_dashes` (Reihe verfolgen, an großen Lücken teilen), `join_chains` (über Kreuzungen,
+  2 mm), `drop_covered`; Aufruf in `pipeline.convert` nach dem Vektorisieren (nur ohne Farbtrennung/Schräglagenkorrektur).
+  Prüfstand-Genauigkeit misst DASHED wie durchgezogen → sinkt bei Strichlinien (Artefakt).
 - `core/benchmark.py` + `tools/pruefstand.py` – Prüfstand (Objekte, Splitter, Abdeckung,
   Texte), `core/dxf_import.py` liest fremde DXF (z. B. eines kommerziellen Vektorisierungsprogramms) und richtet sie aufs Bild aus.
   Echte Scans liegen **nicht** im Repo (Datenschutz) – der Nutzer liefert sie bei Bedarf.
