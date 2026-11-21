@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.41.1 – 21.11.2026
+### Prüfstand
+- **Genauigkeit misst Strichlinien richtig:** Bisher zählten die Lücken einer Strichlinie als „Vektor neben der Tinte“; eine richtig erkannte Strichlinie senkte die Genauigkeit (image-99 nach 0.41.0: 91,4 %). Jetzt gilt eine Strichlinie als richtig, wenn mindestens 30 % von ihr auf Tinte liegen, sonst ganz als überflüssig. Geprüft wird gegen das nicht entfleckte Bild, denn feine Striche fehlen im entfleckten.
+- Gemessen: Die bisherigen kleinen Abzüge (0,1–0,6 %) kamen fast nur aus Strichlinien-Lücken. Jetzt haben 16 Scans und Plan4–7 eine Genauigkeit von 99,5–100 % (image-99 100 %, Plan6_OG2 98,2 → 99,99 %). Geometrie und Texte sind unverändert.
+
 ## 0.41.0 – 21.11.2026
 ### Linien
 - **Feine Strichlinien:** Grau gedruckte Strichlinien (Möbel, Verdecktes) bestehen im Scan aus Strichen von etwa 0,4 × 0,15 mm. Entflecken und Mindestlänge warfen sie weg, übrig blieben Splitter. Jetzt werden kleine längliche Teile direkt im ungefilterten Binärbild gesucht und zu Reihen verfolgt (Strichrichtung passt zur Reihe, Mitten auf einer Geraden, regelmäßige Lücken, mindestens 5 Striche). Jede Reihe wird eine Linie mit Linientyp DASHED auf STRICHLINIEN, auch über Kreuzungen hinweg (Lücke bis 2 mm). Strichreste darunter fallen weg. Schalter: „Strichlinien erkennen“.

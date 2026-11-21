@@ -128,10 +128,52 @@ def _components(mask: np.ndarray, kind: str, min_area: int) -> List[Problem]:
     return out
 
 
+DASH_MIN_ON_INK = 0.3   # Strichlinie liegt richtig, wenn so viel von ihr auf Tinte liegt
+
+
+def _dashed(e) -> bool:
+    return getattr(e, "linetype", "CONTINUOUS") not in ("CONTINUOUS", "", None)
+
+
+def _dashed_off(ents, ink_near: np.ndarray) -> tuple:
+    """(Pixel neben der Tinte, Pixel gesamt) der Strichlinien. Ihre Lücken liegen absichtlich
+    auf weißem Papier – je Linie zählt nur, ob genug von ihr auf Tinte liegt (dann ganz
+    richtig, sonst ganz überflüssig)."""
+    off = total = 0
+    H, W = ink_near.shape
+    for e in ents:
+        if not _dashed(e) or isinstance(e, Text):
+            continue
+        if isinstance(e, (Arc, Circle)):
+            pts = [(e.center[0] - e.radius, e.center[1] - e.radius),
+                   (e.center[0] + e.radius, e.center[1] + e.radius)]
+        else:
+            pts = [e.p1, e.p2] if isinstance(e, Line) else list(getattr(e, "points", []))
+        if not pts:
+            continue
+        x0 = max(0, int(min(p[0] for p in pts)) - 2)
+        y0 = max(0, int(min(p[1] for p in pts)) - 2)
+        x1 = min(W, int(max(p[0] for p in pts)) + 3)
+        y1 = min(H, int(max(p[1] for p in pts)) + 3)
+        if x1 <= x0 or y1 <= y0:
+            continue
+        from .edit import translate
+        m = render_entities([translate(e, -x0, -y0)], (y1 - y0, x1 - x0), width_px=1, texts=False)
+        n = int((m > 0).sum())
+        if not n:
+            continue
+        on = int(((m > 0) & (ink_near[y0:y1, x0:x1] > 0)).sum())
+        total += n
+        off += 0 if on >= DASH_MIN_ON_INK * n else n
+    return off, total
+
+
 def assess(ink: np.ndarray, ents: list, tolerance_px: int = 3, min_area: int = 25,
            max_problems: int = 60, extra_boxes=None, mm_per_px: float = 0.0,
-           fill_closed: bool = False) -> QualityReport:
-    """ink: Binärbild (255 = Tinte). extra_boxes: zusätzlich abgedeckte Rechtecke (z. B. OCR)."""
+           fill_closed: bool = False, dash_ink=None) -> QualityReport:
+    """ink: Binärbild (255 = Tinte). extra_boxes: zusätzlich abgedeckte Rechtecke (z. B. OCR).
+    dash_ink: Binärbild ohne Entflecken für die Strichlinien – feine Striche (< 0,8 mm) fehlen im
+    entfleckten Bild, die Strichlinie darauf läge sonst scheinbar auf leerem Papier."""
     ink = (ink > 0).astype(np.uint8) * 255
     if not ink.any():
         return QualityReport(GREEN, 1.0, 1.0, [])
@@ -145,14 +187,21 @@ def assess(ink: np.ndarray, ents: list, tolerance_px: int = 3, min_area: int = 2
     missing = cv2.bitwise_and(ink, cv2.bitwise_not(covered))
     # Rauschen (Einzelpixel, Kanten) ignorieren
     missing = cv2.morphologyEx(missing, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
-    thin = render_entities(ents, ink.shape, width_px=1, texts=False)
+    thin = render_entities([e for e in ents if not _dashed(e)], ink.shape, width_px=1, texts=False)
     ink_near = cv2.dilate(ink, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k + 4, k + 4)))
+    if dash_ink is not None and dash_ink.shape == ink.shape:
+        d_near = cv2.dilate(((dash_ink > 0) | (ink > 0)).astype(np.uint8) * 255,
+                            cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k + 4, k + 4)))
+    else:
+        d_near = ink_near
+    d_off, d_total = _dashed_off(ents, d_near)
     extra = cv2.bitwise_and(thin, cv2.bitwise_not(ink_near))
     extra = cv2.dilate(extra, np.ones((3, 3), np.uint8))   # dünne Reste zu Flächen
     ink_px = int((ink > 0).sum())
-    thin_px = max(1, int((thin > 0).sum()))
+    thin_px = max(1, int((thin > 0).sum()) + d_total)
     coverage = 1.0 - (missing > 0).sum() / ink_px
-    precision = 1.0 - min(1.0, (cv2.bitwise_and(thin, cv2.bitwise_not(ink_near)) > 0).sum() / thin_px)
+    off_px = int((cv2.bitwise_and(thin, cv2.bitwise_not(ink_near)) > 0).sum()) + d_off
+    precision = 1.0 - min(1.0, off_px / thin_px)
     probs = _components(missing, "fehlt", min_area) + _components(extra, "ueberfluessig",
                                                                  max(min_area, 30))
     probs.sort(key=lambda p: -p.size)

@@ -57,7 +57,8 @@ export PATH="/d/Programme/Tesseract:$PATH" PYTHONIOENCODING=utf-8   # sonst miss
 - `core/dashes.py` – feine Strichlinien (Striche < 0,8 mm, die Entflecken/Mindestlänge verlieren): `small_dashes` im
   nicht entfleckten Binärbild, `chain_dashes` (Reihe verfolgen, an großen Lücken teilen), `join_chains` (über Kreuzungen,
   2 mm), `drop_covered`; Aufruf in `pipeline.convert` nach dem Vektorisieren (nur ohne Farbtrennung/Schräglagenkorrektur).
-  Prüfstand-Genauigkeit misst DASHED wie durchgezogen → sinkt bei Strichlinien (Artefakt).
+  `quality.assess`: Strichlinie (linetype ≠ CONTINUOUS) richtig, wenn ≥ 30 % auf Tinte, geprüft gegen `dash_ink`
+  (nicht entfleckt; `benchmark.run_file` übergibt es) – die Lücken zählen nicht (0.41.1).
 - `core/benchmark.py` + `tools/pruefstand.py` – Prüfstand (Objekte, Splitter, Abdeckung,
   Texte), `core/dxf_import.py` liest fremde DXF (z. B. eines kommerziellen Vektorisierungsprogramms) und richtet sie aufs Bild aus.
   Echte Scans liegen **nicht** im Repo (Datenschutz) – der Nutzer liefert sie bei Bedarf.

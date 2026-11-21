@@ -63,7 +63,7 @@ class Metrics:
 
 
 def measure(name: str, ents: list, ink: np.ndarray, mm_per_px: float,
-            text_boxes=None, seconds: float = 0.0, export_ents=None) -> Metrics:
+            text_boxes=None, seconds: float = 0.0, export_ents=None, dash_ink=None) -> Metrics:
     """Kennzahlen für Objekte in Bildkoordinaten (ink: 255 = Tinte des Scans).
 
     export_ents: dieselben Objekte so, wie sie exportiert werden (Schräglage herausgedreht)
@@ -88,7 +88,7 @@ def measure(name: str, ents: list, ink: np.ndarray, mm_per_px: float,
         boxes = [text_box(t) for t in texts]
     # Strichstärken bewusst nicht einrechnen: andere Programme liefern meist keine, der
     # Vergleich soll nur die Geometrie bewerten (gleiche Bedingungen für alle)
-    q = assess(ink, geo, mm_per_px=0.0, extra_boxes=boxes)
+    q = assess(ink, geo, mm_per_px=0.0, extra_boxes=boxes, dash_ink=dash_ink)
     m.coverage, m.precision, m.rating = round(q.coverage, 4), round(q.precision, 4), q.rating
     m.words = sorted(words(texts))
     return m
@@ -193,8 +193,10 @@ def run_file(path: str, settings=None, page: int = 0, reference: Optional[str] =
     gray, mm_px = loader.load(path, page, 0)
     ink = res.binary if res.binary is not None and res.binary.any() else \
         to_binary(gray, settings.preprocess if settings else _pp())
+    from dataclasses import replace
+    raw = to_binary(gray, replace(settings.preprocess if settings else _pp(), despeckle=0, auto=False))
     mine = measure("Traceify", d.expanded(), ink, mm_px, res.text_boxes, dt,
-                   export_ents=d.export_view().expanded())
+                   export_ents=d.export_view().expanded(), dash_ink=raw)
     out = {"datei": path, "bild": [int(ink.shape[1]), int(ink.shape[0])],
            "mm_pro_px": mm_px, "traceify": mine, "schraffur": hatch_stats(d, ink)}
     if reference:

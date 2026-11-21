@@ -82,3 +82,23 @@ def test_pipeline_feine_strichlinie():
     s.style.detect_dashed = False
     res = convert(_bild(), s, dpi_scale=1 / PPM)
     assert not [e for e in res.drawing.entities if getattr(e, "linetype", "") == "DASHED"]
+
+
+def test_genauigkeit_zaehlt_luecken_von_strichlinien_nicht():
+    from traceify.core.quality import assess
+    g = np.full((200, 400), 255, np.uint8)
+    _strichlinie(g, (20, 50), (380, 50), strich=6, luecke=30)      # Lücken weit über der Toleranz
+    ink = (g < 128).astype(np.uint8) * 255
+    gestr = Line((20, 50), (380, 50), LAYER_DASHED, None, "DASHED")
+    assert assess(ink, [gestr]).precision > 0.99
+    # als durchgezogene Linie zählen die Lücken weiter als daneben
+    assert assess(ink, [Line((20, 50), (380, 50))]).precision < 0.9
+    # Strichlinie auf leerem Papier ist überflüssig
+    falsch = Line((20, 150), (380, 150), LAYER_DASHED, None, "DASHED")
+    assert assess(ink, [gestr, falsch]).precision < 0.6
+    # feine Striche fehlen im entfleckten Bild: mit dem rohen Bild zählt die Linie wieder als richtig
+    entfleckt = np.zeros_like(ink)
+    entfleckt[150, 10:390] = 255                                # nur eine andere Linie übrig
+    wand = Line((10, 150), (389, 150))
+    assert assess(entfleckt, [wand, gestr]).precision < 0.6
+    assert assess(entfleckt, [wand, gestr], dash_ink=ink).precision > 0.99
