@@ -61,7 +61,7 @@ Alternativ gibt es eine **portable ZIP** (entpacken, `Traceify.exe` starten). Ei
 
 ### Raster vorbereiten
 
-- **Automatisch aufbereiten** (Standard an): Bei blassen Scans (Kopie, grau gedruckt) zählen auch hellere Bildpunkte, wenn sie an einer Linie hängen – an der Schwelle zerfallene Linien und kleine Schrift wachsen wieder zusammen. Grau angelegte Wände, die im Scan schwarz mit weißen Sprenkeln erscheinen, werden geschlossen statt in Hunderte Linien zerlegt; Buchstaben und Aussparungen in Symbolen bleiben offen.
+- **Automatisch aufbereiten** (Standard an): Bei blassen Scans (Kopie, grau gedruckt) zählen auch hellere Bildpunkte, wenn sie an einer Linie hängen – an der Schwelle zerfallene Linien und kleine Schrift wachsen wieder zusammen. Grau angelegte Wände, die im Scan schwarz mit weißen Sprenkeln erscheinen, werden geschlossen statt in Hunderte Linien zerlegt; Buchstaben und Aussparungen in Symbolen bleiben offen. Blasse, grau gerasterte Linien (Möbel, Strichraster) werden ergänzt, graue Flächen nicht.
 - Schwellwert (automatisch, fest oder adaptiv), Flecken entfernen, Löcher füllen, Glätten, Lücken schließen, Invertieren, Drehen, Zuschneiden, Schräglage begradigen; die **Binärbild-Vorschau** zeigt das Ergebnis.
 - **Radierer** (E) für Flecken, Stempel und Lochungen, **Stift** (P) zum Nachziehen unterbrochener Linien – Pinselgröße in der Werkzeugleiste.
 - **Bereiche** (R): Rechteck aufziehen und festlegen – *ignorieren*, *CAD – Mittellinie*, *CNC – Umriss* oder *nur Text*. So wird z. B. der Plan als Linien, das Logo im Schriftfeld als Umriss und die Legende gar nicht übernommen. Rechtsklick ändert oder entfernt einen Bereich.

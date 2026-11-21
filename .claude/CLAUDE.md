@@ -43,7 +43,7 @@ export PATH="/d/Programme/Tesseract:$PATH" PYTHONIOENCODING=utf-8   # sonst miss
   (DXF-Export spiegelt: start=-end, end=-start). Layer-Konstanten + `layer_color`.
 - `core/pipeline.py` – `ConvertSettings`, `convert`/`convert_source`, Bereiche (Region).
 - `core/stitch.py` – in Teilen gescannte Pläne (mehrere Bilder mit Fuge auf einer PDF-Seite) zusammensetzen; Aufruf in `loader.load_pdf_page`/`load_color` (`scan_tiles`, `_stitch_page`), Bild wird dadurch kleiner als die Seite.
-- `core/preprocess.py` (`auto` = Sprenkel in Wandfüllung schließen, nur fürs Vektorisieren, OCR liest ohne), `vectorize.py` (Kachel-Skelett, Fransen, Fit),
+- `core/preprocess.py` (`auto` = Sprenkel in Wandfüllung schließen + `add_pale_lines` blasse Rasterlinien ergänzen (0.42.0), nur fürs Vektorisieren, OCR liest ohne), `vectorize.py` (Kachel-Skelett, Fransen, Fit),
   `style.py` (Strichlinien, Strichstärken, Schraffur-Layer, Wände als Umriss), `colors.py`,
   `ocr.py` (Tesseract, 4 Richtungen, Maßzahlen), `textlines.py` (schräge Texte nachlesen),
   `lexicon.py` (Wörterbuch für Planbegriffe, OCR-Verwechslungen; Zahlen nie ändern),

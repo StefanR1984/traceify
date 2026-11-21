@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.42.0 – 21.11.2026
+### Linien
+- **Blasse Graulinien:** Grau gedruckte Linien (Möbel, Strichraster, Strichkreise) bestehen im Scan aus hellen Rasterpunkten über der Schwelle und gingen verloren oder zerfielen. Fürs Vektorisieren wird das Bild jetzt zusätzlich weichgezeichnet und mit einer hellen Schwelle gelesen; übernommen werden nur Teile, die mindestens 1 mm lang, höchstens 0,4 mm breit und kaum schon schwarz sind. Graue Flächen, Punktraster, Schmutz und der helle Rand dunkler Linien bleiben weg, die Texterkennung liest unverändert. Teil von „Automatisch aufbereiten“.
+- Gemessen: Plan5 Objekte 2877 → 3296 (graue Strichraster und Strichkreise jetzt da, offene Enden 931 → 1683, weil jeder Strich zwei Enden hat), Plan4 3521 → 3646, Plan6_UG 3037 → 3146, Abdeckung gleich oder besser. Simulation unverändert, echte Plots Trefferquote und Texte gleich (Genauigkeit PLAN2_EG/OG3 −0,1), 16 Scans fast gleich (image-11 +9, image-17 +11 Objekte).
+
 ## 0.41.1 – 21.11.2026
 ### Prüfstand
 - **Genauigkeit misst Strichlinien richtig:** Bisher zählten die Lücken einer Strichlinie als „Vektor neben der Tinte“; eine richtig erkannte Strichlinie senkte die Genauigkeit (image-99 nach 0.41.0: 91,4 %). Jetzt gilt eine Strichlinie als richtig, wenn mindestens 30 % von ihr auf Tinte liegen, sonst ganz als überflüssig. Geprüft wird gegen das nicht entfleckte Bild, denn feine Striche fehlen im entfleckten.

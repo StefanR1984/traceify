@@ -44,6 +44,8 @@ def to_binary(gray: np.ndarray, s: PreprocessSettings, px_per_mm: float = 0.0) -
     if s.invert:
         bw = 255 - bw
     if s.auto and px_per_mm > 0:
+        if not s.invert:
+            bw = add_pale_lines(gray, bw, px_per_mm)
         bw = enhance_binary(bw, px_per_mm)
     if s.deskew:
         bw = deskew(bw)
@@ -128,6 +130,32 @@ def fill_speckle_holes(bw: np.ndarray, px_per_mm: float, max_mm2: float = HOLE_M
         return bw
     out = bw.copy()
     out[fill[lab]] = 255
+    return out
+
+
+# Blasse Graulinien (im Scan als Rasterpunkte gedruckt, heller als die Otsu-Schwelle)
+PALE_BLUR_PX = 1.5      # Weichzeichnen verbindet die Rasterpunkte zu einer Linie
+PALE_GRAY = 235         # Schwelle auf dem weichgezeichneten Bild
+PALE_MIN_MM = 1.0       # Mindestlänge (Diagonale der Box) – Punktraster und Schmutz fallen weg
+PALE_MAX_W_MM = 0.4     # mittlere Breite (Fläche/Länge) – graue Füllflächen fallen weg
+PALE_MAX_INK = 0.3      # Anteil schon schwarzer Pixel – Halo dunkler Linien fällt weg
+
+
+def add_pale_lines(gray: np.ndarray, bw: np.ndarray, px_per_mm: float) -> np.ndarray:
+    """Blasse, dünne Linien ergänzen, die die Otsu-Schwelle verliert (graue Möbel, Strichraster).
+    Nur fürs Vektorisieren; Bestandteile ohne nennenswerte schwarze Pixel, lang und schmal."""
+    weak = (cv2.GaussianBlur(gray, (0, 0), PALE_BLUR_PX) < PALE_GRAY).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(weak, connectivity=8)
+    area = st[:, cv2.CC_STAT_AREA].astype(np.float64)
+    length = np.hypot(st[:, cv2.CC_STAT_WIDTH], st[:, cv2.CC_STAT_HEIGHT])
+    ink = np.bincount(lab.ravel(), weights=(bw > 0).ravel(), minlength=n) / np.maximum(area, 1)
+    keep = ((length >= PALE_MIN_MM * px_per_mm) & (area / np.maximum(length, 1) <= PALE_MAX_W_MM * px_per_mm)
+            & (ink < PALE_MAX_INK))
+    keep[0] = False
+    if not keep.any():
+        return bw
+    out = bw.copy()
+    out[keep[lab]] = 255
     return out
 
 
