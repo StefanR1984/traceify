@@ -7,7 +7,7 @@ from typing import Callable, List, Optional
 import numpy as np
 
 from . import ocr as ocr_mod
-from .model import LAYER_DASHED, LAYER_HATCH, Drawing, Text
+from .model import LAYER_DASHED, LAYER_HATCH, LAYER_LINES, Drawing, Line, Text
 from .pdf_vector import PdfVectorSettings, has_vectors, import_page, is_stroke_scan
 from .preprocess import PreprocessSettings, to_binary
 from .scale_detect import find_scale, format_scale
@@ -15,6 +15,7 @@ from .style import (StyleSettings, classify_thick, classify_thick_mm, cleanup, d
                     detect_hatch, measure_widths, walls_to_outline)
 from .vectorize import MODE_CENTERLINE, MODE_OUTLINE, VectorizeSettings, vectorize
 
+DASH2_MAX_MM = 3.0      # zweiter Strichlinien-Durchgang: nur Striche bis zu dieser Länge (Papier-mm)
 REGION_IGNORE = "ignorieren"
 REGION_TEXT_ONLY = "nur_text"
 REGION_MODES = {REGION_IGNORE: "Ignorieren", MODE_CENTERLINE: "CAD – Mittellinie",
@@ -318,6 +319,18 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         from .style import drop_loose_hatch
         # lose Striche ohne Fläche und ohne Kanten (Handschrift, Möbel) sind keine Schraffur
         drop_loose_hatch(ents, find_regions(ents), 3.0 / dpi_scale, 10.0 / dpi_scale)
+    if settings.style.detect_dashed and not groups and settings.vectorize.mode == MODE_CENTERLINE:
+        # zweiter Durchgang auf der fertigen Geometrie: blasse Striche waren beim ersten noch
+        # zerrissen oder hingen an Nachbarn. Nur dünne Linien – Stücke dicker Wandkanten und
+        # Schraffur würden in Doppellinien zu falschen Mittellinien verkettet, längere Stücke
+        # verschiedener Linien auf einer Geraden zu einer Scheinstrichlinie
+        import math
+
+        def short(e):
+            return (isinstance(e, Line) and e.layer == LAYER_LINES
+                    and math.dist(e.p1, e.p2) <= DASH2_MAX_MM / dpi_scale)
+        fine = detect_dashed([e for e in ents if short(e)], settings.style, skip_missing=True)
+        ents = [e for e in ents if not short(e)] + fine
     if settings.style.specks_layer:
         from .cad import isolate_specks
         from .model import LAYER_SPECKS

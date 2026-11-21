@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.43.0 – 21.11.2026
+### Linien
+- **Strichlinien über Kreuzungen:** Grau gerasterte Strichlinien (Möbel, Raster, Schrankkreuze) blieben als einzelne Striche stehen. An jeder Kreuzung verschwindet ein Strich im Knoten, die doppelte Lücke trennte die Reihe. Ein zweiter Durchgang auf der fertigen Geometrie fasst jetzt kurze dünne Striche bis 3 mm zusammen und lässt dabei genau einen fehlenden Strich zu. Dicke Linien, Schraffur und längere Stücke bleiben außen vor, sonst würden Wand-Doppellinien und zufällig fluchtende Linienenden zu Scheinstrichlinien. Neu ist außerdem: Die Striche müssen mindestens 20 % der Strichlinie bedecken.
+- Gemessen: Plan5 Objekte 3296 → 3124, offene Enden 1683 → 1352; Plan7_EG 5535 → 5377 / 2048 → 1735; Plan7_OG1 4875 → 4755 / 2517 → 2290; Plan4 3646 → 3606; Scan image-99 offene Enden 550 → 472. Abdeckung und Genauigkeit gleich. Simulation gleich, echte Plots gleich (Genauigkeit PLAN3_EG 98,4 → 97,7 %).
+
 ## 0.42.0 – 21.11.2026
 ### Linien
 - **Blasse Graulinien:** Grau gedruckte Linien (Möbel, Strichraster, Strichkreise) bestehen im Scan aus hellen Rasterpunkten über der Schwelle und gingen verloren oder zerfielen. Fürs Vektorisieren wird das Bild jetzt zusätzlich weichgezeichnet und mit einer hellen Schwelle gelesen; übernommen werden nur Teile, die mindestens 1 mm lang, höchstens 0,4 mm breit und kaum schon schwarz sind. Graue Flächen, Punktraster, Schmutz und der helle Rand dunkler Linien bleiben weg, die Texterkennung liest unverändert. Teil von „Automatisch aufbereiten“.

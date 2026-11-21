@@ -59,6 +59,10 @@ export PATH="/d/Programme/Tesseract:$PATH" PYTHONIOENCODING=utf-8   # sonst miss
   2 mm), `drop_covered`; Aufruf in `pipeline.convert` nach dem Vektorisieren (nur ohne Farbtrennung/Schräglagenkorrektur).
   `quality.assess`: Strichlinie (linetype ≠ CONTINUOUS) richtig, wenn ≥ 30 % auf Tinte, geprüft gegen `dash_ink`
   (nicht entfleckt; `benchmark.run_file` übergibt es) – die Lücken zählen nicht (0.41.1).
+  **0.43.0** zweiter `style.detect_dashed`-Durchgang am Pipeline-Ende (vor `isolate_specks`), nur LINIEN ≤ `DASH2_MAX_MM` 3 mm,
+  `skip_missing` (ein an der Kreuzung verschluckter Strich: Lücke ≈ 2 Lücken + Strich ±25 %); `DASH_MIN_COVER` 0,2. Ohne die
+  Beschränkungen (alle Layer bzw. lange Stücke) entstehen Schein-Strichlinien aus Wand-Doppellinien (DICKE_LINIEN-Stücke beider
+  Kanten → Mittellinie) und fluchtenden Linienenden (7–9-mm-Stücke, `dash_max_len` 120 px = 20 mm bei 150 dpi): Sim −1…−2,6 Genauigkeit.
 - `core/benchmark.py` + `tools/pruefstand.py` – Prüfstand (Objekte, Splitter, Abdeckung,
   Texte), `core/dxf_import.py` liest fremde DXF (z. B. eines kommerziellen Vektorisierungsprogramms) und richtet sie aufs Bild aus.
   Echte Scans liegen **nicht** im Repo (Datenschutz) – der Nutzer liefert sie bei Bedarf.

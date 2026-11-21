@@ -19,6 +19,7 @@ from .model import (Arc, Circle, LAYER_DASHED, LAYER_HATCH, LAYER_LINES, LAYER_T
                     LAYER_WALLS, Line, Polyline, Text)
 
 RHO_CELL = 60.0   # px – Zellengröße für die Vorauswahl (Abstand der Trägergeraden)
+DASH_MIN_COVER = 0.2   # Anteil der Strichlinie, den die Striche selbst bedecken (echte: 0,35–0,7, mit fehlenden Strichen ~0,25)
 ISO_PENS = [0.13, 0.18, 0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0]
 
 
@@ -265,8 +266,9 @@ def _dir(l: Line):
 
 
 def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
-                  offset_tol: float = 2.5) -> list:
-    """Fasst Strich-Segmente zu Linien mit Linientyp zusammen. Gibt die neue Liste zurück."""
+                  offset_tol: float = 2.5, skip_missing: bool = False) -> list:
+    """Fasst Strich-Segmente zu Linien mit Linientyp zusammen. Gibt die neue Liste zurück.
+    ``skip_missing``: ein fehlender Strich (an einer Kreuzung verschluckt) trennt die Reihe nicht."""
     cand = [e for e in ents if isinstance(e, Line) and
             1.0 < math.dist(e.p1, e.p2) <= s.dash_max_len]
     if len(cand) < s.dash_min_count:
@@ -335,11 +337,13 @@ def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
         # etwas Spiel für einzelne kürzere Striche (Scanfehler, Rauschen)
         max_gap = base_gap if not gaps0 else max(base_gap, 1.8 * float(np.median(gaps0)))
         max_gap = min(max(s.dash_max_gap, 1.6 * med_len), max_gap)
+        # ein fehlender Strich (an Kreuzungen verschluckt): Lücke ≈ 2 Lücken + 1 Strich
+        skip = 2.0 * float(np.median(gaps0)) + med_len if gaps0 and skip_missing else 0.0
         chain = [spans[0]]
         chains = []
         for sp in spans[1:]:
             gap = sp[0] - chain[-1][1]
-            if 0.5 < gap <= max_gap:
+            if 0.5 < gap <= max_gap or (skip and abs(gap - skip) <= 0.25 * skip):
                 chain.append(sp)
             elif gap <= 0.5:          # überlappend/berührend: kein Strichmuster
                 chains.append(chain)
@@ -356,6 +360,10 @@ def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
             if max(gaps) > 3.5 * max(1.0, float(np.median(gaps))):
                 continue
             lens = [c[1] - c[0] for c in ch]
+            # Striche bedecken einen guten Teil der Linie; Stummel an Kreuzungen und Schriftreste,
+            # die zufällig auf einer Geraden liegen, nicht
+            if sum(lens) < DASH_MIN_COVER * (ch[-1][1] - ch[0][0]):
+                continue
             ltype = "DASHED"
             if len(lens) >= 4:
                 longs, shorts = lens[0::2], lens[1::2]
