@@ -22,7 +22,7 @@
 - **Offene Themen** (Details CLAUDE.md): Maße auf PLAN2 noch ~25 % verlesen (einstellige „2⁵“, „N°“ ohne
   Komponente, reine cm-Maße 14–40 %); Buchstaben an langen Linien verschwinden in `text_layer`; PLAN3 1:350
   (DG Treffer 48,5 %, winzige Schrift); Kies-Fläche zerfällt (Dach 35 Flächen), Kiespunkte an Linien fehlen;
-  KI an Handschrift / Workflow „Integration (echt)“ nur mit Okay.
+  KI an Handschrift.
 
 ## Stand 16.11.2026
 - Version **0.34.1** auf main (Commit ef03c40: Fix „invalid literal for int()“ in `dimensions._variants`, Randpunkte
@@ -114,7 +114,6 @@ Messstand 0.24.0: simuliert 528 von 887 Wörtern richtig (200 falsch); echte PLA
 - **Keine ZIPs.** Nach einer Änderung kurz zusammenfassen: was, Commit, Build-Ergebnis.
 - **Keine Tags, Releases oder Veröffentlichungen ohne ausdrückliches Okay.**
 - Die E-Mail-Adresse des Nutzers nirgends verwenden. Git-Autor: `StefanR1984 <StefanR1984@users.noreply.github.com>`. Commit-Nachrichten enden mit den Attribution-Zeilen der Sitzung.
-- Workflow „Integration (echt)“ nicht ungefragt starten.
 - Nicht gewünscht: signierte EXE, winget, englische Übersetzung.
 - Ablauf pro Feature: Kernlogik und Tests, GUI anbinden (README, `show_help`, Changelog, Tooltip in `gui/tips.py`), Version erhöhen, pyflakes und Tests grün, committen, pushen, Windows-Probe-Build (`gh workflow run release.yml --ref main`, `gh run watch <id> --exit-status`), danach alte Actions-Läufe löschen (nur die zum aktuellen Commit behalten).
 

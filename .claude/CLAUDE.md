@@ -363,7 +363,7 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    „Pos“ („OB“ → „08“?) – nur mit sehr vorsichtiger Regel.
 3. **Handschrift mit echter KI testen** – „Unerkannte Schrift mit KI lesen“ und vLLM sind nur mit
    Attrappen getestet. Mit echtem Ollama-Modell bzw. vLLM-Server des Nutzers an image-4 prüfen,
-   Prompt nachschärfen. Den Workflow „Integration (echt)“ **nicht ungefragt starten**.
+   Prompt nachschärfen.
    **0.40.4 (21.11.) image-4 mit Gemma 4:** echte Handschrift (Höhe 24–66 px) liest das Modell gut („Faßkeller“, „Heizraum-“,
    „250“ auch kopfüber); Kandidaten 7–11 px sind Kleckse → erfundene Raumnamen (Küche/Wohnen – nicht im Vergleichs-DXF) →
    `assistant.KAND_MIN_PX` 12. Zwei Lesungen bei Handschrift locker vergleichen (`_loose`). `text_slots`-Stellen auf Scans =
@@ -457,5 +457,3 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    KI-Texte 10 → 6, Texte gleich; echt 17 Plots Texte 2157, falsch 287. Rest-Fehlwörter PLAN3_UG1: einzeln mit festen Antworten
    0, frisch unter Last (3 Läufe parallel) +1 bis +6 – Maß-Knäuel („242“ = „24“ über „2“, „4.05“). Tintenanteil (richtige bis
    0,53, falsche 0,35–0,44) und Nachbardichte trennen nicht. Idee offen: mehrere Lesungen einer Stelle seriell statt parallel.
-8. Workflow „Integration (echt)“: ODA-Suchmuster angepasst (Dateiname hat keine Versionsnummer
-   mehr: `ODAFileConverter_QT6_vc16_amd64dll.msi`), aber noch **nicht live getestet**.
