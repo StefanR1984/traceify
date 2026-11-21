@@ -141,30 +141,35 @@ Achtung: Auch das Vergleichsprogramm liest viel Unsinn („sightwal“, „poe�
 Wort-Übereinstimmung ist kein Wahrheitsmaßstab. Schraffur als HATCH: Einzellinien übrig
 image-94 14 %, -89 14 %, -99 19 %, -27 44 %, -37 46 %, -4 46 % (handschraffiert).
 
-**Messbasis echte Plots, Stand 0.41.1** (21.11., `Testdaten Traceify/dxf neu/dxf neu`, alle 17 Allplan-Plots, 300 dpi,
+**Messbasis echte Plots, Stand 0.43.0** (21.11., `Testdaten Traceify/dxf neu/dxf neu`, alle 17 Allplan-Plots, 300 dpi,
 mit Tesseract, `--jobs 3`; „gedruckt“ = Tinte < 160 plus kleine hellgraue Teile ≤ 1 mm (`truth._printed_ink`) – nur < 210
 überall ließ PLAN1 auf 50 % fallen, graue Füllflächen decken ausgeblendete Objekte; Wörter/Texte ab 0.36.1 gezählt mit
 zusammengeführten Hochziffern und ohne Schrift < 0,6 mm, „Texte richtig“ = je gedrucktem Text; Summe Texte 1984 von 4360, Wörter falsch 281):
 | Plan (1:N) | Treffer | Genauigk. | Lage 95 % mm | Objekte (Orig.) | Bögen (Orig.) | Ortho (Orig.) | Wörter richtig/falsch | Texte richtig |
 |---|---|---|---|---|---|---|---|---|
-| PLAN1_EG (200) | 97,6 % | 98,9 % | 0,162 | 2759 (20958) | 43 (198) | 79 (89) % | 63 von 88 / 15 | 145 von 244 |
-| PLAN1_OG1 (200) | 93,6 % | 98,8 % | 0,162 | 670 (2941) | 11 (10) | 52 (81) % | 2 von 3 / 2 | 2 von 3 |
-| PLAN1_UG (200) | 93,9 % | 98,9 % | 0,243 | 2436 (13026) | 55 (94) | 80 (87) % | 63 von 114 / 9 | 93 von 284 |
-| PLAN2_Dach (100) | 94,0 % | 100,0 % | 0,162 | 2720 (10699), 35 Kies-Fl. | 3 (8035) | 82 (89) % | 27 von 32 / 7 | 82 von 107 |
-| PLAN2_EG (100) | 95,6 % | 98,6 % | 0,243 | 4899 (11901) | 101 (94) | 76 (84) % | 214 von 258 / 22 | 466 von 637 |
-| PLAN2_OG1 (100) | 97,6 % | 99,3 % | 0,162 | 4601 (11734) | 84 (93) | 76 (84) % | 160 von 192 / 22 | 394 von 540 |
-| PLAN2_OG2 (100) | 97,1 % | 99,2 % | 0,197 | 4588 (11149) | 81 (99) | 72 (83) % | 155 von 185 / 28 | 348 von 491 |
-| PLAN2_OG3 (100) | 97,2 % | 98,1 % | 0,162 | 3479 (10638), 11 Kies-Fl. | 67 (2708) | 84 (91) % | 126 von 161 / 27 | 256 von 390 |
+| PLAN1_EG (200) | 97,7 % | 98,9 % | 0,162 | 2757 (20958) | 43 (198) | 79 (89) % | 63 von 88 / 15 | 145 von 244 |
+| PLAN1_OG1 (200) | 93,8 % | 98,9 % | 0,162 | 664 (2941) | 11 (10) | 52 (81) % | 2 von 3 / 2 | 2 von 3 |
+| PLAN1_UG (200) | 94,0 % | 98,9 % | 0,243 | 2425 (13026) | 55 (94) | 80 (87) % | 63 von 114 / 9 | 93 von 284 |
+| PLAN2_Dach (100) | 94,0 % | 100,0 % | 0,162 | 2717 (10699), 35 Kies-Fl. | 3 (8035) | 82 (89) % | 27 von 32 / 7 | 82 von 107 |
+| PLAN2_EG (100) | 95,6 % | 98,5 % | 0,243 | 4875 (11901) | 101 (94) | 76 (84) % | 214 von 258 / 22 | 466 von 637 |
+| PLAN2_OG1 (100) | 97,6 % | 99,3 % | 0,162 | 4568 (11734) | 84 (93) | 76 (84) % | 160 von 192 / 22 | 394 von 540 |
+| PLAN2_OG2 (100) | 97,2 % | 99,2 % | 0,197 | 4573 (11149) | 81 (99) | 72 (83) % | 155 von 185 / 28 | 348 von 491 |
+| PLAN2_OG3 (100) | 97,2 % | 98,0 % | 0,162 | 3448 (10638), 11 Kies-Fl. | 67 (2708) | 84 (91) % | 126 von 161 / 27 | 256 von 390 |
 | PLAN3_DG (350) | 48,5 % | 87,1 % | 0,359 | 57 (256) | 2 (0) | 97 (53) % | 2 von 6 / 1 | 0 von 2 |
-| PLAN3_EG (350) | 88,7 % | 98,4 % | 0,162 | 3483 (84511) | 165 (4195) | 56 (73) % | 61 von 165 / 39 | 55 von 305 |
-| PLAN3_OG1 (350) | 90,0 % | 97,9 % | 0,243 | 3283 (64112) | 152 (4108) | 58 (70) % | 55 von 99 / 25 | 35 von 108 |
-| PLAN3_OG2 (350) | 90,0 % | 98,8 % | 0,243 | 2861 (60343) | 109 (4069) | 60 (74) % | 35 von 71 / 22 | 16 von 67 |
-| PLAN3_OG3 (350) | 94,9 % | 99,5 % | 0,162 | 1861 (64363) | 21 (979) | 72 (88) % | 14 von 24 / 2 | 10 von 21 |
-| PLAN3_OG4 (350) | 99,6 % | 99,9 % | 0,162 | 302 (938) | 17 (19) | 90 (98) % | 15 von 19 / 5 | 14 von 19 |
-| PLAN3_UG1 (350) | 91,7 % | 98,0 % | 0,162 | 3270 (56418) | 188 (4401) | 65 (75) % | 70 von 405 / 48 | 59 von 1125 |
+| PLAN3_EG (350) | 88,7 % | 97,7 % | 0,162 | 3454 (84511) | 165 (4195) | 56 (73) % | 61 von 165 / 39 | 55 von 305 |
+| PLAN3_OG1 (350) | 90,0 % | 97,9 % | 0,243 | 3274 (64112) | 152 (4108) | 58 (70) % | 55 von 99 / 25 | 35 von 108 |
+| PLAN3_OG2 (350) | 90,0 % | 98,8 % | 0,243 | 2851 (60343) | 109 (4069) | 59 (74) % | 35 von 71 / 22 | 16 von 67 |
+| PLAN3_OG3 (350) | 95,0 % | 99,3 % | 0,162 | 1851 (64363) | 21 (979) | 72 (88) % | 14 von 24 / 2 | 10 von 21 |
+| PLAN3_OG4 (350) | 99,6 % | 99,9 % | 0,162 | 300 (938) | 17 (19) | 90 (98) % | 15 von 19 / 5 | 14 von 19 |
+| PLAN3_UG1 (350) | 91,7 % | 98,0 % | 0,162 | 3262 (56418) | 188 (4401) | 65 (75) % | 70 von 405 / 48 | 59 von 1125 |
 | PLAN3_UG2 (350) | 99,9 % | 99,6 % | 0,162 | 160 (367) | 6 (6) | 98 (100) % | 10 von 15 / 5 | 8 von 14 |
 | PLAN3_UG3 (350) | 100,0 % | 100,0 % | 0,162 | 46 (72) | 0 (0) | 99 (100) % | 3 von 5 / 2 | 1 von 3 |
-**Simuliert, Stand 0.41.1** (21.11., 18 Pläne): Treffer 87,0–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1260 von 7446, Wörter falsch 637. **Scans** (16, `tools/pruefstand.py`): Abdeckung 95,3–100 %, offene Enden image-11 1442, image-4 1907.
+**Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
+**Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
+Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den
+echten Plots (26 % gegen 45 %, PLAN1_EG sogar 124 → 100 Texte): die simulierte Schrift (`_draw_text`) ähnelt der Allplan-Schrift nicht –
+Texte-Entscheidungen an den echten Plots treffen, beide Simulationsstufen nur als Gegenprobe gegen Rückschritte.
+**Scans** (16, `tools/pruefstand.py`): Abdeckung 95,3–100 %, offene Enden image-11 1436, image-4 1916, image-99 472.
 
 **Neue DXF (17.11.):** gleiche Geometrie, Layer ohne Präfix `XR$1$`; PLAN2/PLAN3 enthalten jetzt die Maßketten –
 nicht als DIMENSION, sondern aufgelöst als LINE/MTEXT (ARC, LWPOLYLINE) auf `MA_LINIE_1_50` (PLAN2) bzw.
