@@ -399,6 +399,21 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    eine Linie ≤ ~0,3 mm verschiebt (`second_shift`), denn der Flügel ist im Scan um ±1,2° verzogen
    (ohne Grenze: Abdeckung 98,0 → 97,1 %). 59 % statt 54 % der Länge auf einer Bauachse.
    Bei image-4 bleiben Schraffur und kurze Striche – die H/V-Messung ändert sich nicht.
+   **Analyse echte Plots (22.11., Stand 0.43.0, Skript `ortho/ortho.py` im Notizordner):** schräge Länge außerhalb Text
+   je Traceify-Segment gegen die Originalrichtung daneben (≤ 0,3 mm). PLAN1_OG1 / PLAN2_EG / PLAN3_EG / PLAN3_OG1:
+   ortho 52 / 76 / 56 / 58 %; Original daneben auch schräg 39 / 20 / 31 / 30 % (meist Schraffur 1–10 mm – zählt bei
+   Traceify als Linie, ist im Original-DXF offenbar Fläche, ungeprüft); Original ortho, Traceify > 3° 4 / 3 / 9 / 8 %;
+   0,5–3° 5 / 2 / 2 / 2 % (vor allem lange STRICHLINIEN 0,5–2,6° schief – offen). **Linienstern gefunden:** PLAN3 hat bis
+   17 Knoten mit 30–97 Linienenden (je ~500 mm Schein-Linien über weißem Papier). Ursache `vectorize.trace_skeleton`:
+   Pfade enden am Schwerpunkt ihrer Knotenkomponente; ein dicht schraffiertes Wandband wird im Skelett ein einziges
+   Knotengeflecht (L-förmig), dessen Schwerpunkt im weißen Raum liegt. Nicht `snap_endpoints` (Leader-Fang statt Union-Find
+   geprüft: Sterne unverändert). **Verworfen:** Schwerpunkt > 6 px vom Pfad und auf Papier → berührtes Knotenpixel nehmen
+   (Patch + Test `ortho/linienstern_verworfen.patch` im Notizordner). Echt Ortho +0,3…+6, Genauigkeit bis +0,8, Objekte bis
+   −258, aber Trefferquote −0,5…−1,9 (Sim −0,4…−1,8), kleine Scans offene Enden ×2 (image 89 50 → 93, image 94 38 → 75).
+   PLAN3_OG1: die Hälfte des Verlusts traf nur über Sternlinien (Artefakt), der Rest echt – ein Wandband war voller
+   Scheinlinien, die die Kanten ungefähr deckten, danach leer samt beider Kanten. Ohne Schwerpunkt-auf-Papier-Bedingung
+   −3…−5 Treffer (Schraffurbänder ganz leer). Eigentliche Aufgabe: schraffierte Wandbänder als Band erkennen und die
+   beiden Kanten ziehen statt das Knotengeflecht zu skelettieren.
 5. **Schraffur**: **0.32.0** Flächen auch in Zeichenfläche (`canvas.HatchItem`, steht für `members`,
    Einzellinien verborgen; Schalter Ansicht → Schraffur als Fläche = `hatch.META_KEY` in `d.meta`) und
    SVG (`<pattern>`). `find_regions` 0,2–0,4 s je `set_entities`. Prüfstand-Spalten Schraffur/Einzellinien
