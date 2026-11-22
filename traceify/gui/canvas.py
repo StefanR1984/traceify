@@ -23,7 +23,8 @@ import math
 
 from ..core import cad
 from ..core.edit import entity_points, move_point
-from ..core.model import Arc, Circle, Insert, LAYER_HATCH, Line, Polyline, Text, layer_color
+from ..core.model import (Arc, Circle, Insert, LAYER_HATCH, LAYER_WALLS, Line, Polyline, Text,
+                          layer_color)
 
 TOOL_SELECT, TOOL_ERASE, TOOL_PEN, TOOL_REGION = "select", "erase", "pen", "region"
 TOOL_SYMBOL = "symbol"
@@ -342,6 +343,7 @@ class Canvas(QGraphicsView):
         self.items_by_layer: dict[str, list] = {}
         self.item_by_id: dict[int, QGraphicsItem] = {}
         self.hatch_items: list[HatchItem] = []
+        self.wall_fill: QGraphicsPathItem | None = None   # gefüllte Wandflächen (WAENDE)
         self.hatch_areas_provider = lambda: False   # Schraffur als Fläche zeigen?
         self._layer_hidden: set[str] = set()
         self._vectors_visible = True
@@ -429,7 +431,31 @@ class Canvas(QGraphicsView):
             self.item_by_id[id(e)] = it
         if self.hatch_areas_provider():
             self._build_hatch(entities)
+        self._rebuild_wall_fill()
         self._apply_visibility()
+
+    def _rebuild_wall_fill(self):
+        """Geschlossene WAENDE-Polylinien grau füllen (wie im DXF), Löcher gerade/ungerade."""
+        from ..core.bands import wall_polys
+        if self.wall_fill is not None and self.wall_fill.scene():
+            self.scene().removeItem(self.wall_fill)
+        self.wall_fill = None
+        if not self.hatch_areas_provider():
+            return
+        walls = wall_polys(it.entity for it in self.items_by_layer.get(LAYER_WALLS, []))
+        if not walls:
+            return
+        path = QPainterPath()
+        path.setFillRule(Qt.OddEvenFill)
+        for w in walls:
+            path.addPolygon([QPointF(*p) for p in w.points])
+            path.closeSubpath()
+        it = QGraphicsPathItem(path)
+        it.setPen(QPen(Qt.NoPen))
+        it.setBrush(QColor(*layer_color(LAYER_WALLS)[1], 90))
+        it.setZValue(0.5)
+        self.scene().addItem(it)
+        self.wall_fill = it
 
     def _build_hatch(self, entities):
         """Regelmäßige Schraffuren als Flächen zeigen (dieselben Regionen wie im DXF)."""
@@ -450,6 +476,8 @@ class Canvas(QGraphicsView):
                 it.setVisible(vis and id(it.entity) not in hidden)
         for h in self.hatch_items:
             h.setVisible(self._vectors_visible and LAYER_HATCH not in self._layer_hidden)
+        if self.wall_fill is not None:
+            self.wall_fill.setVisible(self._vectors_visible and LAYER_WALLS not in self._layer_hidden)
 
     def clear_entities(self):
         self.clear_handles()
@@ -463,6 +491,7 @@ class Canvas(QGraphicsView):
                     self.scene().removeItem(it)
         self.items_by_layer = {}
         self.item_by_id = {}
+        self._rebuild_wall_fill()
 
     def add_entities(self, ents):
         """Neue Objekte ergänzen, ohne die ganze Szene neu aufzubauen."""
@@ -477,6 +506,9 @@ class Canvas(QGraphicsView):
             self.scene().addItem(it)
             self.items_by_layer.setdefault(e.layer, []).append(it)
             self.item_by_id[id(e)] = it
+        if any(e.layer == LAYER_WALLS for e in ents):
+            self._rebuild_wall_fill()
+            self._apply_visibility()
 
     def refresh_entities(self, ents):
         self._snap_index = None
@@ -484,6 +516,9 @@ class Canvas(QGraphicsView):
             it = self.item_by_id.get(id(e))
             if it is not None:
                 it.refresh()
+        if any(e.layer == LAYER_WALLS for e in ents):
+            self._rebuild_wall_fill()
+            self._apply_visibility()
 
     def set_layer_visible(self, layer: str, vis: bool):
         (self._layer_hidden.discard if vis else self._layer_hidden.add)(layer)
@@ -530,6 +565,8 @@ class Canvas(QGraphicsView):
                 else:
                     keep.append(it)
             self.items_by_layer[layer] = keep
+        if any(e.layer == LAYER_WALLS for e in ents):
+            self._rebuild_wall_fill()
         self._apply_visibility()
 
     # ---- Knoten ----

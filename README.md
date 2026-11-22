@@ -84,12 +84,13 @@ Alternativ gibt es eine **portable ZIP** (entpacken, `Traceify.exe` starten). Ei
 
 - **Strichlinien** (gestrichelt, Strichpunkt) werden echte Linientypen (DASHED, CENTER) auf STRICHLINIEN – auch feine, grau gedruckte Strichlinien aus Strichen unter 0,8 mm (Möbel, Verdecktes), die sonst beim Entflecken verloren gingen, und Strichlinien, denen an Kreuzungen ein Strich fehlt.
 - **Strichstärken** werden gemessen und als DXF-Strichstärke übernommen; dicke Linien (Wände) kommen auf DICKE_LINIEN – auf Wunsch als **Umriss (Doppellinie)** auf WAENDE.
+- **Schraffierte Wandbänder:** In kleinen Maßstäben (1:200, 1:350) verschmilzt die Wandschraffur im Scan zu einem fast schwarzen Band. Statt Zickzack-Mittellinien und Liniensternen entsteht ein geschlossener Umriss auf WAENDE, im DXF/DWG und SVG als gefüllte Fläche (SOLID-HATCH), in der Zeichenfläche grau gefüllt. Dicke Striche grober Scans zählen nicht als Band (Band mindestens 0,8 mm und 4 × so breit wie der typische Strich). Schalter: „Schraffierte Wandbänder als gefüllten Umriss“.
 - **Schraffur** (schräge, parallele Linien in regelmäßigem Abstand) kommt auf SCHRAFFUR und wird im DXF/DWG als **echte Schraffur-Fläche (HATCH)** mit Winkel und Abstand ausgegeben – auch bei zerrissenen Linien, schwankendem Abstand und versetztem Raster. Die Fläche reicht von Wandkante zu Wandkante; lose Striche darin gehen in ihr auf. Auch handgezeichnetes Mauerwerk zählt als Schraffur. Zeichenfläche und SVG zeigen dieselben Flächen (ein Klick wählt die ganze Schraffur).
 - **Keine Verwechslung:** Wände und Möbel in schrägen Gebäudeteilen, **schräge Treppen** (Stufen stoßen rechtwinklig auf die Wangen) und einzelne schräge Striche (Handschrift) bleiben normale Linien.
 - **Kies und Punktmuster** (auch hellgrau geplottete Ringe) werden kleine Kreise auf KIES, im DXF/DWG/SVG eine **Kies-Fläche** (HATCH mit Punktmuster). Einzelne Punkte, Rauschen, Strichpunktlinien und gepunktete Raster (Fliesenraster, Achsen) bleiben außen vor.
 - **Farbige Pläne** lassen sich nach Farbe auf eigene Layer trennen (FARBE_ROT, FARBE_BLAU, …) – auch bei Vektor-PDFs.
 
-Umschalten: Ansicht → **Schraffur als Fläche** (Flächen oder Einzellinien, gilt auch für Kies und für DXF/SVG). Die übrigen Schalter stehen in den Einstellungen unter „Linien, Farben, Symbole“.
+Umschalten: Ansicht → **Schraffur als Fläche** (Flächen oder Einzellinien, gilt auch für Kies, gefüllte Wandbänder und für DXF/SVG). Die übrigen Schalter stehen in den Einstellungen unter „Linien, Farben, Symbole“.
 
 ### Texte und Maße (OCR)
 
@@ -154,7 +155,7 @@ Nach jedem Konvertieren vergleicht Traceify die Vektoren mit dem Scan: **Abdecku
 | LINIEN, BOEGEN, KREISE, POLYLINIEN | Geometrie aus dem CAD-Modus |
 | KONTUREN | Umrisse aus dem CNC-Modus |
 | TEXT | erkannte Texte und Maßzahlen |
-| STRICHLINIEN, DICKE_LINIEN, WAENDE | Linientypen, dicke Linien, Wände als Doppellinie |
+| STRICHLINIEN, DICKE_LINIEN, WAENDE | Linientypen, dicke Linien, Wände als Doppellinie bzw. gefüllter Umriss |
 | SCHRAFFUR, KIES | Schraffur- und Kies-Flächen |
 | SYMBOLE | erkannte Symbole (Blöcke) |
 | SCANPUNKTE | Scanstaub zum Ausblenden |

@@ -63,6 +63,11 @@ export PATH="/d/Programme/Tesseract:$PATH" PYTHONIOENCODING=utf-8   # sonst miss
   `skip_missing` (ein an der Kreuzung verschluckter Strich: Lücke ≈ 2 Lücken + Strich ±25 %); `DASH_MIN_COVER` 0,2. Ohne die
   Beschränkungen (alle Layer bzw. lange Stücke) entstehen Schein-Strichlinien aus Wand-Doppellinien (DICKE_LINIEN-Stücke beider
   Kanten → Mittellinie) und fluchtenden Linienenden (7–9-mm-Stücke, `dash_max_len` 120 px = 20 mm bei 150 dpi): Sim −1…−2,6 Genauigkeit.
+- `core/bands.py` (0.44.0) – Wandbänder: `find_bands` (Schließen 3×3, Öffnen mit Kreis Ø max(0,8 mm, 4 × Median-Strich
+  `stroke_width`), ≥ 70 % Tinte) → Band aus dem Skelettbild, `band_outlines` = geschlossene Polylinien auf WAENDE. Geschlossene
+  WAENDE-Polylinien werden gefüllt (`fill_mask`, `groups` für DXF-SOLID-HATCH, SVG evenodd, `canvas.wall_fill`), Schalter `hatch.META_KEY`.
+  `truth.compare`: Original in der Füllung = getroffen, `wand_genau`; `quality.assess`: Füllung deckt ab. Ohne 4×-Strich-Regel griff es auf
+  150-dpi-Scans (Striche ~1 mm) Möbel/Schrift (image-27 36000 mm²).
 - `core/benchmark.py` + `tools/pruefstand.py` – Prüfstand (Objekte, Splitter, Abdeckung,
   Texte), `core/dxf_import.py` liest fremde DXF (z. B. eines kommerziellen Vektorisierungsprogramms) und richtet sie aufs Bild aus.
   Echte Scans liegen **nicht** im Repo (Datenschutz) – der Nutzer liefert sie bei Bedarf.
@@ -164,6 +169,10 @@ zusammengeführten Hochziffern und ohne Schrift < 0,6 mm, „Texte richtig“ = 
 | PLAN3_UG1 (350) | 91,7 % | 98,0 % | 0,162 | 3262 (56418) | 188 (4401) | 65 (75) % | 70 von 405 / 48 | 59 von 1125 |
 | PLAN3_UG2 (350) | 99,9 % | 99,6 % | 0,162 | 160 (367) | 6 (6) | 98 (100) % | 10 von 15 / 5 | 8 von 14 |
 | PLAN3_UG3 (350) | 100,0 % | 100,0 % | 0,162 | 46 (72) | 0 (0) | 99 (100) % | 3 von 5 / 2 | 1 von 3 |
+**Stand 0.44.0 (22.11., Wandbänder, Messung im Notizordner `messbasis_0440/`):** echt Treffer PLAN3_EG 97,5, OG1 96,5, OG2 96,7, OG3 97,9,
+UG1 96,6, PLAN1_OG1 97,0 % (Rest der Tabelle gleich ±0,1), Genauigkeit gleich/besser, Objekte PLAN3 −30…−37 %, PLAN1_OG1 192, Ortho PLAN3 69–79 %,
+PLAN1_OG1 88 %; Texte 1984 / falsch 281 gleich; Sim PLAN1_EG 91,7, PLAN1_UG 89,8, PLAN3 90,0–91,8 % (wand_genau Sim PLAN3_EG 63 %, UG1 51 % –
+simulierte Bänder breiter als die Originalstriche); Scans fast gleich. Zeiten der 0.43.0-Tabelle sind bei geringerer Last gemessen (heute ×1,8 auch ohne Änderung).
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den
@@ -410,6 +419,9 @@ Trefferquote 81–93 % (UG3 99,6 %, Dach 60,7 %), Genauigkeit 90–97 % (DG 82 %
    geprüft: Sterne unverändert). **Verworfen:** Schwerpunkt > 6 px vom Pfad und auf Papier → berührtes Knotenpixel nehmen
    (Patch + Test `ortho/linienstern_verworfen.patch` im Notizordner). Echt Ortho +0,3…+6, Genauigkeit bis +0,8, Objekte bis
    −258, aber Trefferquote −0,5…−1,9 (Sim −0,4…−1,8), kleine Scans offene Enden ×2 (image 89 50 → 93, image 94 38 → 75).
+   **22.11. nachgeprüft:** Annahme „Schraffur im Original-DXF ist Fläche“ falsch – HATCH im Allplan-DXF sind nur SOLID-Füllungen, die
+   Schraffurstriche sind LINE (kurz, schräg); Ortho-Vergleich ist fair. Echte Lücke: Segmente ≥ 3 mm > 3° neben jeder Bauachse (PLAN3_EG
+   16,5 % gegen 0,5 % im Original), fast alle auf Tinte. PLAN3-Fehlstellen: 85–97 % in fast schwarzen Wandbändern → 0.44.0 `bands.py`.
    PLAN3_OG1: die Hälfte des Verlusts traf nur über Sternlinien (Artefakt), der Rest echt – ein Wandband war voller
    Scheinlinien, die die Kanten ungefähr deckten, danach leer samt beider Kanten. Ohne Schwerpunkt-auf-Papier-Bedingung
    −3…−5 Treffer (Schraffurbänder ganz leer). Eigentliche Aufgabe: schraffierte Wandbänder als Band erkennen und die

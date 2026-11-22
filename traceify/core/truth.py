@@ -210,6 +210,14 @@ def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.
         dM[A & (K > 0)] = 0.0
         dK = cv2.distanceTransform((K == 0).astype(np.uint8), cv2.DIST_L2, 3)
         kies_genau = round(float((dK[A] * mm_per_px <= 1.0).mean()), 4) if A.any() else 0.0
+    # gefüllte Wandflächen (bands): Original darin (Kanten, verschmolzene Schraffur) ist abgebildet;
+    # die Fläche selbst wird eigens gewertet – Anteil ≤ tol neben Originalgeometrie
+    from .bands import fill_mask
+    WF = fill_mask(mg, shape)
+    wand_genau = None
+    if WF.any():
+        dM[WF & (T > 0)] = 0.0
+        wand_genau = round(float((dT[WF] <= tol).mean()), 4)
     # Schrift wird über die Wörter gemessen: Geometrie in Textbereichen des Originals zählt
     # nicht (sonst verfälschen ungelesene, als Linien vektorisierte Buchstaben die Werte)
     tx = np.zeros(shape[:2], np.uint8)
@@ -246,6 +254,7 @@ def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.
         "lage_p95_mm": round(float(np.percentile(off, 95)), 3) if off.size else None,
         "objekte": len(mg) + len(areas), "objekte_original": len(tg),
         "kies_flaechen": len(areas), "kies_genau": kies_genau,
+        "wand_mm2": round(float(WF.sum()) * mm_per_px * mm_per_px, 1), "wand_genau": wand_genau,
         "boegen": sum(isinstance(e, Arc) for e in mg),
         "boegen_original": sum(isinstance(e, (Arc, Circle)) for e in tg),
         "ortho": round(ortho_share(mg), 4), "ortho_original": round(ortho_share(tg), 4),

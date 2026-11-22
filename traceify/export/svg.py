@@ -4,9 +4,10 @@ from __future__ import annotations
 import math
 from xml.sax.saxutils import escape
 
+from ..core.bands import wall_polys
 from ..core.dots import find_areas as find_gravel
 from ..core.hatch import find_regions, wants_areas
-from ..core.model import Arc, Circle, Drawing, LAYER_GRAVEL, LAYER_HATCH, Line, Polyline, Text, layer_color
+from ..core.model import Arc, Circle, Drawing, LAYER_GRAVEL, LAYER_HATCH, LAYER_WALLS, Line, Polyline, Text, layer_color
 
 _DASH = {"DASHED": "3 1.5", "HIDDEN": "1.5 0.75", "DOT": "0.3 1", "DASHDOT": "4 1 0.5 1",
          "CENTER": "6 1 1.5 1"}
@@ -101,6 +102,12 @@ def export_svg(d: Drawing, path: str, visible_layers=None) -> None:
         if layer == LAYER_GRAVEL and gravel:
             out += _gravel_svg(gravel, s, col)
             gravel = []
+        if layer == LAYER_WALLS and wants_areas(d):
+            walls = wall_polys(ents)
+            if walls:                    # gefüllte Wandflächen, Löcher gerade/ungerade
+                p = " ".join("M" + " L".join(f"{x * s:.3f},{y * s:.3f}" for x, y in w.points) + " Z"
+                             for w in walls)
+                out.append(f'<path d="{p}" fill="{col}" fill-rule="evenodd" stroke="none"/>')
         for e in ents:
             if isinstance(e, Line):
                 out.append(f'<line x1="{e.p1[0]*s:.3f}" y1="{e.p1[1]*s:.3f}" '

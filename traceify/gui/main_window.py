@@ -2112,6 +2112,8 @@ class MainWindow(QMainWindow):
             "im SVG und im DXF/DWG als Schraffur-Fläche (HATCH; Ansicht → Schraffur als "
             "Fläche schaltet auf Einzellinien um; ein Klick wählt die ganze Fläche; schraffierte Wände "
             "werden von Kante zu Kante erfasst), Wände auf Wunsch als Umriss auf WAENDE. "
+            "Fast schwarze, schraffierte <b>Wandbänder</b> (kleine Maßstäbe) werden ein "
+            "geschlossener Umriss auf WAENDE und als Fläche gefüllt. "
             "<b>Kies</b> und andere dichte Punktmuster werden kleine Kreise auf dem Layer KIES "
             "(Einstellungen → Punktmuster (Kies) als Kreise); im DXF/DWG und SVG wird daraus eine "
             "Kies-Fläche mit Punktmuster (HATCH), solange Schraffur als Fläche an ist. "

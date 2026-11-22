@@ -37,6 +37,7 @@ class StyleSettings:
     hatch_areas: bool = True        # Schraffur im DXF/DWG als Fläche (HATCH) statt Einzellinien
     dots: bool = True               # Punktmuster (Kies) als kleine Kreise auf Layer KIES
     walls_outline: bool = False     # dicke Linien (Wände) als Umriss statt Mittellinie
+    wall_bands: bool = True         # fast schwarze Wandbänder (verschmolzene Schraffur) als gefüllter Umriss
     straighten: bool = True         # Schräglage erkennen, fast achsparallele Linien ausrichten
     straighten_tol: float = 3.0     # bis zu dieser Abweichung (Grad) wird ausgerichtet
     close_gaps_mm: float = 0.8      # Linienenden bis zu diesem Abstand ans nächste Objekt führen

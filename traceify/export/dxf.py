@@ -12,9 +12,10 @@ from ezdxf import colors as ezcolors
 from ezdxf.lldxf import const
 from ezdxf import units
 
+from ..core.bands import groups as wall_groups, wall_polys
 from ..core.dots import find_areas as find_gravel
 from ..core.hatch import HatchRegion, find_regions, wants_areas
-from ..core.model import (Arc, Circle, Drawing, Insert, LAYER_GRAVEL, LAYER_HATCH, Line, Polyline, Text,
+from ..core.model import (Arc, Circle, Drawing, Insert, LAYER_GRAVEL, LAYER_HATCH, LAYER_WALLS, Line, Polyline, Text,
                           layer_color)
 
 DXF_VERSIONS = {"R12": "R12", "R2000": "R2000", "R2007": "R2007", "R2010": "R2010",
@@ -128,6 +129,15 @@ def _add_gravel(layout, reg, d: Drawing) -> None:
                        definition=[[0.0, (0.0, 0.0), (sp / 2, sp * math.sqrt(3) / 2), [0.0, -sp]]])
 
 
+def _add_wall_fill(layout, group, d: Drawing) -> None:
+    """Gefüllte Wandfläche (Umriss + Löcher) als SOLID-HATCH auf WAENDE."""
+    h = layout.add_hatch(color=256, dxfattribs={"layer": LAYER_WALLS})
+    h.paths.add_polyline_path([d.to_mm(p) for p in group[0].points], is_closed=True,
+                              flags=const.BOUNDARY_PATH_EXTERNAL | const.BOUNDARY_PATH_OUTERMOST)
+    for hole in group[1:]:
+        h.paths.add_polyline_path([d.to_mm(p) for p in hole.points], is_closed=True, flags=0)
+
+
 def export_dxf(d: Drawing, path: str, version: str = "R2010",
                visible_layers=None) -> None:
     d = d.export_view()          # Schräglage des Scans herausdrehen
@@ -167,6 +177,10 @@ def export_dxf(d: Drawing, path: str, version: str = "R2010",
         for reg in find_gravel(d.entities):
             _add_gravel(msp, reg, d)
             skip.update(id(m) for m in reg.members)
+    if version != "R12" and wants_areas(d) and (visible_layers is None
+                                                 or LAYER_WALLS in visible_layers):
+        for grp in wall_groups(wall_polys(d.entities)):
+            _add_wall_fill(msp, grp, d)
     for e in d.entities:
         if visible_layers is not None and e.layer not in visible_layers:
             continue

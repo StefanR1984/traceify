@@ -181,6 +181,8 @@ def assess(ink: np.ndarray, ents: list, tolerance_px: int = 3, min_area: int = 2
                           fill_closed=fill_closed)
     for (x, y, w, h) in (extra_boxes or []):
         vec[max(0, y):y + h, max(0, x):x + w] = 255
+    from .bands import fill_mask
+    vec[fill_mask(ents, ink.shape)] = 255          # gefüllte Wandflächen decken ihr Band ab
     k = 2 * tolerance_px + 1
     ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
     covered = cv2.dilate(vec, ker)

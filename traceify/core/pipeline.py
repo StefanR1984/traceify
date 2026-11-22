@@ -225,6 +225,7 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         if gravel:
             main = np.where(dot_mask > 0, 0, main).astype(main.dtype)
     groups = []
+    walls = []
     if settings.style.color_layers and color is not None and color.shape[:2] == gray.shape[:2]:
         from .colors import is_colorful, separate
         if is_colorful(color):
@@ -247,6 +248,13 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
                 e.color = col
             ents += part
     else:
+        if settings.style.wall_bands and settings.vectorize.mode == MODE_CENTERLINE:
+            # fast schwarze Wandbänder (Schraffur verschmolzen): Umriss statt Skelett-Geflecht
+            from .bands import band_outlines, find_bands
+            band = find_bands(main, 1.0 / dpi_scale)
+            if band.any():
+                main = np.where(band, 0, main).astype(main.dtype)
+                walls = band_outlines(band, settings.vectorize.tolerance)
         ents = _style_post(vectorize(main, settings.vectorize), main, dpi_scale, settings)
         if settings.style.detect_dashed and settings.vectorize.mode == MODE_CENTERLINE \
                 and not settings.preprocess.deskew:
@@ -260,8 +268,11 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
                 raw[r.slices(raw.shape)] = 0
             if gravel:
                 raw[dot_mask > 0] = 0
+            if walls:
+                raw[band] = 0
             fine = join_chains(chain_dashes(small_dashes(raw, 1.0 / dpi_scale)), JOIN_MM / dpi_scale)
             ents = drop_covered(ents, fine, max(1.5, 0.15 / dpi_scale)) + fine
+        ents += walls
     for r in special:
         if r.mode not in (MODE_CENTERLINE, MODE_OUTLINE):
             continue  # nur Text: keine Linien
@@ -338,7 +349,7 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
     scale = settings.scale or dpi_scale
     d = Drawing(width=gray.shape[1], height=gray.shape[0], scale=scale,
                 entities=ents + gravel + texts, source=source)
-    if (settings.style.hatch_layer or gravel) and settings.style.hatch_areas:
+    if (settings.style.hatch_layer or gravel or walls) and settings.style.hatch_areas:
         from .hatch import META_KEY as HATCH_KEY
         d.meta[HATCH_KEY] = "1"     # beim DXF-Export Schraffur und Kies als Fläche ausgeben
     if skew is not None and abs(skew) >= 0.05:

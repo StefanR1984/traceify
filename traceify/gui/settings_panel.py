@@ -134,6 +134,12 @@ class SettingsPanel(QScrollArea):
         self.walls_outline.setToolTip("Dicke Linien werden als geschlossene Umrisse auf den Layer "
                                       "WAENDE gelegt – wie gezeichnete Wände im CAD")
         f.addRow(self.walls_outline)
+        self.wall_bands = QCheckBox("Schraffierte Wandbänder als gefüllten Umriss")
+        self.wall_bands.setToolTip("Fast schwarze Wandbänder (in kleinen Maßstäben verschmilzt die "
+                                   "Schraffur) werden als geschlossener Umriss auf den Layer WAENDE "
+                                   "gelegt und gefüllt, statt als Zickzack-Mittellinien")
+        self.wall_bands.setChecked(True)
+        f.addRow(self.wall_bands)
         self.straighten = QCheckBox("Linien gerade ausrichten (Schräglage ausgleichen)")
         self.straighten.setToolTip("Erkennt, wie schief der Scan liegt, richtet fast waagrechte/"
                                    "senkrechte Linien exakt aus und dreht die Schräglage beim "
@@ -382,6 +388,7 @@ class SettingsPanel(QScrollArea):
         st.thick_layer = self.thick.isChecked()
         st.thick_ratio = self.thick_ratio.value()
         st.walls_outline = self.walls_outline.isChecked()
+        st.wall_bands = self.wall_bands.isChecked()
         st.hatch_layer = self.hatch.isChecked()
         st.hatch_areas = self.hatch_areas.isChecked()
         st.dots = self.dots.isChecked()
@@ -435,6 +442,7 @@ class SettingsPanel(QScrollArea):
         self.thick.setChecked(s.style.thick_layer)
         self.thick_ratio.setValue(s.style.thick_ratio)
         self.walls_outline.setChecked(s.style.walls_outline)
+        self.wall_bands.setChecked(s.style.wall_bands)
         self.hatch.setChecked(s.style.hatch_layer)
         self.hatch_areas.setChecked(s.style.hatch_areas)
         self.dots.setChecked(s.style.dots)
@@ -495,7 +503,8 @@ class SettingsPanel(QScrollArea):
                   "boegen": self.arcs, "kreise": self.circles, "nur_polylinien": self.polylines,
                   "ocr": self.ocr, "strichlinien": self.dashed, "strichstaerken": self.widths,
                   "dicke_linien_layer": self.thick, "farben_trennen": self.color_layers,
-                  "waende_umriss": self.walls_outline, "schraffur_layer": self.hatch,
+                  "waende_umriss": self.walls_outline, "wandbaender": self.wall_bands,
+                  "schraffur_layer": self.hatch,
                   "schraffur_flaeche": self.hatch_areas, "kies_punkte": self.dots,
                   "linien_durchziehen": self.join_lines, "scanpunkte_layer": self.specks_layer,
                   "schraege_texte": self.ocr_free, "zahlen_nachlesen": self.ocr_numbers,

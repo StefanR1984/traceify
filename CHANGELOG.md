@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.44.0 – 22.11.2026
+### Linien
+- **Schraffierte Wandbänder als gefüllter Umriss:** In kleinen Maßstäben (1:200, 1:350) verschmilzt die Wandschraffur im Plot zu einem fast schwarzen Band mit feinen weißen Lücken. Das Skelett eines solchen Bands war ein Knotengeflecht: Zickzack-Linien in der Wand, Liniensterne über weißem Papier, die Wandkanten 0,3–1 mm daneben. Jetzt wird das Band erkannt (mindestens 0,8 mm und 4 × so breit wie der typische Strich, mindestens 70 % Tinte) und als geschlossener Umriss auf WAENDE ausgegeben. Im DXF/DWG wird daraus eine SOLID-HATCH mit Löchern, im SVG eine gefüllte Fläche, in der Zeichenfläche eine graue Füllung (Ansicht → Schraffur als Fläche). Geschlossene Umrisse von „Wände als Umriss“ werden ebenso gefüllt. Dicke Striche grober Scans gelten nicht als Band. Schalter: „Schraffierte Wandbänder als gefüllten Umriss“ (Stapelregel `wandbaender`).
+- Prüfstand: Original-Geometrie innerhalb einer gefüllten Wandfläche gilt als getroffen, wie bei Kies. Die Fläche wird eigens gewertet: neue Spalte „Wandfläche … % am Original“, das ist der Flächenanteil höchstens 0,3 mm neben Originalgeometrie (echt 97–100 %, PLAN1_UG 80 %).
+- Gemessen an echten Plots: Trefferquote PLAN3_EG 88,7 → 97,5 %, OG1 90,0 → 96,5 %, OG2 90,0 → 96,7 %, OG3 95,0 → 97,9 %, UG1 91,7 → 96,6 %, PLAN1_OG1 93,8 → 97,0 %. Genauigkeit gleich oder besser (PLAN3_OG1 97,9 → 99,1 %). Objekte −30 bis −71 % (PLAN3_EG 3454 → 2141, PLAN1_OG1 664 → 192). Ortho PLAN3 +7 bis +14 Punkte, PLAN1_OG1 52 → 88 %. PLAN2 unverändert, Texte überall gleich. Simulation: PLAN1_EG/UG +2,4/+2,7, PLAN3 +0…+1,5, Texte gleich. 16 Scans fast gleich (image-37 Abdeckung 95,3 → 96,6 %).
+
 ## 0.43.0 – 21.11.2026
 ### Linien
 - **Strichlinien über Kreuzungen:** Grau gerasterte Strichlinien (Möbel, Raster, Schrankkreuze) blieben als einzelne Striche stehen. An jeder Kreuzung verschwindet ein Strich im Knoten, die doppelte Lücke trennte die Reihe. Ein zweiter Durchgang auf der fertigen Geometrie fasst jetzt kurze dünne Striche bis 3 mm zusammen und lässt dabei genau einen fehlenden Strich zu. Dicke Linien, Schraffur und längere Stücke bleiben außen vor, sonst würden Wand-Doppellinien und zufällig fluchtende Linienenden zu Scheinstrichlinien. Neu ist außerdem: Die Striche müssen mindestens 20 % der Strichlinie bedecken.

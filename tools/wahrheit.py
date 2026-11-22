@@ -37,7 +37,10 @@ SCAN_EXT = (".pdf", ".png", ".tif", ".tiff", ".jpg", ".jpeg", ".bmp")
 
 def _kies(r: dict) -> str:
     n = r.get("kies_flaechen") or 0
-    return f", davon {n} Kies-Fl. ({r['kies_genau'] * 100:.0f} % an Kies)" if n else ""
+    out = f", davon {n} Kies-Fl. ({r['kies_genau'] * 100:.0f} % an Kies)" if n else ""
+    if r.get("wand_genau") is not None:
+        out += f", Wandfläche {r['wand_mm2']:.0f} mm² ({r['wand_genau'] * 100:.0f} % am Original)"
+    return out
 
 
 def zeile(name: str, r: dict) -> str:
