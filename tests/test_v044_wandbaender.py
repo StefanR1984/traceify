@@ -170,3 +170,35 @@ def test_gui_wandflaeche_anzeigen_loeschen(tmp_path, monkeypatch):
     assert len(bands.wall_polys(w.drawing.entities)) == 2
     assert cv.wall_fill.path().contains(QtCore.QPointF(60, 150))
     w.close()
+
+
+def test_wahrheit_fuellung_des_originals_zaehlt_fuer_wandflaeche(tmp_path):
+    """0.44.1: schwarz gefülltes Dreieck – im Original HATCH (Vollfüllung), keine Linien darin."""
+    doc = ezdxf.new()
+    h = doc.modelspace().add_hatch()
+    h.set_solid_fill()
+    h.paths.add_polyline_path([(0, 0), (10, 0), (0, 10)], is_closed=True)
+    doc.modelspace().add_solid([(20, 0), (30, 0), (20, 5), (30, 5)])
+    doc.modelspace().add_line((0, 20), (10, 20))
+    f = tmp_path / "f.dxf"
+    doc.saveas(f)
+    fills = truth.load_fills(str(f))
+    assert len(fills) == 2 and all(p.closed for p in fills)
+    # Rechteck aus SOLID in DXF-Reihenfolge 0-1-3-2 → kein Schmetterling
+    xs = sorted(round(x) for x, _ in fills[1].points)
+    assert xs == [20, 20, 30, 30]
+    # gedruckt? dunkel = ja, hellgrau = nein
+    gray = np.full((100, 100), 255, np.uint8)
+    tri = [Polyline([(10, 10), (60, 10), (10, 60)], True)]
+    assert not truth.printed_fills(tri, gray)
+    gray[10:60, 10:60] = 0
+    assert truth.printed_fills(tri, gray)
+    # Wandfläche auf dem gefüllten Dreieck: ohne Füllung daneben, mit Füllung richtig
+    band = np.zeros((100, 100), np.uint8)
+    cv2.fillPoly(band, [np.array([(10, 10), (60, 10), (10, 60)], np.int32)], 1)
+    ws = bands.band_outlines(band > 0, 1.0)
+    orig = [Line((10, 10), (60, 10)), Line((10, 10), (10, 60)), Line((60, 10), (10, 60)), Line((80, 90), (95, 90))]
+    r0 = truth.compare(orig, ws, (100, 100), 0.1)
+    r1 = truth.compare(orig, ws, (100, 100), 0.1, fills=tri)
+    assert r0["wand_genau"] < 0.6 and r1["wand_genau"] > 0.98
+    assert r1["trefferquote"] == r0["trefferquote"] and r1["genauigkeit"] == r0["genauigkeit"]

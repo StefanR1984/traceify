@@ -38,6 +38,56 @@ def load_cad(path: str) -> Tuple[List[object], float]:
     return ents, units.conversion_factor(doc.units or units.MM, units.MM)
 
 
+def _fill_outlines(e, out: list, depth: int = 0) -> None:
+    t = e.dxftype()
+    if t == "HATCH" and e.dxf.get("solid_fill", 0):
+        from ezdxf import path
+        for pa in path.from_hatch(e):
+            pts = [(v.x, v.y) for v in pa.flattening(0.01)]
+            if len(pts) >= 3:
+                out.append(Polyline(pts, True))
+    elif t in ("SOLID", "TRACE"):
+        q = [e.dxf.vtx0, e.dxf.vtx1, e.dxf.vtx3, e.dxf.vtx2]     # DXF-Reihenfolge 0-1-3-2
+        out.append(Polyline([(v.x, v.y) for v in q], True))
+    elif t == "INSERT" and depth < 8:
+        try:
+            for v in e.virtual_entities():
+                _fill_outlines(v, out, depth + 1)
+        except Exception:
+            pass
+
+
+def load_fills(path: str) -> List[Polyline]:
+    """Gefüllte Flächen des Originals (HATCH mit Vollfüllung, SOLID) als geschlossene Umrisse in
+    Datei-Einheiten. Nur für die Wertung der Wandflächen (`compare(fills=…)`): ein im Plot schwarz
+    gefülltes Dreieck ist im Original keine Linie, sondern eine Füllung."""
+    import ezdxf
+    doc = ezdxf.readfile(path)
+    out: list = []
+    for e in doc.modelspace():
+        _fill_outlines(e, out)
+    return out
+
+
+def printed_fills(fills: list, gray: np.ndarray, share: float = 0.6) -> list:
+    """Nur Füllungen, die im Plot dunkel gedruckt sind (≥ share der Fläche Tinte < 160) –
+    graue Allplan-Flächen und ausgeblendete Layer zählen nicht."""
+    H, W = gray.shape[:2]
+    out = []
+    for f in fills:
+        P = np.round(np.asarray(f.points)).astype(np.int32)
+        x0, y0 = np.maximum(P.min(axis=0), 0)
+        x1, y1 = np.minimum(P.max(axis=0) + 1, (W, H))
+        if x1 <= x0 or y1 <= y0:
+            continue
+        m = np.zeros((y1 - y0, x1 - x0), np.uint8)
+        cv2.fillPoly(m, [P - (x0, y0)], 1)
+        k = m > 0
+        if k.any() and float((gray[y0:y1, x0:x1][k] < 160).mean()) >= share:
+            out.append(f)
+    return out
+
+
 @dataclass
 class Scan:
     gray: np.ndarray          # simuliertes Scanbild (0 = schwarz)
@@ -188,7 +238,7 @@ def _texts_right(truth_texts: list, mine: list) -> int:
 
 
 def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.3,
-            areas: list = ()) -> dict:
+            areas: list = (), fills: list = ()) -> dict:
     """Misst Traceify-Objekte (Bildpixel) gegen die Originalgeometrie (Bildpixel).
 
     areas: Kies-Flächen (`dots.GravelRegion`, ihre Kreise schon aus ents entfernt). Die Punkte im
@@ -217,7 +267,12 @@ def compare(truth: list, ents: list, shape, mm_per_px: float, tol_mm: float = 0.
     wand_genau = None
     if WF.any():
         dM[WF & (T > 0)] = 0.0
-        wand_genau = round(float((dT[WF] <= tol).mean()), 4)
+        ok = dT <= tol
+        if fills:
+            F = np.zeros(shape[:2], np.uint8)
+            cv2.fillPoly(F, [np.round(np.asarray(f.points)).astype(np.int32) for f in fills], 1)
+            ok |= F > 0
+        wand_genau = round(float(ok[WF].mean()), 4)
     # Schrift wird über die Wörter gemessen: Geometrie in Textbereichen des Originals zählt
     # nicht (sonst verfälschen ungelesene, als Linien vektorisierte Buchstaben die Werte)
     tx = np.zeros(shape[:2], np.uint8)
@@ -442,7 +497,9 @@ def run_real(dxf: str, scan: str, scale_n: float = 0, settings=None, progress=No
     fit = None
     if not scale_n or scale_n <= 0:
         scale_n, fit = scan_scale(cad, unit, ink, mm_per_px)
-    truth = printed(align_scan(cad, ink, unit / mm_per_px / scale_n), _printed_ink(gray, mm_per_px))
+    s, dx, dy = _align([e for e in cad if not isinstance(e, Text)], ink, unit / mm_per_px / scale_n)
+    truth = printed([transform(e, s, dx, dy) for e in cad], _printed_ink(gray, mm_per_px))
+    fills = printed_fills([transform(f, s, dx, dy) for f in load_fills(dxf)], gray)
     t0 = time.time()
     res = open_file(scan, 0, settings, progress=progress)
     n_ki = None
@@ -451,7 +508,7 @@ def run_real(dxf: str, scan: str, scale_n: float = 0, settings=None, progress=No
         fixes = read_unrecognized(ki[0], ki[1], gray, res.binary, res.drawing, 1.0 / mm_per_px)
         n_ki = apply_text_fixes(res.drawing, fixes)[1]
     ents, areas = _with_areas(res.drawing)
-    r = compare(truth, ents, gray.shape, mm_per_px, areas=areas)
+    r = compare(truth, ents, gray.shape, mm_per_px, areas=areas, fills=fills)
     if n_ki is not None:
         r["ki_texte"] = n_ki
     r.update({"datei": dxf, "scan": scan, "bild": [int(gray.shape[1]), int(gray.shape[0])],

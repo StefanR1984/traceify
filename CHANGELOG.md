@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.44.1 – 23.11.2026
+### Prüfstand
+- **Füllflächen des Originals:** Der Prüfstand lädt jetzt die gefüllten Flächen der Original-DXF (HATCH mit Vollfüllung, SOLID, auch in Blöcken), soweit sie im Plot dunkel gedruckt sind. Eine Wandfläche von Traceify auf einer solchen Füllung gilt als richtig. Bisher galten z. B. schwarz gefüllte Dreiecke (Symbole) auf PLAN1_UG als „Wandfläche neben dem Original“, weil das Original dort keine Linien hat, sondern eine Füllung.
+- Gemessen an echten Plots: Wandfläche am Original PLAN1_UG 80,1 → 94,3 %, PLAN3_OG2 99,4 → 99,6 %, alle anderen Werte unverändert. Rest auf PLAN1_UG: kleine Bänder in fett gedruckten Maßtext-Knäueln (zusammen ~17 mm²).
+
 ## 0.44.0 – 22.11.2026
 ### Linien
 - **Schraffierte Wandbänder als gefüllter Umriss:** In kleinen Maßstäben (1:200, 1:350) verschmilzt die Wandschraffur im Plot zu einem fast schwarzen Band mit feinen weißen Lücken. Das Skelett eines solchen Bands war ein Knotengeflecht: Zickzack-Linien in der Wand, Liniensterne über weißem Papier, die Wandkanten 0,3–1 mm daneben. Jetzt wird das Band erkannt (mindestens 0,8 mm und 4 × so breit wie der typische Strich, mindestens 70 % Tinte) und als geschlossener Umriss auf WAENDE ausgegeben. Im DXF/DWG wird daraus eine SOLID-HATCH mit Löchern, im SVG eine gefüllte Fläche, in der Zeichenfläche eine graue Füllung (Ansicht → Schraffur als Fläche). Geschlossene Umrisse von „Wände als Umriss“ werden ebenso gefüllt. Dicke Striche grober Scans gelten nicht als Band. Schalter: „Schraffierte Wandbänder als gefüllten Umriss“ (Stapelregel `wandbaender`).
