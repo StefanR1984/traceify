@@ -198,17 +198,19 @@ def _refine(P: np.ndarray, ink: np.ndarray, s: float, dx: float, dy: float,
 
 
 def transform(e, s: float, dx: float, dy: float):
-    """CAD (y nach oben) -> Bild (y nach unten) mit Maßstab s und Versatz."""
+    """CAD (y nach oben) -> Bild (y nach unten) mit Maßstab s und Versatz (Linientyp bleibt)."""
     T = lambda p: (s * p[0] + dx, dy - s * p[1])  # noqa: E731
     if isinstance(e, Line):
-        return Line(T(e.p1), T(e.p2), e.layer)
-    if isinstance(e, Arc):   # Spiegelung an der x-Achse: Winkel tauschen und negieren
-        return Arc(T(e.center), s * e.radius, (-e.end_angle) % 360, (-e.start_angle) % 360,
-                   e.layer)
-    if isinstance(e, Circle):
-        return Circle(T(e.center), s * e.radius, e.layer)
-    if isinstance(e, Polyline):
-        return Polyline([T(p) for p in e.points], e.closed, e.layer)
-    if isinstance(e, Text):
-        return Text(e.text, T(e.position), s * e.height, e.angle, e.layer)
-    return e
+        out = Line(T(e.p1), T(e.p2), e.layer)
+    elif isinstance(e, Arc):   # Spiegelung an der x-Achse: Winkel tauschen und negieren
+        out = Arc(T(e.center), s * e.radius, (-e.end_angle) % 360, (-e.start_angle) % 360, e.layer)
+    elif isinstance(e, Circle):
+        out = Circle(T(e.center), s * e.radius, e.layer)
+    elif isinstance(e, Polyline):
+        out = Polyline([T(p) for p in e.points], e.closed, e.layer)
+    elif isinstance(e, Text):
+        out = Text(e.text, T(e.position), s * e.height, e.angle, e.layer)
+    else:
+        return e
+    out.linetype = e.linetype
+    return out

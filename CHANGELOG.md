@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.0 – 23.11.2026
+### Linien
+- **Punktlinien:** Allplan plottet den Linientyp PUNKT in kleinen Maßstäben als winzige Punkte (1–4 px bei 300 dpi) im Abstand von ~1,2–1,7 mm. Entflecken löschte sie, die Linie fehlte ganz. Jetzt werden kleine Punkte im ungefilterten Binärbild zu Reihen verfolgt: mindestens 6 Punkte auf einer Geraden, gleichmäßige Abstände (Streuung ≤ 10 %), ein fehlender Punkt an einer Kreuzung wird übersprungen. Jede Reihe wird eine Linie mit Linientyp DOT auf STRICHLINIEN. Punktraster und Tonerstaub werden keine Linien (quer zur Reihe liegen dort mehrere Punkte), zwei parallele Punktlinien bleiben. Teil von „Strichlinien erkennen“.
+- Prüfstand: Punktlinien (Linientyp PUNKT/DOT) gelten als gedruckt, wenn mindestens 25 % ihrer Länge auf Tinte liegen (sonst 60 % – die Punkte decken nur ~30 %). Damit zählen gedruckte Punktlinien jetzt zur Wahrheit: Trefferquote ohne Erkennung PLAN1_OG1 −0,9, PLAN3_OG1/OG2 −0,8/−1,0.
+- Gemessen an echten Plots (gegen diese Wahrheit): Trefferquote PLAN1_OG1 96,1 → 97,3 %, PLAN3_OG1 95,7 → 96,7 %, OG2 95,7 → 96,7 %, OG3 97,6 → 97,9 %, UG1 96,5 → 97,5 %. Genauigkeit und Texte überall gleich, Simulation unverändert. Plan4 (Fliesenraster aus feinen Punktlinien) offene Enden 1128 → 1002, Plan5 1352 → 1260; 16 Scans fast gleich (je 0–2 Objekte mehr). Zeit bis 5 s je Plan bei viel Tonerstaub, sonst < 1 s.
+
 ## 0.44.1 – 23.11.2026
 ### Prüfstand
 - **Füllflächen des Originals:** Der Prüfstand lädt jetzt die gefüllten Flächen der Original-DXF (HATCH mit Vollfüllung, SOLID, auch in Blöcken), soweit sie im Plot dunkel gedruckt sind. Eine Wandfläche von Traceify auf einer solchen Füllung gilt als richtig. Bisher galten z. B. schwarz gefüllte Dreiecke (Symbole) auf PLAN1_UG als „Wandfläche neben dem Original“, weil das Original dort keine Linien hat, sondern eine Füllung.

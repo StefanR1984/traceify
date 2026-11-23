@@ -49,7 +49,7 @@ SETTINGS = {
     # Linien, Farben, Symbole
     "dashed": "Erkennt gestrichelte und strichpunktierte Linien und gibt sie als eine Linie mit "
               "passendem Linientyp aus (statt vieler Einzelstriche) – auch feine, grau gedruckte "
-              "Strichlinien aus Strichen unter 0,8 mm (Möbel, Verdecktes).",
+              "Strichlinien aus Strichen unter 0,8 mm (Möbel, Verdecktes) und Punktlinien (Linientyp DOT).",
     "widths": "Misst, wie dick jede Linie im Scan ist, und übernimmt die Strichstärke ins CAD.",
     "thick": "Deutlich dickere Linien (meist Wände) kommen auf einen eigenen Layer "
              "DICKE_LINIEN – im CAD getrennt ein-/ausblendbar.",

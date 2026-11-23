@@ -59,6 +59,12 @@ export PATH="/d/Programme/Tesseract:$PATH" PYTHONIOENCODING=utf-8   # sonst miss
   2 mm), `drop_covered`; Aufruf in `pipeline.convert` nach dem Vektorisieren (nur ohne Farbtrennung/Schräglagenkorrektur).
   `quality.assess`: Strichlinie (linetype ≠ CONTINUOUS) richtig, wenn ≥ 30 % auf Tinte, geprüft gegen `dash_ink`
   (nicht entfleckt; `benchmark.run_file` übergibt es) – die Lücken zählen nicht (0.41.1).
+  **0.45.0 Punktlinien:** `small_dots` (Teile ≤ 0,4 mm) + `chain_dots` (≥ 6 Punkte, Abstand 0,5–3,5 mm, Suche ±15 %, ein
+  fehlender Punkt erlaubt, Abstands-CV ≤ 0,1) → Linie DOT auf STRICHLINIEN, `_merge_rows` fasst Überlappende zusammen. Raster-/
+  Staubsperre: Median der Querpunkte je Reihenpunkt (±½ Abstand längs, bis 3,2 Abstände quer) < 2 – zwei parallele Punktlinien
+  (PLAN1_OG1, 1,4 mm) bleiben. Verworfen: Sperre nach Punktdichte im Umkreis (warf PLAN1_OG1-Doppellinie weg), nach Querebenen
+  (Tonerstaub = eine „Ebene“ → Plan6_UG Scheinlinie), nach Streupunkt-Anteil (Treffer-Länge PLAN3_OG1 197 → 44 mm); `join_chains`
+  für Punkte (O(n²), Plan4 20 s).
   **0.43.0** zweiter `style.detect_dashed`-Durchgang am Pipeline-Ende (vor `isolate_specks`), nur LINIEN ≤ `DASH2_MAX_MM` 3 mm,
   `skip_missing` (ein an der Kreuzung verschluckter Strich: Lücke ≈ 2 Lücken + Strich ±25 %); `DASH_MIN_COVER` 0,2. Ohne die
   Beschränkungen (alle Layer bzw. lange Stücke) entstehen Schein-Strichlinien aus Wand-Doppellinien (DICKE_LINIEN-Stücke beider
@@ -76,7 +82,9 @@ export PATH="/d/Programme/Tesseract:$PATH" PYTHONIOENCODING=utf-8   # sonst miss
   und PLAN1_Dach – die alten ohne Maßketten in `Testdaten Traceify/dxf/dxf/` bleiben als Vergleich) → simulierter Scan (1:100, 150 dpi,
   Strich 0,25 mm, Rauschen) → Traceify → Messung gegen die Originalgeometrie (Trefferquote,
   Genauigkeit, Lagefehler in Papier-mm, Objekte, Bögen, Ortho, Wörter). Abbildung ist exakt
-  bekannt, keine Lage-Schätzung. Noch ohne Füllflächen (SOLID) und ohne Schräglage.
+  bekannt, keine Lage-Schätzung. Noch ohne Schräglage. Echte Plots: `truth.load_fills` (HATCH-Vollfüllung, SOLID) zählt nur für
+  `wand_genau` (0.44.1); `printed` lässt Punktlinien (Linientyp PUNKT/DOT, `load_cad` setzt ihn, `dxf_import.transform` behält ihn)
+  schon ab 25 % auf Tinte zu (0.45.0).
   Geometrie in Textbereichen des Originals zählt nicht (Schrift → Wörter-Spalte).
   Aufruf: `python tools/wahrheit.py "Testdaten Traceify/dxf neu/dxf neu" --jobs 4 --bilder <tmp>` (~6 min, 18 Pläne).
   **Echte Plots (alle 17):** `Testdaten Traceify/PDF/PLAN*.pdf` = Allplan-Rasterplots, A3 quer, 300 dpi; PLAN1 1:200,
@@ -173,6 +181,12 @@ zusammengeführten Hochziffern und ohne Schrift < 0,6 mm, „Texte richtig“ = 
 UG1 96,6, PLAN1_OG1 97,0 % (Rest der Tabelle gleich ±0,1), Genauigkeit gleich/besser, Objekte PLAN3 −30…−37 %, PLAN1_OG1 192, Ortho PLAN3 69–79 %,
 PLAN1_OG1 88 %; Texte 1984 / falsch 281 gleich; Sim PLAN1_EG 91,7, PLAN1_UG 89,8, PLAN3 90,0–91,8 % (wand_genau Sim PLAN3_EG 63 %, UG1 51 % –
 simulierte Bänder breiter als die Originalstriche); Scans fast gleich. Zeiten der 0.43.0-Tabelle sind bei geringerer Last gemessen (heute ×1,8 auch ohne Änderung).
+**Stand 0.45.0 (23.11., Messung im Notizordner der Sitzung local_379be5d4 `messbasis_0450/`):** echt Treffer PLAN1_OG1 97,3,
+PLAN3_OG1 96,7, OG2 96,7, OG3 97,9, UG1 97,5 % (Wahrheit enthält jetzt gedruckte Punktlinien; ohne Erkennung 96,1/95,7/95,7/97,6/96,5),
+wand_genau PLAN1_UG 94,3 % (0.44.1, Füllungen), Rest gleich; Texte 1984 / falsch 281; Sim 150 unverändert; Scans ±2 Objekte; Plan4.pdf
+offene Enden 1128 → 1002, Plan5 1352 → 1260. Analyse Weg A (23.11., `ERGEBNIS_2026-11-23_wegA_0440.md`): PLAN3-Trefferquote ausgereizt
+(Rest 82–94 % nur 0,3–1 mm daneben, meist enge Parallelen); Ortho > 3° PLAN3_EG 16,5 → 2,5 % durch Wandbänder; PLAN2_EG 1–3° = kurze
+Schraffurstriche mit Winkelrauschen (nur Optik). Größter offener Hebel: Schrift.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

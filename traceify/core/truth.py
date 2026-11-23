@@ -28,13 +28,21 @@ from .quality import render_entities
 
 
 def load_cad(path: str) -> Tuple[List[object], float]:
-    """Objekte des Modellbereichs (Einheit der Datei, y nach oben) und mm je Einheit ($INSUNITS)."""
+    """Objekte des Modellbereichs (Einheit der Datei, y nach oben) und mm je Einheit ($INSUNITS).
+    Linientyp wie gedruckt (BYLAYER aufgelöst) – `printed` braucht ihn für Punktlinien."""
     import ezdxf
     from ezdxf import units
     doc = ezdxf.readfile(path)
     ents: list = []
     for e in doc.modelspace():
+        n = len(ents)
         _convert(e, ents)
+        lt = e.dxf.get("linetype", "BYLAYER")
+        if lt.upper() == "BYLAYER":
+            la = doc.layers.get(e.dxf.get("layer", "0"))
+            lt = la.dxf.get("linetype", "CONTINUOUS") if la is not None else "CONTINUOUS"
+        for o in ents[n:]:
+            o.linetype = lt
     return ents, units.conversion_factor(doc.units or units.MM, units.MM)
 
 
@@ -415,8 +423,12 @@ def _on_ink(ents, dist: np.ndarray, tol: float = 1.5) -> float:
     return float((dist[P[:, 1], P[:, 0]] <= tol).mean()) if len(P) else 0.0
 
 
+DOT_SHARE = 0.25       # Punktlinien (Linientyp PUNKT/DOT): Punkte decken nur ~30 % der Länge
+
+
 def printed(truth: list, ink: np.ndarray, share: float = 0.6) -> list:
-    """Nur Originalobjekte, die auf dem Scan zu sehen sind (≥ share auf Tinte).
+    """Nur Originalobjekte, die auf dem Scan zu sehen sind (≥ share auf Tinte, Punktlinien
+    ≥ DOT_SHARE).
 
     Ausgeblendete Layer, nicht gedruckte Maßketten usw. sollen nicht als „fehlt“ zählen."""
     dist = cv2.distanceTransform((ink == 0).astype(np.uint8), cv2.DIST_L2, 3)
@@ -432,7 +444,8 @@ def printed(truth: list, ink: np.ndarray, share: float = 0.6) -> list:
             v = float((dist[ys[ok], xs[ok]] <= 2.0).mean()) if ok.any() else 0.0
         else:
             v = _on_ink([e], dist, 2.0)
-        if v >= share:
+        lt = (getattr(e, "linetype", "") or "").upper()
+        if v >= (DOT_SHARE if lt.startswith(("PUNKT", "DOT")) else share):
             out.append(e)
     return out
 

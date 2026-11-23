@@ -119,7 +119,7 @@ class SettingsPanel(QScrollArea):
         # ---- Linien & Farben ----
         g = QGroupBox("Linien, Farben, Symbole")
         f = QFormLayout(g)
-        self.dashed = QCheckBox("Strichlinien erkennen (gestrichelt, Strichpunkt)")
+        self.dashed = QCheckBox("Strichlinien erkennen (gestrichelt, Strichpunkt, gepunktet)")
         self.dashed.setChecked(True)
         f.addRow(self.dashed)
         self.widths = QCheckBox("Strichstärken messen und übernehmen")

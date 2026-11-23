@@ -25,6 +25,16 @@ PERP_TOL = 1.5         # px: Mitten so weit neben der Ausgleichsgeraden
 GAP_FACTOR = 2.5       # Nachbar höchstens so viele Strichlängen entfernt
 JOIN_MM = 2.0          # Reihen derselben Geraden über Kreuzungen hinweg verbinden (Lücke bis hier)
 
+# Punktlinien (0.45.0): Allplan-Linientyp PUNKT plottet bei 1:350 Punkte von 1–4 px (≤ 0,35 mm) im
+# Abstand ~1,7 mm – Entflecken löscht sie, die Linie fehlte ganz (PLAN3_UG1 Treffer dort 37 %).
+DOT_MAX_MM = 0.4       # Punkt höchstens so groß (Ausdehnung)
+DOT_STEP_MM = (0.5, 3.5)   # Abstand benachbarter Punkte
+MIN_DOTS = 6           # so viele Punkte mindestens in einer Reihe
+DOT_STEP_TOL = 0.15    # Punkt höchstens so weit (Anteil des Abstands) neben der erwarteten Lage
+DOT_GRID = 1.6         # Querabstand (× Punktabstand), bis zu dem Nachbarpunkte als Nachbarreihe zählen
+DOT_TRY = 4            # Richtungen je Startpunkt: die nächsten Nachbarn (Tempo bei Tonerstaub)
+DOT_CV = 0.1           # Streuung der Abstände (Variationskoeffizient): geplottete Punkte sind gleichmäßig, Staub nicht
+
 
 def small_dashes(bw: np.ndarray, px_per_mm: float) -> List[Line]:
     """Kleine längliche Teile des Binärbilds (Zeichnung weiß, nicht entfleckt) als kurze Linien
@@ -62,6 +72,120 @@ def small_dashes(bw: np.ndarray, px_per_mm: float) -> List[Line]:
         out.append(Line((float(mx[i] + t0 * ux[i]), float(my[i] + t0 * uy[i])),
                         (float(mx[i] + t1 * ux[i]), float(my[i] + t1 * uy[i]))))
     return out
+
+
+def small_dots(bw: np.ndarray, px_per_mm: float) -> np.ndarray:
+    """Mitten kleiner, kompakter Teile des Binärbilds (nicht entfleckt) – Kandidaten für Punktlinien."""
+    max_px = max(2.0, DOT_MAX_MM * px_per_mm)
+    n, _, st, c = cv2.connectedComponentsWithStats(bw, connectivity=8)
+    ok = np.maximum(st[:, 2], st[:, 3]) <= max_px
+    ok[0] = False
+    return c[ok].astype(float)
+
+
+def chain_dots(C: np.ndarray, px_per_mm: float) -> List[Line]:
+    """Punkte in gleichmäßigen Abständen auf einer Geraden → Linie mit Linientyp DOT (Layer
+    STRICHLINIEN). Ein fehlender Punkt (Kreuzung) wird übersprungen. Punktraster (Rasterflächen)
+    und Tonerstaub sind keine Linien: quer zur Reihe liegen dort mehrere Punkte; zwei parallele
+    Punktlinien bleiben. Zufällig fluchtende Staubpunkte haben zudem ungleiche Abstände.
+    Überlappende Reihen werden eine Linie."""
+    if len(C) < MIN_DOTS:
+        return []
+    from scipy.spatial import cKDTree
+
+    lo, hi = DOT_STEP_MM[0] * px_per_mm, DOT_STEP_MM[1] * px_per_mm
+    tree = cKDTree(C)
+    used = np.zeros(len(C), bool)
+    rows = []
+
+    def near(p, r):
+        js = np.asarray(tree.query_ball_point(p, r), int)
+        js = js[~used[js]]
+        if not len(js):
+            return None
+        return int(js[np.argmin(np.hypot(*(C[js] - p).T))])
+
+    for i in range(len(C)):
+        if used[i]:
+            continue
+        nb = np.asarray(tree.query_ball_point(C[i], hi), int)
+        dn = np.hypot(*(C[nb] - C[i]).T)
+        ok = ~used[nb] & (dn >= lo)
+        for j in nb[ok][np.argsort(dn[ok])][:DOT_TRY]:
+            if used[j]:
+                continue
+            v0 = C[j] - C[i]
+            r = max(1.5, DOT_STEP_TOL * float(np.hypot(*v0)))
+            ch = [i, j]
+            used[[i, j]] = True
+            for sgn in (1, -1):
+                cur, v = (j if sgn > 0 else i), sgn * v0
+                while True:
+                    k = near(C[cur] + v, r)
+                    if k is not None:
+                        v = C[k] - C[cur]
+                    else:                               # ein Punkt fehlt (Kreuzung)
+                        k = near(C[cur] + 2 * v, r)
+                        if k is None:
+                            break
+                        v = (C[k] - C[cur]) / 2
+                    used[k] = True
+                    ch.append(k)
+                    cur = k
+            if len(ch) < MIN_DOTS:
+                used[ch] = False
+                continue
+            P = C[ch]
+            c0 = P.mean(0)
+            u = np.linalg.svd(P - c0)[2][0]
+            step = float(np.hypot(*v0))
+            t = (P - c0) @ u
+            gaps = np.diff(np.sort(t))
+            gaps = np.where(gaps > 1.5 * np.median(gaps), gaps / 2, gaps)     # übersprungener Punkt
+            if (np.abs((P - c0) @ (-u[1], u[0])).max() > PERP_TOL
+                    or gaps.std() > DOT_CV * gaps.mean()):
+                used[ch] = False
+                continue
+            rows.append((c0, u, float(t.min()), float(t.max()), ch, step))
+            break
+    # Quer zur Reihe (bis 2 × DOT_GRID Punktabstände, je Punkt ±½ Abstand längs) darf höchstens ein
+    # Nachbarpunkt liegen – der einer zweiten, parallelen Punktlinie. Punktraster haben dort zwei
+    # oder mehr (Reihen beidseitig oder zwei auf einer Seite), Tonerstaub viele.
+    keep = []
+    for c0, u, a, b, ch, st in rows:
+        nrm = np.array((-u[1], u[0]))
+        cnt = []
+        for p, nb in zip(C[ch], tree.query_ball_point(C[ch], 2 * DOT_GRID * st)):
+            D = C[nb] - p
+            cnt.append(int(((np.abs(D @ u) <= 0.5 * st) & (np.abs(D @ nrm) > PERP_TOL)).sum()))
+        if float(np.median(cnt)) < 2:
+            keep.append((c0, u, a, b))
+    return _merge_rows(keep)
+
+
+def _merge_rows(rows) -> List[Line]:
+    """Überlappende Reihen derselben Geraden (Richtung ±2°, Enden ≤ PERP_TOL neben der anderen)
+    zu einer Linie."""
+    segs = sorted(((c0 + a * u, c0 + b * u) for c0, u, a, b in rows), key=lambda s: -float(np.hypot(*(s[1] - s[0]))))
+    cos_t = math.cos(math.radians(2.0))
+    for _ in range(2):                  # zweiter Durchgang: über ein Zwischenstück verbundene Reihen
+        out = []
+        for q0, q1 in segs:
+            v = (q1 - q0) / max(float(np.hypot(*(q1 - q0))), 1e-9)
+            for k, (p0, p1) in enumerate(out):
+                L = float(np.hypot(*(p1 - p0)))
+                u = (p1 - p0) / max(L, 1e-9)
+                nrm = np.array((-u[1], u[0]))
+                if abs(u @ v) < cos_t or max(abs((q0 - p0) @ nrm), abs((q1 - p0) @ nrm)) > PERP_TOL:
+                    continue
+                t = sorted((float((q0 - p0) @ u), float((q1 - p0) @ u)))
+                if t[0] <= L and t[1] >= 0:
+                    out[k] = (p0 + min(0.0, t[0]) * u, p0 + max(L, t[1]) * u)
+                    break
+            else:
+                out.append((q0, q1))
+        segs = out
+    return [Line(tuple(map(float, p0)), tuple(map(float, p1)), LAYER_DASHED, None, "DOT") for p0, p1 in segs]
 
 
 def chain_dashes(dashes: List[Line]) -> List[Line]:
