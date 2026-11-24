@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.45.3 – 24.11.2026
+### Schrift
+- **Meter-Maß der Seitenlesung bleibt:** Las die normale Texterkennung ein Maß mit Punkt („4.25“, „7.10“, „7.58⁵“) und die gezielte Lesung in der Maßlinienlücke nur einen Teil davon („25“, „10“, „758⁵“), ersetzte die Lückenzahl bisher die richtige Lesung. Jetzt bleibt die Seitenlesung, wenn die Lückenzahl ohne Punkt eine Teilfolge davon ist. Ohne Punkt in der Seitenlesung gewinnt weiter die Lücke – „425“ oder „424“ sind dort meist eine als Ziffer gelesene Hochziffer oder ein Sternstrich („42⁵“, „42“).
+- Gemessen an echten Plots: Texte 2026 → 2030 von 4360, falsche Wörter 272 → 271 (PLAN1_EG 148 → 149, PLAN1_UG 91 → 94). Simulation Texte 1254 → 1264, falsch 643 → 638 (PLAN1_UG 49 → 57), die 16 Scans unverändert.
+- **Kleine Maße neben dem Sternpaar an der Maßhilfslinie:** Läuft die senkrechte Hilfslinie am Stern hoch und berührt die erste Ziffer der Zahl daneben, war diese Ziffer zusammen mit der Linie zu hoch und fiel aus der Zahl – gelesen wurde nur „2“ statt „12“ oder gar nichts. Jetzt werden beim Suchen solcher Zahlen senkrechte Striche abgezogen, die länger als jede Ziffer sind.
+- Gemessen an echten Plots: Texte 2030 → 2034, falsche Wörter gleich (PLAN2_EG 476 → 477, OG1 406 → 408, OG3 266 → 267). Simulation 1264 → 1263, die 16 Scans unverändert. Die übrigen Fehlstellen dieser Art stehen meist direkt auf den Hilfslinien (die Linie läuft durch die Ziffer) oder haben zweistellige Hochziffern („14⁷⁵“).
+
 ## 0.45.2 – 24.11.2026
 ### Schrift
 - **Maßzahlen an Sternen, die nur in der anderen Richtung erkannt werden:** Maßzahlen werden getrennt für waagrechte und (gedreht) senkrechte Maßlinien gesucht, jede Richtung mit eigenen Sternen. Ein Stern gilt nur, wenn waagrechte und senkrechte Linie beidseits durch ihn laufen; die waagrechte Suche verlangt dabei eine ganz gerade Bildzeile, die gedrehte duldet 1 px Versatz. Sterne am Kettenende, mit einseitiger Hilfslinie oder leicht geknickter Maßlinie fand deshalb oft nur eine Richtung, und der anderen fehlte das Ende der Lücke. Jetzt teilen sich beide Richtungen ihre Sterne (die Türmaß-Schablonen bleiben bei den eigenen).

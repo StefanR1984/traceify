@@ -210,6 +210,14 @@ PLAN1_EG vier „88⁵“): echt Texte 2006 → 2026, falsch 276 → 272, Sim �
 (Maßkette y 787, Wand-Doppellinie) 2–3 px verschoben, weil die Falschlesung „40“ wegfiel (`style.detect_dashed` anfällig für
 Maßketten). Rest der 201 Fehlstellen mit Sternen: Zahl über durchgehender Linie zwischen weit entfernten Sternen 54 (auch Höhenkoten),
 neben Kettenende 26, neben engem Paar 24 + 10, Einzelstern/Türmaß 22.
+**0.45.3 merge:** von 8 „merge überschreibt richtige Seitenlesung“ waren 4 Teilfolgen („4.25“ → „25“, „7.58⁵“ → „758⁵“) → Seitenlesung
+bleibt, wenn sie einen Punkt hat und die Lückenzahl keinen. Ohne Punkt-Bedingung PLAN2_OG3 −4: „425“/„424“/„204“/„388“ der Seite sind
+Hochziffer bzw. Sternstrich als Ziffer. Echt 2026 → 2030, falsch 272 → 271; Sim +10/−5. Rest (1.13⁵ → 1.12⁵, 1.21 → 4.21) Ein-Ziffer-Tausch.
+**0.45.3 `_close_pairs` (34 Fälle „enges Paar, Wort/Höhe/_number“, `sterne/cp.py`, `cp2.py`):** Stand 0.45.3 richtig 1, Lücke aber
+Ausschnitt ungelesen 11 (Box nur eine Ziffer), falsch 6 (davon 3 × „14⁷⁵“ → „14“), keine Lücke 16 (10 × Nachbarwort gewinnt). Ursache
+meist senkrechte Maßhilfslinie: klebt an der Ziffer (Teil 2,3 h, fällt aus 0,75–1,3 h) → im Fenster Striche ≥ 1,6 h abziehen (Öffnen,
+**Rand = 0** – mit OpenCV-Standardrand galt eine „1“ am unteren Fensterrand als lang: echt −2). Echt +4, Sim −1, Scans gleich. Die 34
+selbst bleiben: Ziffern stehen *auf* den Hilfslinien (Linie durch die „1“/„0“, Klasse „Linie durch“).
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

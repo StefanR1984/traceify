@@ -243,7 +243,15 @@ def _close_pairs(rest: np.ndarray, ticks, found: List[Gap]) -> List[Gap]:
             c = (a + b) / 2.0
             x0, x1 = max(0, int(a - 3 * h)), min(W, int(b + 3 * h))
             y0, y1 = max(0, int(cy - 2.4 * h)), int(cy) - 1
-            n, _, st, _ = cv2.connectedComponentsWithStats(rest[y0:y1, x0:x1], connectivity=8)
+            win = rest[y0:y1, x0:x1]
+            # Maßhilfslinien laufen senkrecht durchs Fenster und kleben an der Zahl daneben („12“ → Ziffer
+            # 2,3 h hoch, fällt aus der Wortbildung): Striche länger als jede Ziffer abziehen
+            vl = int(1.6 * h)
+            if win.shape[0] > vl:
+                # Rand = Papier, sonst gilt eine Ziffer am Fensterrand („1“ bis zur Maßlinie) als lang
+                win = win & (cv2.morphologyEx(win, cv2.MORPH_OPEN, np.ones((vl, 1), np.uint8),
+                                              borderType=cv2.BORDER_CONSTANT, borderValue=0) == 0)
+            n, _, st, _ = cv2.connectedComponentsWithStats(win, connectivity=8)
             comps = [(x + x0, y + y0, w, hh) for x, y, w, hh, ar in st[1:] if ar >= 2]
             # Wörter: Ziffern einer Zeile mit kleinem Abstand
             words: list = []
@@ -872,6 +880,11 @@ def merge(texts: list, boxes: list, new_texts: list, new_boxes: list) -> None:
                 continue
         if t.dim is None and any(texts[i].text == t.text for i in hit):
             continue                                # gleiche Lesung schon da
+        # die Seiten-OCR las Meter mit Punkt, die Lücke nur einen Teil („4.25“ gegen „25“, „7.58⁵“ gegen „758⁵“):
+        # Seitenlesung bleibt. Ohne Punkt nicht – dort ist die Mehrziffer meist Hochziffer/Sternstrich („425“ = 42⁵)
+        if "." not in t.text and any("." in texts[i].text and NUMBER.match(texts[i].text.rstrip(SUP))
+                                     and _subseq(t.text.rstrip(SUP), texts[i].text.rstrip(SUP)) for i in hit):
+            continue
         # die OCR fand dieselbe Zahl samt Hochziffer („2.83⁵“), die Lücke nicht: Hochziffer behalten
         t.text = next((texts[i].text for i in hit if texts[i].text.rstrip(SUP) == t.text), t.text)
         for i in sorted(hit, reverse=True):
@@ -879,6 +892,12 @@ def merge(texts: list, boxes: list, new_texts: list, new_boxes: list) -> None:
                 del texts[i], boxes[i]
         texts.append(t)
         boxes.append(b)
+
+
+def _subseq(a: str, b: str) -> bool:
+    """a echt kürzer als b und eine Teilfolge davon („25“ in „4.25“)."""
+    it = iter(b)
+    return len(a) < len(b) and all(c in it for c in a)
 
 
 def _split_off(o: Text, box, num: str) -> bool:

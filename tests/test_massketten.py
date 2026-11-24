@@ -512,6 +512,22 @@ def test_kleines_mass_neben_dem_sternpaar_und_ueber_weitem_paar():
     assert len(g) == 1 and g[0][4][1:3] == pytest.approx((640, 680), abs=1)
 
 
+def test_kleines_mass_neben_dem_paar_an_der_masshilfslinie():
+    """Die senkrechte Maßhilfslinie klebt an der ersten Ziffer der Zahl daneben: sie wird für die
+    Wortbildung abgezogen, sonst fällt die Ziffer (zu hoch) weg und nur „4“ bleibt (0.45.3)."""
+    img = np.zeros((300, 900), np.uint8)
+    _kette(img)
+    for x in (640, 662):
+        _star(img, x, 150)
+    cv2.line(img, (662, 150), (760, 150), 1, 2)
+    cv2.putText(img, "24", (675, 144), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    cv2.line(img, (678, 95), (678, 150), 1, 2)             # Hilfslinie durch die „2“
+    g = [gap for gap, k in dimensions.line_gaps(img, 10.0) if gap[4] and len(gap[4]) > 4]
+    assert len(g) == 1
+    x, y, w, h = g[0][0]
+    assert x <= 680 and x + w >= 705 and y + h < 150         # beide Ziffern in der Box
+
+
 def test_laengenpruefung_einstelliges_mass_ueber_sternpaar():
     r = 118.0                                            # 1:100 bei 300 dpi
     rows = [_seg(t, metres * r) for t, metres in
@@ -563,6 +579,18 @@ def test_zusammenfuehren_behaelt_hochziffer_der_ocr():
     T, B = [Text("2.83⁵", (0, 0), 10)], [(0, 0, 50, 20)]
     dimensions.merge(T, B, [Text("2.83", (0, 0), 10)], [(2, 0, 45, 20)])
     assert [t.text for t in T] == ["2.83⁵"]
+
+
+def test_zusammenfuehren_behaelt_laengere_seitenlesung():
+    # Lückenzahl ist Teil der Seitenlesung mit Punkt („25“ in „4.25“, „758⁵“ in „7.58⁵“): Seitenlesung bleibt;
+    # ohne Punkt gewinnt die Lücke („425“ = Hochziffer als Ziffer gelesen → „42⁵“)
+    T = [Text("4.25", (0, 0), 10), Text("7.58⁵", (0, 0), 10), Text("1.21", (0, 0), 10), Text("425", (0, 0), 10)]
+    B = [(0, 0, 50, 20), (100, 0, 50, 20), (200, 0, 50, 20), (300, 0, 50, 20)]
+    dimensions.merge(T, B, [Text("25", (0, 0), 10), Text("758⁵", (0, 0), 10), Text("4.21", (0, 0), 10),
+                            Text("42⁵", (0, 0), 10)],
+                     [(20, 0, 30, 20), (100, 0, 50, 20), (200, 0, 50, 20), (300, 0, 50, 20)])
+    assert sorted(t.text for t in T) == ["4.21", "4.25", "42⁵", "7.58⁵"]
+    assert dimensions._subseq("25", "4.25") and not dimensions._subseq("25", "25") and not dimensions._subseq("52", "4.25")
 
 
 @pytest.mark.skipif(not tesseract_available(), reason="Tesseract fehlt")
