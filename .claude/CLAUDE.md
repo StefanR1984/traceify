@@ -187,6 +187,13 @@ wand_genau PLAN1_UG 94,3 % (0.44.1, Füllungen), Rest gleich; Texte 1984 / falsc
 offene Enden 1128 → 1002, Plan5 1352 → 1260. Analyse Weg A (23.11., `ERGEBNIS_2026-11-23_wegA_0440.md`): PLAN3-Trefferquote ausgereizt
 (Rest 82–94 % nur 0,3–1 mm daneben, meist enge Parallelen); Ortho > 3° PLAN3_EG 16,5 → 2,5 % durch Wandbänder; PLAN2_EG 1–3° = kurze
 Schraffurstriche mit Winkelrauschen (nur Optik). Größter offener Hebel: Schrift.
+**Schrift nach Klassen (24.11., Stand 0.45.0, Notizordner der Sitzung local_8a09df45 `schrift/`, `ERGEBNIS_2026-11-24_schrift_klassen.md`):**
+je gedrucktem Originaltext, ohne PLAN3_UG1 1310 Fehlstellen (1925 von 3235 richtig). Exklusive Ursachenkette: überlappt (Knäuel, doppelt
+gedruckt, PLAN3_EG-Maßketten 8°) 325, schräg 94, grau gedruckt 98 (davon 39 „NN⁷⁵“, alle falsch), Linie durch die Schrift 365 (quer 219,
+längs = eigene Maßlinie 97, Schraffur 49), klein < 1,2 mm 219, **frei/schwarz/≥ 1,2 mm 209** (cm 150, Maß m 46). cm-Maße = 61 % aller
+Fehlstellen; einstellige „N“ 21 %, „N⁵“ 5 % richtig. „Ziffern falsch“ heißt meist ungelesen (nächste Lesung = Nachbarmaß). PLAN3_UG1: 1066
+Fehlstellen, 834 überlappen. Bestes Ziel: die 209 freien (saubere „✳30✳“, „65“, „1⁵“ ungelesen, noch kein verworfener Versuch), dann längs
+laufende Maßlinie; quer laufende Linien zuletzt (drei Versuche verworfen).
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den
