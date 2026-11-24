@@ -57,6 +57,43 @@ def test_lesen_mit_attrappe_zahlenmuster():
     assert tt == []                                      # unsicher → nichts
 
 
+def test_lesen_schmale_eins():
+    """Allplan-„1“ ist schmal: „81“ in einer Box von 1,5 Ziffernbreiten gilt (0.45.1), „41“ in Hershey-Schrift
+    (breite „1“) weiter auch."""
+    for txt in ("81", "41"):
+        if txt == "81":                                  # „8“ und eine schmale „1“ als senkrechter Strich
+            img = _plan("8")
+            cv2.line(img, (304, 145), (304, 162), 1, 2)
+        else:
+            img = _plan(txt)
+        gray = (255 - img * 255).astype(np.uint8)
+        tt, _ = dimensions.read_gap_numbers(img, gray, 10.0, OcrSettings(),
+                                            run_lines=lambda c, s, x, r=txt: [(r, 90.0)] * len(c))
+        assert [t.text for t in tt] == [txt]
+
+
+def test_unsinn_erkannt():
+    from traceify.core.lexicon import Lexicon
+    lex = Lexicon()
+    for s in ("Las", "ar,", "sve 9", "+42", "962%", "S69", "278)", "304— 85"):
+        assert dimensions._garbage(s, lex), s
+    for s in ("Bad", "WC", "UG", "0.21a Flur", "1.19 Archiv", "TRH 2", "Flur"):
+        assert not dimensions._garbage(s, lex), s
+
+
+def test_zusammenfuehren_ersetzt_unsinn_nur_mit_masslinie():
+    T = [Text("Las", (0, 0), 10), Text("Bad", (0, 0), 10), Text("sve 9", (0, 0), 10)]
+    B = [(0, 0, 50, 20), (100, 0, 50, 20), (200, 0, 50, 20)]
+    a = Text("44⁵", (0, 0), 10)
+    a.dim = (-1.0, 3.0, -0.3)
+    b = Text("2.40", (0, 0), 10)
+    b.dim = (-1.0, 3.0, -0.3)
+    dimensions.merge(T, B, [a, b, Text("6.22⁵", (0, 0), 10)], [(2, 0, 45, 20), (100, 0, 50, 20), (200, 0, 50, 20)])
+    # „Las“ weicht der Zahl mit Maßlinie, „Bad“ bleibt, „sve 9“ bleibt ohne Maßlinie
+    assert sorted(t.text for t in T) == ["44⁵", "Bad", "sve 9"]
+    assert len(T) == len(B)
+
+
 def test_zusammenfuehren_ersetzt_nur_zahlenlesungen():
     T = [Text("144", (0, 0), 10), Text("Bad", (0, 0), 10), Text("2.10", (0, 0), 10)]
     B = [(0, 0, 50, 20), (100, 0, 50, 20), (200, 0, 50, 20)]

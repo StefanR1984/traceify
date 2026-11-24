@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.45.1 – 24.11.2026
+### Schrift
+- **Maßzahlen mit schmaler „1“:** Eine Maßzahl in einer Lücke der Maßlinie gilt nur, wenn ihre Breite zur Ziffernzahl passt. In der Allplan-Schrift ist die „1“ schmal, deshalb fielen sicher gelesene Maße wie „81⁵“, „41“ oder „1.01“ knapp durch (Verhältnis 0,70–0,75, Grenze 0,75). Jetzt gilt zusätzlich eine Sollbreite mit schmaler „1“; Schriften mit breiter „1“ bleiben gültig.
+- **Einstellige Maße mit Hochziffer über einem Sternpaar** („9⁵“, „8⁵“): Die Hochziffer wurde gefunden, die Lesung „95“ aber als zweistellige Zahl geprüft und verworfen. Jetzt wird sie „9⁵“, die Längenprobe am Sternpaar bleibt.
+- **Unsinn der Seitenlesung weicht einer Maßzahl:** Lag über einer sicher gelesenen Maßzahl (mittig in ihrer Maßlinie) ein Seitentext wie „Las“, „sve 9“, „962%“ oder „+42“, blieb der Unsinn stehen und die Zahl fiel weg. Jetzt ersetzt die Maßzahl solche Lesungen: Ziffern mit Fremdzeichen oder höchstens drei Buchstaben, ohne Planbegriff und ohne Abkürzung in Großbuchstaben. Wörter wie „Bad“, „WC“ oder „0.21a Flur“ bleiben.
+- Gemessen an echten Plots: Texte 1984 → 2006 von 4360, falsche Wörter 281 → 276 (nur PLAN2: EG 466 → 473, OG1 394 → 402, OG2 348 → 351, OG3 256 → 259, Dach 82 → 83). Trefferquote auf PLAN2 leicht besser (EG 95,6 → 95,9 %). Simulation Texte +2, die 16 Scans unverändert.
+- Grundlage ist eine Auswertung der Fehlstellen nach Klassen und Lesestufen (siehe CLAUDE.md, „Schrift nach Klassen“).
+
 ## 0.45.0 – 23.11.2026
 ### Linien
 - **Punktlinien:** Allplan plottet den Linientyp PUNKT in kleinen Maßstäben als winzige Punkte (1–4 px bei 300 dpi) im Abstand von ~1,2–1,7 mm. Entflecken löschte sie, die Linie fehlte ganz. Jetzt werden kleine Punkte im ungefilterten Binärbild zu Reihen verfolgt: mindestens 6 Punkte auf einer Geraden, gleichmäßige Abstände (Streuung ≤ 10 %), ein fehlender Punkt an einer Kreuzung wird übersprungen. Jede Reihe wird eine Linie mit Linientyp DOT auf STRICHLINIEN. Punktraster und Tonerstaub werden keine Linien (quer zur Reihe liegen dort mehrere Punkte), zwei parallele Punktlinien bleiben. Teil von „Strichlinien erkennen“.

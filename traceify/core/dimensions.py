@@ -368,7 +368,8 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
         two = sup is not None and (sup[2] if k == 0 else sup[3]) > 0.9 * (sup[3] if k == 0 else sup[2])
         if two and NUMBER.match(t[:-2]) and t[-2:].isdigit():   # „14⁷⁵“: zweistellige Hochziffer
             t, high = t[:-2], t[-2:].translate(SUPERSCRIPT)
-        elif sup is not None and NUMBER.match(t[:-1]):    # letzte Ziffer ist die Hochziffer
+        elif sup is not None and (NUMBER.match(t[:-1]) or len(t) == 2 and t.isdigit() and sg is not None
+                                  and len(sg) == 5):      # letzte Ziffer ist die Hochziffer („9⁵“ nur über Sternpaar)
             # einstellige Hochziffer an Maßen ist immer ⁵ (halbe Zentimeter); klein gedruckt liest
             # Tesseract sie oft als 9, 2, 6 oder 1
             t, high = t[:-1], "⁵"
@@ -377,8 +378,10 @@ def read_gap_numbers(bw: np.ndarray, gray: np.ndarray, px_per_mm: float, s, run_
         if ok:
             # passt die Länge der Zahl zur Box? (sonst: Teil einer Zahl oder zwei aufeinander)
             w, h = (fb[2], fb[3]) if k == 0 else (fb[3], fb[2])
-            want = h * DIGIT_W * (len(t) - 0.5 * t.count(".") - 0.15)
-            ok = 0.75 <= w / want <= 1.25
+            # die „1“ ist in vielen Schriften schmal (Allplan: „81“, „41“, „1.01“ lagen bei 0,70–0,75 und
+            # fielen durch), in anderen nicht – beide Sollbreiten gelten
+            n = len(t) - 0.5 * t.count(".") - 0.15
+            ok = any(0.75 <= w / (h * DIGIT_W * m) <= 1.25 for m in {n, n - 0.3 * t.count("1")})
         cand.append([t + high if ok else None, raw, conf])
     r = check_lengths(cand, [g for g, _ in gaps], [k for _, k in gaps])
     texts, boxes = [], []
@@ -822,6 +825,16 @@ def tidy_numbers(texts: list) -> int:
 _NUMLIKE = re.compile(r"^[0-9.,:;°\"'’”⁰¹²³⁴⁵⁶⁷⁸⁹ ]+$")
 
 
+def _garbage(s: str, lex) -> bool:
+    """Fehllesung statt Wort? Ziffern mit Fremdzeichen („+42“, „S69“, „962%“, „sve 9“) oder höchstens drei
+    Buchstaben („Las“, „ar,“) – ohne Wort darin: Planbegriff, ≥ 4 Buchstaben oder Abkürzung in Großbuchstaben
+    („0.21a Flur“, „Bad“, „WC“ bleiben)."""
+    toks = re.findall(r"[A-Za-zÄÖÜäöüß]{2,}", s)
+    if not re.search(r"\d", s) and sum(map(len, toks)) > 3:
+        return False
+    return not any(w in lex or len(w) >= 4 or w.isupper() for w in toks)
+
+
 def merge(texts: list, boxes: list, new_texts: list, new_boxes: list) -> None:
     """Lückenzahlen in die OCR-Ergebnisse übernehmen (texts/boxes parallel, werden geändert).
 
@@ -829,10 +842,18 @@ def merge(texts: list, boxes: list, new_texts: list, new_boxes: list) -> None:
     Lückenzahl ersetzt sie – sie ist aus dem sauberen Ausschnitt gelesen und trägt ggf. ihre
     Maßlinie (DIMENSION). Wörter bleiben."""
     from .ocr import _overlap
+    lex = None
     for t, b in zip(new_texts, new_boxes):
         hit = [i for i, o in enumerate(boxes) if _overlap(b, o) > 0.3]
         if any(not _NUMLIKE.match(texts[i].text) for i in hit):
-            continue
+            if t.dim is None:
+                continue
+            if lex is None:
+                from .lexicon import Lexicon
+                lex = Lexicon()
+            # mittig in der Maßlinie gelesen: Unsinn der Seiten-OCR („Las“, „sve 9“, „962%“) weicht
+            if not all(_NUMLIKE.match(texts[i].text) or _garbage(texts[i].text, lex) for i in hit):
+                continue
         if t.dim is None and any(texts[i].text == t.text for i in hit):
             continue                                # gleiche Lesung schon da
         # die OCR fand dieselbe Zahl samt Hochziffer („2.83⁵“), die Lücke nicht: Hochziffer behalten

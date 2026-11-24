@@ -194,6 +194,13 @@ längs = eigene Maßlinie 97, Schraffur 49), klein < 1,2 mm 219, **frei/schwarz/
 Fehlstellen; einstellige „N“ 21 %, „N⁵“ 5 % richtig. „Ziffern falsch“ heißt meist ungelesen (nächste Lesung = Nachbarmaß). PLAN3_UG1: 1066
 Fehlstellen, 834 überlappen. Bestes Ziel: die 209 freien (saubere „✳30✳“, „65“, „1⁵“ ungelesen, noch kein verworfener Versuch), dann längs
 laufende Maßlinie; quer laufende Linien zuletzt (drei Versuche verworfen).
+**Lesekette (24.11., gleicher Ordner, `trace.py`/`stufe.py`, 7 Plots PLAN2 + PLAN1_EG/UG, 909 Fehlstellen):** erste verlorene Stufe –
+keine Lücke trotz Stern 452 (frei: meist nur einseitig erkannter Stern; Doppelstern „✳✳“ kleiner Maße als ein breites Diagonal-Bauteil
+von `_ticks` verworfen, ~42 von 143; Stern an Wandecke), kein Stern 164, Ausschnitt ungelesen 202 (Tesseract leer), sicher falsch 38,
+Breitenprobe 26, merge 22, Längenprobe 5. **0.45.1** behebt Breitenprobe (schmale „1“, „9⁵“ über Sternpaar) und merge (Unsinn
+„Las“/„sve 9“/„962%“ weicht einer Maßzahl mit Maßlinie, `_garbage`): echt Texte 1984 → 2006, falsch 281 → 276, Sim +2, Scans gleich.
+Offen: Doppelsterne/Sterne an Wänden in `_ticks` (je fehlendem Stern erst messen, welche Probe scheitert); merge ersetzt 9 × eine
+richtige Seitenlesung durch falsche Lückenzahl (4.25 → 25, 1.13⁵ → 1.12⁵).
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den
