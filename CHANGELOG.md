@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.2 – 24.11.2026
+### Schrift
+- **Maßzahlen an Sternen, die nur in der anderen Richtung erkannt werden:** Maßzahlen werden getrennt für waagrechte und (gedreht) senkrechte Maßlinien gesucht, jede Richtung mit eigenen Sternen. Ein Stern gilt nur, wenn waagrechte und senkrechte Linie beidseits durch ihn laufen; die waagrechte Suche verlangt dabei eine ganz gerade Bildzeile, die gedrehte duldet 1 px Versatz. Sterne am Kettenende, mit einseitiger Hilfslinie oder leicht geknickter Maßlinie fand deshalb oft nur eine Richtung, und der anderen fehlte das Ende der Lücke. Jetzt teilen sich beide Richtungen ihre Sterne (die Türmaß-Schablonen bleiben bei den eigenen).
+- Gemessen an echten Plots: Texte 2006 → 2026 von 4360, falsche Wörter 276 → 272 (PLAN2_OG3 259 → 266, OG1 402 → 406, EG 473 → 476, OG2 351 → 354, Dach 83 → 85, PLAN1_EG 145 → 148, PLAN1_UG 93 → 91). Trefferquote PLAN1_EG 97,8 → 97,5 % – Zufall: eine weggefallene Falschlesung verschiebt zwei schon vorhandene Schein-Strichlinien (Maßkette, Wand-Doppellinie) um 2–3 px. Simulation Texte 1261 → 1254 (PLAN1), die 16 Scans unverändert.
+- Grundlage: Auswertung der Fehlstellen „keine Lücke trotz Stern“ – von 452 haben nur 225 einen fehlenden Stern (meist verschmolzene Sternreihen in Maß-Knäueln); bei 79 weiteren war der Stern nur in einer Richtung erkannt.
+
 ## 0.45.1 – 24.11.2026
 ### Schrift
 - **Maßzahlen mit schmaler „1“:** Eine Maßzahl in einer Lücke der Maßlinie gilt nur, wenn ihre Breite zur Ziffernzahl passt. In der Allplan-Schrift ist die „1“ schmal, deshalb fielen sicher gelesene Maße wie „81⁵“, „41“ oder „1.01“ knapp durch (Verhältnis 0,70–0,75, Grenze 0,75). Jetzt gilt zusätzlich eine Sollbreite mit schmaler „1“; Schriften mit breiter „1“ bleiben gültig.

@@ -201,6 +201,15 @@ Breitenprobe 26, merge 22, Längenprobe 5. **0.45.1** behebt Breitenprobe (schma
 „Las“/„sve 9“/„962%“ weicht einer Maßzahl mit Maßlinie, `_garbage`): echt Texte 1984 → 2006, falsch 281 → 276, Sim +2, Scans gleich.
 Offen: Doppelsterne/Sterne an Wänden in `_ticks` (je fehlendem Stern erst messen, welche Probe scheitert); merge ersetzt 9 × eine
 richtige Seitenlesung durch falsche Lückenzahl (4.25 → 25, 1.13⁵ → 1.12⁵).
+**Fehlende Sterne (24.11., Notizordner der Sitzung local_7d6130cc `sterne/`, `ERGEBNIS_2026-11-24_fehlende_sterne.md`):** von 452
+„keine Lücke trotz Stern“ fehlt nur bei 225 ein Originalstern; Grund meist verschmolzene Sternreihe (113 von 235 Sternen, davon 64
+PLAN1_UG-Knäuel, frei nur 12), keine Waagrechte 33, Seitenverhältnis 21. **Je Richtung** gerechnet war bei 79 weiteren der Stern nur
+in der anderen Richtung erkannt (`_ticks` verlangt beide Linien beidseits; waagrecht strenge Bildzeile `.all`, gedreht ±1 px) →
+**0.45.2** `line_gaps` teilt die Sterne beider Richtungen (`_join_ticks`; `keep`/template_numbers behält die eigenen – geteilt verlor
+PLAN1_EG vier „88⁵“): echt Texte 2006 → 2026, falsch 276 → 272, Sim −7, Scans gleich; PLAN1_EG Treffer −0,3 = Schein-Strichlinien
+(Maßkette y 787, Wand-Doppellinie) 2–3 px verschoben, weil die Falschlesung „40“ wegfiel (`style.detect_dashed` anfällig für
+Maßketten). Rest der 201 Fehlstellen mit Sternen: Zahl über durchgehender Linie zwischen weit entfernten Sternen 54 (auch Höhenkoten),
+neben Kettenende 26, neben engem Paar 24 + 10, Einzelstern/Türmaß 22.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

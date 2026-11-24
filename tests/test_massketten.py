@@ -126,6 +126,24 @@ def test_zahl_zwischen_sternen_ohne_masslinie():
     assert [t.text for t in tt] == ["74", "74"]
 
 
+def test_stern_aus_der_anderen_richtung():
+    """0.45.2: Der dritte Stern hat einen 1-px-Knick in der Maßlinie – die waagrechte Suche verwirft
+    ihn, die gedrehte findet ihn. line_gaps teilt die Sterne, die zweite Lücke schließt."""
+    img = np.zeros((300, 700), np.uint8)
+    _star(img, 100, 150)
+    _star(img, 250, 150)
+    cv2.line(img, (392, 158), (408, 142), 1, 2)
+    cv2.line(img, (392, 150), (400, 150), 1, 1)
+    cv2.line(img, (401, 151), (408, 151), 1, 1)          # Knick
+    cv2.line(img, (400, 142), (400, 158), 1, 2)
+    for x in (155, 305):
+        cv2.putText(img, "74", (x, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    assert len(dimensions._ticks(img, 10.0)[0]) == 2
+    assert len(dimensions._horizontal_gaps(img, 10.0)) == 1           # ohne geteilte Sterne
+    assert [(k, gap[3]) for gap, k in dimensions.line_gaps(img, 10.0)] == [(0, 0), (0, 0)]
+    assert dimensions._join_ticks([(1, 1)], [(2, 3), (9, 9)]) == [(1, 1), (9, 9)]
+
+
 def test_ziffern_sind_keine_sterne():
     img = np.zeros((200, 700), np.uint8)
     cv2.putText(img, "4714 1.47", (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 1.2, 1, 2)

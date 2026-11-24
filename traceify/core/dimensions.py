@@ -142,19 +142,20 @@ def _weak_ticks(bw: np.ndarray, px_per_mm: float, ticks):
     return out
 
 
-def _horizontal_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = None) -> List[Gap]:
+def _horizontal_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = None, tk=None) -> List[Gap]:
     """Schrift in Lücken waagrechter Linien (Box der Schrift, Box der vollen Ziffern).
 
     Die Lücke liegt zwischen zwei Linienstücken oder zwei Maßbegrenzungen („✳74✳74✳“: Allplan
-    lässt die Maßlinie bei kurzen Maßen ganz weg)."""
+    lässt die Maßlinie bei kurzen Maßen ganz weg). tk: (Sterne, Maske) beider Richtungen und (Sterne,
+    Maske) dieser Richtung aus line_gaps, sonst _ticks."""
     import cv2
     L = max(10, int(3.0 * px_per_mm))
     hor = cv2.morphologyEx(bw, cv2.MORPH_OPEN, np.ones((1, L), np.uint8))
     n, _, st, _ = cv2.connectedComponentsWithStats(hor, connectivity=8)
     thin = max(3, int(round(0.6 * px_per_mm)))
-    ticks, stars = _ticks(bw, px_per_mm)
-    if keep is not None:
-        keep.append((ticks, stars | hor))           # für template_numbers: Sterne, Fremdtinte
+    ticks, stars = _ticks(bw, px_per_mm) if tk is None else tk[:2]
+    if keep is not None:                            # für template_numbers: eigene Sterne, Fremdtinte
+        keep.append((ticks, stars | hor) if tk is None else (tk[2], tk[3] | hor))
     # Stern als Lückenende: nur die Mitte ± 0,15 mm – die Sterne sind aus rest entfernt, und die
     # Ziffern kleiner Maße („✳28✳“) reichen oft bis an die Arme
     rt = 0.15 * px_per_mm
@@ -305,13 +306,28 @@ def _number(full, comps, rest, g0: int, g1: int):
     return (fx0, fy0, fx1 - fx0, by1 - fy0), fb, sup[0] if sup else None
 
 
+def _join_ticks(own: list, other: list, d: float = 3.0) -> list:
+    """Sterne der eigenen Richtung plus die der anderen, die nicht schon dabei sind (Abstand > d)."""
+    return list(own) + [p for p in other if all(abs(p[0] - q[0]) > d or abs(p[1] - q[1]) > d for q in own)]
+
+
 def line_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = None) -> List[Tuple[Gap, int]]:
     """Schrift in Lücken waagrechter (k=0) und senkrechter Linien (k=1, liest von unten nach
     oben). Boxen im Originalbild. keep sammelt je Richtung (Sterne, Maske Sterne + Linien)."""
-    out = [(g, 0) for g in _horizontal_gaps(bw, px_per_mm, keep)]
     H = bw.shape[0]
     rot = np.ascontiguousarray(np.rot90(bw, -1))      # wie ocr.recognize, k=1
-    for g in _horizontal_gaps(rot, px_per_mm, keep):
+    # Sterne beider Richtungen teilen: _ticks verlangt beide Linien beidseits des Sterns, am
+    # Kettenende oder an einseitiger Hilfslinie findet ihn nur die Richtung, in der die
+    # durchgehende Linie waagrecht liegt – die Lückensuche der anderen braucht ihn aber auch
+    t0, s0 = _ticks(bw, px_per_mm)
+    t1, s1 = _ticks(rot, px_per_mm)
+    t0r = [(H - 1 - y, x) for x, y in t0]            # Original → gedreht
+    t1o = [(y, H - 1 - x) for x, y in t1]            # gedreht → Original
+    # template_numbers (Türmaße) bleibt bei den eigenen Sternen – mit den geteilten verlor es „88⁵“
+    out = [(g, 0) for g in _horizontal_gaps(bw, px_per_mm, keep,
+                                            (_join_ticks(t0, t1o), s0 | np.rot90(s1, 1), t0, s0))]
+    for g in _horizontal_gaps(rot, px_per_mm, keep,
+                              (_join_ticks(t1, t0r), s1 | np.ascontiguousarray(np.rot90(s0, -1)), t1, s1)):
         back = tuple(b and (b[1], H - (b[0] + b[2]), b[3], b[2]) for b in g[:3])
         out.append((back + g[3:], 1))
     return out
