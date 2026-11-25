@@ -193,6 +193,10 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = No
                 continue
             y0, y1 = max(0, int(cy - h_max)), min(H, int(cy + h_max) + 1)
             win = rest[y0:y1, g0:g1]
+            # senkrechte Wand-/Hilfslinien durch die Zahl abziehen (länger als jede Ziffer, Rand = Papier),
+            # sonst ist die Ziffer daran zu hoch und fehlt in der Zahl
+            win = win & (cv2.morphologyEx(win, cv2.MORPH_OPEN, np.ones((int(4.0 * px_per_mm), 1), np.uint8),
+                                          borderType=cv2.BORDER_CONSTANT, borderValue=0) == 0)
             k, _, cs, _ = cv2.connectedComponentsWithStats(win, connectivity=8)
             comps = [(x + g0, y + y0, w, h) for x, y, w, h, ar in cs[1:] if ar >= 2]
             # volle Ziffern: kreuzen die Linienmitte, Schrifthöhe

@@ -623,3 +623,17 @@ def test_ausschnitt_ohne_masslinie_und_hilfslinie():
     ink, want = c < 128, ref < 128
     assert (ink & ~want).sum() <= 0.05 * want.sum()                      # Linien weg
     assert (want & ~ink).sum() <= 0.25 * want.sum()                      # Ziffern fast ganz da
+
+
+def test_wandlinie_durch_die_zahl_in_der_luecke():
+    """Eine senkrechte Wand- oder Hilfslinie läuft durch die Zahl in der Lücke der Maßlinie: die Ziffer ist daran
+    zu hoch und fiel aus der Zahl. Senkrechte Striche länger als jede Ziffer werden für die Suche abgezogen (0.45.5)."""
+    img = np.zeros((300, 700), np.uint8)
+    cv2.line(img, (10, 150), (250, 150), 1, 2)
+    cv2.line(img, (350, 150), (590, 150), 1, 2)
+    cv2.putText(img, "6.70", (262, 162), cv2.FONT_HERSHEY_SIMPLEX, 0.8, 1, 2)
+    cv2.line(img, (313, 20), (313, 280), 1, 2)                           # Wandlinie an der „0“
+    g = [gap for gap, k in dimensions.line_gaps(img, 10.0) if k == 0]
+    assert len(g) == 1
+    x, y, w, h = g[0][1]
+    assert x <= 265 and x + w >= 310                                     # alle Ziffern in der Box

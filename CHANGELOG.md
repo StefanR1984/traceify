@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45.5 – 25.11.2026
+### Schrift
+- **Maßzahlen mit Wand- oder Hilfslinie daneben:** Berührt eine senkrechte Wand- oder Hilfslinie eine Ziffer der Zahl in der Lücke der Maßlinie, war diese Ziffer samt Linie zu hoch und fiel aus der Zahl – gelesen wurde nur ein Teil oder nichts. Jetzt werden bei der Suche senkrechte Striche abgezogen, die länger als 4 mm sind (länger als jede Ziffer).
+- Gemessen an echten Plots: Texte 2043 → 2059 von 4360, falsche Wörter 271 → 267 (PLAN2_OG2 353 → 358, OG1 407 → 411, Dach 86 → 89). Simulation Texte 1270 → 1267, falsch 629 → 640 (über viele Pläne verteilt), die 16 Scans unverändert.
+
 ## 0.45.4 – 25.11.2026
 ### Schrift
 - **Maßzahlen mit Linie im Ausschnitt:** Ist die Lücke der Maßlinie schmaler als die Zahl, stößt die Linie an die äußeren Ziffern oder läuft durch sie, oft kreuzt dazu eine Hilfs- oder Wandlinie. Im Ausschnitt, den die Texterkennung liest, blieben diese Linien stehen – an „—1.35—“ scheitert sie. Jetzt werden im Ausschnitt waagrechte Linien längs der Zahl und senkrechte Striche weiß gemacht, die länger als jede Ziffer sind; Ziffernstriche, die die Linie kreuzen, bleiben.

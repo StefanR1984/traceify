@@ -228,7 +228,9 @@ Band der tintenreichsten Mittelzeile (ohne Spalten, in denen ein Ziffernstrich k
 echt Texte 2034 → 2043, falsch gleich; Sim 1263 → 1270, falsch 639 → 629; Scans gleich. **Verworfen:** eigene Suche „Zahl auf der Linie“
 zwischen Sternen (`_on_line`, Bruchstücke ersetzen) – Linie läuft nicht von Stern zu Stern durch, mit Lockerung nur Unsinn (Schraffur),
 echt ±0. Schein-Strichlinien gezählt: 39 von 1227 Strichlinien (0,5 von 19,7 m) neben dem Original, ohne sie Genauigkeit +0,1…+0,4 –
-kein Hebel.
+kein Hebel. **0.45.5** `_horizontal_gaps`: im Suchfenster jeder Lücke senkrechte Striche ≥ 4 mm abziehen (Rand = 0) – Wand-/Hilfslinie
+an der Ziffer: echt Texte 2043 → 2059, falsch 271 → 267; Sim 1270 → 1267, falsch 629 → 640 (verteilt, Gegenprobe); Scans gleich. Die „quer“-
+Fälle (Hilfslinie am Stern durch die Zahl, 83) bleiben: PLAN1_UG meist doppelt gedruckte Knäuel, PLAN2 Zahlen in schraffierten Wanddetails.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den
