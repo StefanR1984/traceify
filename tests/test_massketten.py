@@ -604,3 +604,22 @@ def test_graue_linie_durch_raumstempel():
     binary = np.where(detail < 200, 0, 255).astype(np.uint8)   # Binärbild: grau zählt als Tinte
     texts, _ = recognize(binary, OcrSettings(), px_per_mm=10.0, detail=detail)
     assert "Druckerpool" in [t.text for t in texts]
+
+
+def test_ausschnitt_ohne_masslinie_und_hilfslinie():
+    """Ist die Lücke der Maßlinie schmaler als die Zahl, stößt die Linie an die Ziffern oder läuft durch sie,
+    oft kreuzt dazu eine Hilfslinie – an „—30—“ scheitert Tesseract. Im Ausschnitt werden waagrechte Läufe
+    länger als jede Ziffer und senkrechte Striche länger als jede Ziffer weiß, die Ziffern bleiben (0.45.4)."""
+    img = np.zeros((300, 900), np.uint8)
+    cv2.putText(img, "30", (700, 161), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    ys, xs = np.nonzero(img)
+    box = (int(xs.min()), int(ys.min()), int(xs.max() - xs.min() + 1), int(ys.max() - ys.min() + 1))
+    digits = img.copy()
+    cv2.line(img, (600, 152), (800, 152), 1, 2)                          # Maßlinie durch die Ziffern
+    cv2.line(img, (box[0] - 1, 100), (box[0] - 1, 200), 1, 2)            # Hilfslinie an der „3“
+    gray = ((1 - img) * 255).astype(np.uint8)
+    c = dimensions._crop(img, gray, box, 0, 40)
+    ref = dimensions._crop(digits, ((1 - digits) * 255).astype(np.uint8), box, 0, 40)
+    ink, want = c < 128, ref < 128
+    assert (ink & ~want).sum() <= 0.05 * want.sum()                      # Linien weg
+    assert (want & ~ink).sum() <= 0.25 * want.sum()                      # Ziffern fast ganz da

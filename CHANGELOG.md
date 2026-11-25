@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.4 – 25.11.2026
+### Schrift
+- **Maßzahlen mit Linie im Ausschnitt:** Ist die Lücke der Maßlinie schmaler als die Zahl, stößt die Linie an die äußeren Ziffern oder läuft durch sie, oft kreuzt dazu eine Hilfs- oder Wandlinie. Im Ausschnitt, den die Texterkennung liest, blieben diese Linien stehen – an „—1.35—“ scheitert sie. Jetzt werden im Ausschnitt waagrechte Linien längs der Zahl und senkrechte Striche weiß gemacht, die länger als jede Ziffer sind; Ziffernstriche, die die Linie kreuzen, bleiben.
+- Gemessen an echten Plots: Texte 2034 → 2043 von 4360, falsche Wörter gleich (PLAN1_UG 94 → 99, PLAN2_EG 477 → 481). Simulation Texte 1263 → 1270, falsch 639 → 629, die 16 Scans unverändert.
+- Grundlage: Auswertung der Fehlstellen „Ausschnitt ungelesen“ (200, meist schneidet eine Linie die Zahl) und „Linie durch die Schrift“ nach Lage zu den Sternen. Eine eigene Suche nach Zahlen auf der Maßlinie brachte nichts – die Lücke hat die Ziffern meist schon, gelesen wird nur der Ausschnitt schlecht.
+
 ## 0.45.3 – 24.11.2026
 ### Schrift
 - **Meter-Maß der Seitenlesung bleibt:** Las die normale Texterkennung ein Maß mit Punkt („4.25“, „7.10“, „7.58⁵“) und die gezielte Lesung in der Maßlinienlücke nur einen Teil davon („25“, „10“, „758⁵“), ersetzte die Lückenzahl bisher die richtige Lesung. Jetzt bleibt die Seitenlesung, wenn die Lückenzahl ohne Punkt eine Teilfolge davon ist. Ohne Punkt in der Seitenlesung gewinnt weiter die Lücke – „425“ oder „424“ sind dort meist eine als Ziffer gelesene Hochziffer oder ein Sternstrich („42⁵“, „42“).

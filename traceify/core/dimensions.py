@@ -217,6 +217,29 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = No
     return out + _close_pairs(rest, ticks, out)
 
 
+def _strip(bl: np.ndarray, r: int, h: float) -> np.ndarray:
+    """Maske der Linien, die eine Zahl kreuzen: die waagrechte Maßlinie um Zeile r (ohne die Spalten, in
+    denen ein Ziffernstrich sie quert – Tinte darüber und darunter) und senkrechte Striche länger als jede
+    Ziffer (Hilfslinien, Wände). bl: Tinte (bool), Linie waagrecht."""
+    import cv2
+    L = max(10, int(1.5 * h))
+    hor = cv2.morphologyEx(bl.astype(np.uint8), cv2.MORPH_OPEN, np.ones((1, L), np.uint8)).astype(bool)
+    band = np.zeros_like(hor)
+    band[max(0, r - 3):r + 4] = True
+    hor &= band
+    rows = np.nonzero(hor.any(axis=1))[0]
+    if len(rows):
+        r0, r1 = rows.min(), rows.max()
+        hor &= ~(bl[max(0, r0 - 2):r0].any(axis=0) & bl[r1 + 1:r1 + 3].any(axis=0))[None, :]
+    vl = int(1.6 * h)
+    if bl.shape[0] <= vl:
+        return hor
+    # Rand = Papier, sonst gilt eine Ziffer am Rand als lang
+    vert = cv2.morphologyEx((bl & ~hor).astype(np.uint8), cv2.MORPH_OPEN, np.ones((vl, 1), np.uint8),
+                            borderType=cv2.BORDER_CONSTANT, borderValue=0).astype(bool)
+    return hor | vert
+
+
 def _close_pairs(rest: np.ndarray, ticks, found: List[Gap]) -> List[Gap]:
     """Kleine Maße über zwei eng liegenden Sternen („24“ über „✳✳“): Die Zahl passt nicht
     dazwischen und steht darüber, oft breiter als das Paar und in Nachbarschrift, oder direkt
@@ -356,6 +379,23 @@ def _crop(bw: np.ndarray, gray: np.ndarray, box, k: int, height: int, side: int 
     own[0] = False
     alien = ((lab > 0) & ~own[lab]).astype(np.uint8)
     c[(cv2.dilate(alien, np.ones((5, 5), np.uint8)) > 0) & ~own[lab]] = 255
+    # Maßlinie, die an die Ziffern stößt oder durch sie läuft (Lücke schmaler als die Zahl), und kreuzende
+    # Hilfslinien weiß – an „—1.35—“ scheitert Tesseract. `_strip` nimmt nur Läufe länger als jede Ziffer;
+    # gesucht in einem um eine Ziffernhöhe größeren Fenster.
+    hd = h if k == 0 else w
+    e = int(hd)
+    Y0, X0 = (max(0, y - e), x0) if k == 0 else (y0, max(0, x - e))
+    bl = bw[Y0:(y + h + e if k == 0 else y + h + p), X0:(x + w + p if k == 0 else x + w + e)] > 0
+    if k:
+        bl = bl.T
+    o = (y - Y0) if k == 0 else (x - X0)
+    mid = bl[o + int(0.25 * hd):o + int(0.75 * hd) + 1]
+    if mid.size and mid.shape[1]:
+        m = _strip(bl, o + int(0.25 * hd) + int(np.argmax(mid.mean(axis=1))), hd)
+        if k:
+            m = m.T
+        sub = m[y0 - Y0:y0 - Y0 + c.shape[0], x0 - X0:x0 - X0 + c.shape[1]]
+        c[:sub.shape[0], :sub.shape[1]][sub] = 255
     if side and k == 0:
         c[(y - y0 + h if side < 0 else 0):(None if side < 0 else y - y0)] = 255
     elif side:

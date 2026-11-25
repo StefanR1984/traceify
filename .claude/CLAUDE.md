@@ -218,6 +218,17 @@ Ausschnitt ungelesen 11 (Box nur eine Ziffer), falsch 6 (davon 3 × „14⁷⁵�
 meist senkrechte Maßhilfslinie: klebt an der Ziffer (Teil 2,3 h, fällt aus 0,75–1,3 h) → im Fenster Striche ≥ 1,6 h abziehen (Öffnen,
 **Rand = 0** – mit OpenCV-Standardrand galt eine „1“ am unteren Fensterrand als lang: echt −2). Echt +4, Sim −1, Scans gleich. Die 34
 selbst bleiben: Ziffern stehen *auf* den Hilfslinien (Linie durch die „1“/„0“, Klasse „Linie durch“).
+**Ausschnitt ungelesen / Linie durch (25.11., Notizordner local_7d6130cc `ungelesen/`, `durch/`, `strich/`):** 200 Fehlstellen mit
+Lücke, aber Ausschnitt verworfen (leer 71, unsicher 71, Form/Breite 58); bei 107 deckt die Box < 60 % der Zahl – Linie durch/an der Zahl,
+„leer“ sind fast nur Bruchstücke; Rohlesung = Original nur 14 (5 × „1⁵“ = „15“, einstellig + ⁵ nur über Sternpaar erlaubt, ≤ 5 Texte).
+Freie Fehlstellen nach Lage zu den Sternen (583, 7 Plots): längs (Zahl auf der Maßlinie zwischen Sternen) 72, quer (Hilfslinie am Stern
+durch die Zahl) 83, sonst 414. „längs“: die Lücke ist schmaler als die Zahl, die Linie stößt an die äußeren Ziffern (Zeilentinte in der
+Box 0,3–0,9, nicht durchgehend); die Lückenbox hat die Ziffern meist schon. **0.45.4** `_crop` → `_strip`: waagrechte Läufe ≥ 1,5 h im
+Band der tintenreichsten Mittelzeile (ohne Spalten, in denen ein Ziffernstrich kreuzt) und senkrechte Striche ≥ 1,6 h (Rand = 0) weiß:
+echt Texte 2034 → 2043, falsch gleich; Sim 1263 → 1270, falsch 639 → 629; Scans gleich. **Verworfen:** eigene Suche „Zahl auf der Linie“
+zwischen Sternen (`_on_line`, Bruchstücke ersetzen) – Linie läuft nicht von Stern zu Stern durch, mit Lockerung nur Unsinn (Schraffur),
+echt ±0. Schein-Strichlinien gezählt: 39 von 1227 Strichlinien (0,5 von 19,7 m) neben dem Original, ohne sie Genauigkeit +0,1…+0,4 –
+kein Hebel.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den
