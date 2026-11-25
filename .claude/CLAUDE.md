@@ -231,6 +231,13 @@ echt ±0. Schein-Strichlinien gezählt: 39 von 1227 Strichlinien (0,5 von 19,7 m
 kein Hebel. **0.45.5** `_horizontal_gaps`: im Suchfenster jeder Lücke senkrechte Striche ≥ 4 mm abziehen (Rand = 0) – Wand-/Hilfslinie
 an der Ziffer: echt Texte 2043 → 2059, falsch 271 → 267; Sim 1270 → 1267, falsch 629 → 640 (verteilt, Gegenprobe); Scans gleich. Die „quer“-
 Fälle (Hilfslinie am Stern durch die Zahl, 83) bleiben: PLAN1_UG meist doppelt gedruckte Knäuel, PLAN2 Zahlen in schraffierten Wanddetails.
+**„sonst“ (26.11., Notizordner local_7d6130cc `sonst/`, `sonst.py`, `proto.py`):** 401 freie Fehlstellen ohne Lage zu Sternen (Stand 0.45.5) –
+Einzelstern ≤ 3 h 143 (120 keine Lücke), enges Paar ≤ 3 h 123, kein Stern 112 (93 keine Lücke; „2“, Raumstempel), weites Paar 23. Im engen Paar
+die zweistelligen Hochziffern: alle 49 „NN²⁵/NN⁷⁵“ der Plots falsch (Lesung „27“/„27⁵“) – Allplan druckt diese Maße **grau** (Ziffern ~110,
+Hochziffer 130–200), `gray < 128` verliert die Hochziffer. **0.45.6** `ocr.quarter_superscripts` (nach `tidy_numbers`, nur mit `detail`): nur
+graue Hauptziffern (10-%-Perzentil ≥ 80), Schwelle (Grau + 255)/2, `_superscript_box`, Spanne über Spalten (Lücke ≤ 0,2 sh); breiter als 0,95 × hoch
+→ zwei Ziffern, erste 2 (Fußstrich ≥ 55 % der Spalten) sonst 7. Prototyp an den Originalen: grau 26 von 41 richtig, 3 Zahlen ohne Hochziffer
+bekamen eine, ⁵ nie verwechselt; schwarze ⁵ würden ohne Grau-Tor zu 80 × „²⁵/⁷⁵“. Echt Texte 2059 → 2079, falsch gleich; Sim −1/+1; Scans gleich.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

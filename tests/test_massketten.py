@@ -637,3 +637,39 @@ def test_wandlinie_durch_die_zahl_in_der_luecke():
     assert len(g) == 1
     x, y, w, h = g[0][1]
     assert x <= 265 and x + w >= 310                                     # alle Ziffern in der Box
+
+
+def _grau_mass(main, sup, grau=110, sup_grau=175):
+    """Grau gedrucktes Maß mit dünner, hellerer Hochziffer (Allplan „27⁷⁵“); Box der Hauptziffern."""
+    from PIL import Image, ImageDraw, ImageFont
+    f, fs = (ImageFont.truetype("arial.ttf", s, layout_engine=ImageFont.Layout.BASIC) for s in (40, 22))
+    im = Image.new("L", (300, 100), 255)
+    d = ImageDraw.Draw(im)
+    d.text((20, 80), main, fill=grau, font=f, anchor="ls")
+    w = int(f.getlength(main))
+    top = 80 - int(f.getbbox("2", anchor="ls")[1] * -1)
+    d.text((22 + w, top), sup, fill=sup_grau, font=fs, anchor="lt")
+    g = np.asarray(im).copy()
+    ys = np.nonzero((g[:, 20:20 + w] < 200).any(axis=1))[0]
+    return g, (20, int(ys.min()), w, int(ys.max() - ys.min() + 1))
+
+
+def test_graue_zweistellige_hochziffer():
+    """Grau gedruckte Maße: die helle zweistellige Hochziffer fehlt der OCR (Schwelle 128) – „27⁵“ → „27⁷⁵“,
+    „21“ → „21²⁵“; einstellige ⁵ und schwarze Schrift bleiben (0.45.6)."""
+    pytest.importorskip("PIL")
+    from traceify.core.ocr import quarter_superscripts
+    try:
+        cases = [(_grau_mass("27", "75"), "27⁵", "27⁷⁵"), (_grau_mass("21", "25"), "21", "21²⁵"),
+                 (_grau_mass("14", "5"), "14", "14"), (_grau_mass("27", "75", grau=0, sup_grau=0), "27", "27")]
+    except OSError:
+        pytest.skip("Arial fehlt")
+    for (g, box), lesung, soll in cases:
+        T = [Text(lesung, (box[0], box[1] + box[3]), box[3])]
+        quarter_superscripts(g, T, [box])
+        assert T[0].text == soll, (lesung, soll)
+        # senkrecht (von unten nach oben): Bild gegen den Uhrzeigersinn gedreht, Box mitgedreht
+        x, y, w, h = box
+        T = [Text(lesung, (y + h, g.shape[1] - x), h, 90.0)]
+        quarter_superscripts(np.ascontiguousarray(np.rot90(g, 1)), T, [(y, g.shape[1] - (x + w), h, w)])
+        assert T[0].text == soll, ("senkrecht", lesung, soll)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.6 – 26.11.2026
+### Schrift
+- **Grau gedruckte Maße mit zweistelliger Hochziffer** („27⁷⁵“, „21²⁵“, „14⁷⁵“ = Viertelzentimeter): Allplan druckt sie grau, die dünne Hochziffer ist noch heller und fiel bei der Texterkennung weg – gelesen wurde „27“ oder „27⁵“, alle 49 solcher Maße auf den Plots waren falsch. Bei grau gedruckten Zahlen wird die Hochziffer jetzt mit einer Schwelle zwischen Zifferngrau und Papier gesucht; ist sie breiter als hoch, sind es zwei Ziffern (die zweite immer 5, die erste 2 oder 7 nach dem Fußstrich).
+- Gemessen an echten Plots: Texte 2059 → 2079 von 4360, falsche Wörter gleich (PLAN2_OG2 358 → 367, OG3 +6, OG1 +5). Simulation Texte 1267 → 1266, falsch 640 → 641, die 16 Scans unverändert.
+- Grundlage: Auswertung der 401 freien Fehlstellen ohne Lage zu Sternen („sonst“): Einzelstern nahe 143, enges Paar nahe 123 (darin die zweistelligen Hochziffern), kein Stern 112, weites Paar 23.
+
 ## 0.45.5 – 25.11.2026
 ### Schrift
 - **Maßzahlen mit Wand- oder Hilfslinie daneben:** Berührt eine senkrechte Wand- oder Hilfslinie eine Ziffer der Zahl in der Lücke der Maßlinie, war diese Ziffer samt Linie zu hoch und fiel aus der Zahl – gelesen wurde nur ein Teil oder nichts. Jetzt werden bei der Suche senkrechte Striche abgezogen, die länger als 4 mm sind (länger als jede Ziffer).

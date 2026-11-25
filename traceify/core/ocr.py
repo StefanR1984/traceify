@@ -467,6 +467,60 @@ def fix_superscripts(gray: np.ndarray, raw, s: OcrSettings, run_lines=None):
     return _allplan_dims([r for j, r in enumerate(out) if j not in drop])
 
 
+_QUARTER = re.compile(r"^(\d{1,2}|\d[.,]\d\d)[⁵°\"'’”%]?$")
+
+
+def quarter_superscripts(detail: np.ndarray, texts, boxes) -> int:
+    """Grau gedruckte Maße mit zweistelliger Hochziffer („27⁷⁵“, „21²⁵“ = Viertelzentimeter) – texts wird geändert.
+
+    Allplan druckt diese Maße grau, die dünne Hochziffer ist heller als die Schwelle 128 und fehlt der OCR
+    („27“, „27⁵“). Nur bei grauen Hauptziffern: Schwelle mitten zwischen Ziffergrau und Papier, Spanne der
+    Hochziffer über Spalten (die dünnen Striche zerfallen in Splitter). Breiter als hoch = zwei Ziffern, die
+    zweite ist immer 5, die erste 2 (Fußstrich) oder 7. texts/boxes parallel, Boxen im Bild von detail.
+    Gibt die Zahl der Änderungen zurück."""
+    H = detail.shape[0]
+    rot, n = None, 0
+    for t, b in zip(texts, boxes):
+        m = _QUARTER.match(t.text)
+        a = round(t.angle) % 360
+        if not m or a not in (0, 90):
+            continue
+        x, y, w, h = map(int, b)
+        g = detail
+        if a == 90:                            # von unten nach oben: Bild im Uhrzeigersinn drehen
+            if rot is None:
+                rot = np.ascontiguousarray(np.rot90(detail, -1))
+            g, (x, y, w, h) = rot, (H - (y + h), x, h, w)
+        if h < 8 or x < 0 or y < 0:
+            continue
+        v = g[y:y + h, x:x + w]
+        v = v[v < 230]
+        if v.size < 10 or np.percentile(v, 10) < 80:
+            continue                           # schwarze Schrift: fix_superscripts
+        lev = np.percentile(v, 10)
+        X0, Y0 = max(0, x - h), max(0, y - h)
+        B = (g[Y0:y + 2 * h, X0:x + w + 2 * h] < (lev + 255) / 2).astype(np.uint8)
+        f = _superscript_box(B, (x - X0, y - Y0, w, h))
+        if f is None or f[1] != sum(ch.isdigit() for ch in m.group(1)):
+            continue
+        sx, sy, _, sh = f[0]
+        band = B[sy:sy + sh]
+        col = band.any(axis=0)
+        e, gap, tol = sx, 0, max(1, int(0.2 * sh))
+        while e < min(band.shape[1], sx + 2 * sh) and gap <= tol:
+            gap = 0 if col[e] else gap + 1
+            e += 1
+        S = band[:, sx:e - gap]
+        rows = np.nonzero(S.any(axis=1))[0]
+        if not len(rows) or S.shape[1] <= 0.95 * (rows[-1] - rows[0] + 1):
+            continue                           # eine Ziffer: ⁵ wie bisher
+        L = S[rows[0]:rows[-1] + 1, :int(0.45 * S.shape[1])]
+        two = L[int(0.75 * L.shape[0]):].any(axis=0).mean() > 0.55
+        t.text = m.group(1) + ("²⁵" if two else "⁷⁵")
+        n += 1
+    return n
+
+
 def _group_lines(words):
     """Fasst Wörter derselben Zeile zu einem Text zusammen (wenn nah genug)."""
     lines = {}
@@ -691,6 +745,8 @@ def recognize(gray: np.ndarray, s: OcrSettings, px_per_mm: float = 0.0, zoom: in
             t.height /= zoom
         dimensions.merge(texts, boxes, tt, bb)
         dimensions.tidy_numbers(texts)
+        if detail is not None:
+            quarter_superscripts(detail, texts, boxes)
     if zoom != 1:
         boxes = [(x // zoom, y // zoom, -(-w // zoom), -(-h // zoom)) for x, y, w, h in boxes]
     return texts, boxes
