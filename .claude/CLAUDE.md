@@ -242,6 +242,11 @@ bekamen eine, ⁵ nie verwechselt; schwarze ⁵ würden ohne Grau-Tor zu 80 × �
 Wand-/Hilfslinie, `_ticks` verwirft ihn), kein schwacher Partner ≤ 2,5 h 45, falsche Länge 21, Rest meist winzige verschmolzene Doppelsterne. `_close_pairs(weak=…)`:
 schwacher Stern auf der Zeile (±2,5 px) nur als Partner eines sicheren, dem auf dieser Seite bis 2,5 h kein sicherer folgt; Längenprobe schützt vor
 Schraffurkreuzungen. Echt Texte 2079 → 2090, falsch 267 → 268; Sim 1266 → 1274, falsch 641 → 638; Scans gleich.
+**0.45.8 Einzelstern Länge 0:** die „klein“-Fälle (23, L < 0,3 h) sind „1⁵/2⁵“ an Wänden – 1,5 cm = 1,8 px, das Paar ist ein Stern. Die übrigen
+„Einzelstern“-Fälle: 35 große Maße (L > 2,5 h, Partner weit), 45 gemischt (Partner am Linienende ohne Hilfslinie, Zahl neben Mittelstern), 8 Raumstempel
+(`sonst/dbl.py`, Bilder `d_*.png`). `_close_pairs` nimmt jeden sicheren Stern zusätzlich als Paar (a, a), Wort mit echtem Paar hat Vorrang;
+`check_lengths` lässt bei L = 0 nur `[1-3][5⁵]` → „N⁵“ zu (±3,5 px). Echt 2090 → 2096, falsch gleich; Sim −2/+6; Scans gleich. Ohne Wertbeschränkung
+(„01“, „0“, „1“, „2“, PLAN1 „4“/„5“ – `sonst/einzel.py`) echt +4/+5.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

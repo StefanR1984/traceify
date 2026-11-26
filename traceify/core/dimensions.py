@@ -268,6 +268,8 @@ def _close_pairs(rest: np.ndarray, ticks, found: List[Gap], weak=()) -> List[Gap
     for cy, xs in rows.items():
         xs.sort()
         pairs += [(cy, a, b) for a, b in zip(xs, xs[1:])]
+        # Maß von 1–2 cm („1⁵“ an der Wand): beide Sterne verschmelzen zu einem, Länge 0
+        pairs += [(cy, a, a) for a in xs]
         for wx, wy in weak:
             if abs(wy - cy) > 2.5:
                 continue
@@ -278,7 +280,7 @@ def _close_pairs(rest: np.ndarray, ticks, found: List[Gap], weak=()) -> List[Gap
                     pairs.append((cy, lo, hi))
     for cy, a, b in pairs:
         # zwei Ziffern hätten dazwischen keinen Platz (bis 2,5 h: „12⁵“ ist breiter als 2 Ziffern)
-        if not 0.3 * h <= b - a <= 2.5 * h:
+        if a != b and not 0.3 * h <= b - a <= 2.5 * h:
             continue
         c = (a + b) / 2.0
         x0, x1 = max(0, int(a - 3 * h)), min(W, int(b + 3 * h))
@@ -328,7 +330,9 @@ def _close_pairs(rest: np.ndarray, ticks, found: List[Gap], weak=()) -> List[Gap
         if g is None:
             continue
         out.append(g + (-1, (cy, a, b, g[1][0] + g[1][2] / 2.0, True)))
-    return out
+    # ein Wort, das schon ein echtes Paar hat, nicht zusätzlich als Einzelstern
+    taken = {g[1] for g in out if g[4][1] != g[4][2]}
+    return [g for g in out if g[4][1] != g[4][2] or g[1] not in taken]
 
 
 def _number(full, comps, rest, g0: int, g1: int):
@@ -833,8 +837,10 @@ def check_lengths(cand: list, gaps: list, ks: list) -> Optional[float]:
         if sg is None or len(sg) < 5:
             continue
         L = sg[2] - sg[1]
-        fits = [t for t in ([c[0]] if c[0] else _variants(c[1]) if c[2] >= 50 else [])
-                if r is not None and abs(L - metres(t) * r) <= max(2.5, 0.1 * L)]
+        ts = [c[0]] if c[0] else _variants(c[1]) if c[2] >= 50 else []
+        if L == 0:                              # verschmolzenes Paar: nur „1⁵“–„3⁵“, „15“ ist dort „1⁵“
+            ts = [t[0] + "⁵" for t in ts if t and re.fullmatch(r"[1-3][5⁵]", t)]
+        fits = [t for t in ts if r is not None and abs(L - metres(t) * r) <= (3.5 if L == 0 else max(2.5, 0.1 * L))]
         c[0] = fits[0] if len(fits) == 1 else None
         if c[0] and c[0][-1] in SUP and c[0][-1] != "⁵":
             c[0] = c[0][:-1]                    # halbe Zentimeter: fast immer ⁵, sonst Nachbarschrift

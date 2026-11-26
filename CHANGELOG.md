@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.8 – 26.11.2026
+### Schrift
+- **Maße von 1–3 cm neben einem einzelnen Stern** („1⁵“, „2⁵“ an einer Wand): Bei so kleinen Maßen liegen beide Sterne fast aufeinander und verschmelzen zu einem – es gab kein Sternpaar, die Zahl blieb ungelesen. Jetzt gilt ein einzelner Stern als Paar der Länge 0; angenommen werden dort nur „1⁵“ bis „3⁵“, eine Lesung „15“ wird „1⁵“ (15 cm hätten zwei getrennte Sterne).
+- Gemessen an echten Plots: Texte 2090 → 2096 von 4360, falsche Wörter gleich (268). Simulation Texte 1274 → 1272, falsch 638 → 644 (verteilt, je +1/+2), die 16 Scans unverändert.
+- Verworfen: alle Werte zulassen, die zur Länge 0 passen – „01“, „0“, „1“, „2“, auf PLAN1 „4“/„5“ neben Sternen: echt +4 Texte, +5 falsche Wörter.
+
 ## 0.45.7 – 26.11.2026
 ### Schrift
 - **Kleine Maße neben einem Stern auf einer Wand- oder Hilfslinie:** Sitzt der zweite Stern eines engen Paars auf einer dicken Linie, erkannte die Sternsuche ihn nicht – die Zahl über dem Paar blieb ungelesen. Jetzt gilt ein schwach erkannter Stern auf derselben Zeile als Partner, wenn auf dieser Seite des sicheren Sterns kein anderer folgt; die Längenprobe sortiert Kreuzungen in Schraffuren aus.

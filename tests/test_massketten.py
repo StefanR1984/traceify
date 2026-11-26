@@ -551,6 +551,11 @@ def test_laengenpruefung_einstelliges_mass_ueber_sternpaar():
     cand, gaps = [c for c, _ in rows], [g for _, g in rows]
     dimensions.check_lengths(cand, gaps, [0] * len(gaps))
     assert [c[0] for c in cand[5:]] == ["5", None]
+    # Einzelstern (verschmolzenes Paar, Länge 0): nur „1⁵“–„3⁵“, „15“ ist dort „1⁵“ (0.45.8)
+    rows = rows[:5] + [pair(t, 0) for t in ("15", "2⁵", "2", "01", "45")]
+    cand, gaps = [c for c, _ in rows], [g for _, g in rows]
+    dimensions.check_lengths(cand, gaps, [0] * len(gaps))
+    assert [c[0] for c in cand[5:]] == ["1⁵", "2⁵", None, None, None]
 
 
 def _mass_bild(sup_w=6, zwei=False):
