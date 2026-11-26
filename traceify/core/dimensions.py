@@ -218,7 +218,9 @@ def _horizontal_gaps(bw: np.ndarray, px_per_mm: float, keep: Optional[list] = No
                 g = _number(full, comps, rest, g0, g1) if full else None
                 if g is not None:
                     out.append(g + (side, seg(cy, g[1][0] + g[1][2] / 2.0)))
-    return out + _close_pairs(rest, ticks, out)
+    # Partner eines Sterns, den _ticks nicht fand (sitzt auf einer Wand-/Hilfslinie): nur für kleine Maße über
+    # dem Paar, die Längenprobe sortiert Kreuzungen in Schraffuren aus
+    return out + _close_pairs(rest, ticks, out, _weak_ticks(bw, px_per_mm, ticks))
 
 
 def _strip(bl: np.ndarray, r: int, h: float) -> np.ndarray:
@@ -244,12 +246,13 @@ def _strip(bl: np.ndarray, r: int, h: float) -> np.ndarray:
     return hor | vert
 
 
-def _close_pairs(rest: np.ndarray, ticks, found: List[Gap]) -> List[Gap]:
+def _close_pairs(rest: np.ndarray, ticks, found: List[Gap], weak=()) -> List[Gap]:
     """Kleine Maße über zwei eng liegenden Sternen („24“ über „✳✳“): Die Zahl passt nicht
     dazwischen und steht darüber, oft breiter als das Paar und in Nachbarschrift, oder direkt
     daneben über der verlängerten Maßlinie. Gesucht werden Ziffern in Schrifthöhe der übrigen
     Maßzahlen, das Wort, das der Paarmitte bzw. dem Paarende am nächsten liegt.
-    Zählt nur, wenn die Zahl zum Sternabstand passt (check_lengths)."""
+    Zählt nur, wenn die Zahl zum Sternabstand passt (check_lengths). weak: schwache Sterne (_weak_ticks) –
+    nur als Partner eines sicheren Sterns, dem auf dieser Seite bis 2,5 h kein sicherer folgt."""
     import cv2
     hs = sorted(g[1][3] for g in found if g[3] == 0)
     if len(hs) < 3:
@@ -261,60 +264,70 @@ def _close_pairs(rest: np.ndarray, ticks, found: List[Gap]) -> List[Gap]:
         key = next((k for k in rows if abs(k - y) <= 2.5), y)
         rows.setdefault(key, []).append(x)
     out = []
+    pairs = []
     for cy, xs in rows.items():
         xs.sort()
-        for a, b in zip(xs, xs[1:]):
-            # zwei Ziffern hätten dazwischen keinen Platz (bis 2,5 h: „12⁵“ ist breiter als 2 Ziffern)
-            if not 0.3 * h <= b - a <= 2.5 * h:
+        pairs += [(cy, a, b) for a, b in zip(xs, xs[1:])]
+        for wx, wy in weak:
+            if abs(wy - cy) > 2.5:
                 continue
-            c = (a + b) / 2.0
-            x0, x1 = max(0, int(a - 3 * h)), min(W, int(b + 3 * h))
-            y0, y1 = max(0, int(cy - 2.4 * h)), int(cy) - 1
-            win = rest[y0:y1, x0:x1]
-            # Maßhilfslinien laufen senkrecht durchs Fenster und kleben an der Zahl daneben („12“ → Ziffer
-            # 2,3 h hoch, fällt aus der Wortbildung): Striche länger als jede Ziffer abziehen
-            vl = int(1.6 * h)
-            if win.shape[0] > vl:
-                # Rand = Papier, sonst gilt eine Ziffer am Fensterrand („1“ bis zur Maßlinie) als lang
-                win = win & (cv2.morphologyEx(win, cv2.MORPH_OPEN, np.ones((vl, 1), np.uint8),
-                                              borderType=cv2.BORDER_CONSTANT, borderValue=0) == 0)
-            n, _, st, _ = cv2.connectedComponentsWithStats(win, connectivity=8)
-            comps = [(x + x0, y + y0, w, hh) for x, y, w, hh, ar in st[1:] if ar >= 2]
-            # Wörter: Ziffern einer Zeile mit kleinem Abstand
-            words: list = []
-            for q in sorted((q for q in comps if 0.75 * h <= q[3] <= 1.3 * h), key=lambda q: q[0]):
-                for wd in words:
-                    p = wd[-1]
-                    if abs(q[1] + q[3] - p[1] - p[3]) <= 0.2 * h and q[0] - (p[0] + p[2]) < 0.4 * h:
-                        wd.append(q)
-                        break
-                else:
-                    words.append([q])
-            # die Zahl steht mittig über dem Paar oder – Allplan verlängert dafür die Maßlinie –
-            # direkt daneben über der Linie; die nächste gewinnt
-            best = None
+            for a in xs:
+                lo, hi = sorted((a, wx))
+                if 0.3 * h <= hi - lo <= 2.5 * h and not any(lo < x < hi or 0 < abs(x - a) <= 2.5 * h
+                                                            and (x - a) * (wx - a) > 0 for x in xs):
+                    pairs.append((cy, lo, hi))
+    for cy, a, b in pairs:
+        # zwei Ziffern hätten dazwischen keinen Platz (bis 2,5 h: „12⁵“ ist breiter als 2 Ziffern)
+        if not 0.3 * h <= b - a <= 2.5 * h:
+            continue
+        c = (a + b) / 2.0
+        x0, x1 = max(0, int(a - 3 * h)), min(W, int(b + 3 * h))
+        y0, y1 = max(0, int(cy - 2.4 * h)), int(cy) - 1
+        win = rest[y0:y1, x0:x1]
+        # Maßhilfslinien laufen senkrecht durchs Fenster und kleben an der Zahl daneben („12“ → Ziffer
+        # 2,3 h hoch, fällt aus der Wortbildung): Striche länger als jede Ziffer abziehen
+        vl = int(1.6 * h)
+        if win.shape[0] > vl:
+            # Rand = Papier, sonst gilt eine Ziffer am Fensterrand („1“ bis zur Maßlinie) als lang
+            win = win & (cv2.morphologyEx(win, cv2.MORPH_OPEN, np.ones((vl, 1), np.uint8),
+                                          borderType=cv2.BORDER_CONSTANT, borderValue=0) == 0)
+        n, _, st, _ = cv2.connectedComponentsWithStats(win, connectivity=8)
+        comps = [(x + x0, y + y0, w, hh) for x, y, w, hh, ar in st[1:] if ar >= 2]
+        # Wörter: Ziffern einer Zeile mit kleinem Abstand
+        words: list = []
+        for q in sorted((q for q in comps if 0.75 * h <= q[3] <= 1.3 * h), key=lambda q: q[0]):
             for wd in words:
-                wx0, wx1 = wd[0][0], wd[-1][0] + wd[-1][2]
-                if abs((wx0 + wx1) / 2.0 - c) <= 0.6 * h:
-                    dd = abs((wx0 + wx1) / 2.0 - c)
-                elif -0.2 * h <= wx0 - b <= 1.5 * h:
-                    dd = h + wx0 - b
-                elif -0.2 * h <= a - wx1 <= 1.5 * h:
-                    dd = h + a - wx1
-                else:
-                    continue
-                dd += abs(cy - max(q[1] + q[3] for q in wd))
-                if best is None or dd < best[0]:
-                    best = (dd, wd)
-            if best is None:
+                p = wd[-1]
+                if abs(q[1] + q[3] - p[1] - p[3]) <= 0.2 * h and q[0] - (p[0] + p[2]) < 0.4 * h:
+                    wd.append(q)
+                    break
+            else:
+                words.append([q])
+        # die Zahl steht mittig über dem Paar oder – Allplan verlängert dafür die Maßlinie –
+        # direkt daneben über der Linie; die nächste gewinnt
+        best = None
+        for wd in words:
+            wx0, wx1 = wd[0][0], wd[-1][0] + wd[-1][2]
+            if abs((wx0 + wx1) / 2.0 - c) <= 0.6 * h:
+                dd = abs((wx0 + wx1) / 2.0 - c)
+            elif -0.2 * h <= wx0 - b <= 1.5 * h:
+                dd = h + wx0 - b
+            elif -0.2 * h <= a - wx1 <= 1.5 * h:
+                dd = h + a - wx1
+            else:
                 continue
-            word = best[1]
-            gx0 = word[0][0] - int(0.3 * h)
-            gx1 = word[-1][0] + word[-1][2] + int(0.3 * h)
-            g = _number(word, comps, rest, gx0, gx1)
-            if g is None:
-                continue
-            out.append(g + (-1, (cy, a, b, g[1][0] + g[1][2] / 2.0, True)))
+            dd += abs(cy - max(q[1] + q[3] for q in wd))
+            if best is None or dd < best[0]:
+                best = (dd, wd)
+        if best is None:
+            continue
+        word = best[1]
+        gx0 = word[0][0] - int(0.3 * h)
+        gx1 = word[-1][0] + word[-1][2] + int(0.3 * h)
+        g = _number(word, comps, rest, gx0, gx1)
+        if g is None:
+            continue
+        out.append(g + (-1, (cy, a, b, g[1][0] + g[1][2] / 2.0, True)))
     return out
 
 

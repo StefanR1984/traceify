@@ -238,6 +238,10 @@ Hochziffer 130–200), `gray < 128` verliert die Hochziffer. **0.45.6** `ocr.qua
 graue Hauptziffern (10-%-Perzentil ≥ 80), Schwelle (Grau + 255)/2, `_superscript_box`, Spanne über Spalten (Lücke ≤ 0,2 sh); breiter als 0,95 × hoch
 → zwei Ziffern, erste 2 (Fußstrich ≥ 55 % der Spalten) sonst 7. Prototyp an den Originalen: grau 26 von 41 richtig, 3 Zahlen ohne Hochziffer
 bekamen eine, ⁵ nie verwechselt; schwarze ⁵ würden ohne Grau-Tor zu 80 × „²⁵/⁷⁵“. Echt Texte 2059 → 2079, falsch gleich; Sim −1/+1; Scans gleich.
+**0.45.7 Einzelstern** (`sonst/ein.py`, `weak.py`): von 143 „Einzelstern ≤ 3 h“ passt bei 19 ein schwacher Partner (`_weak_ticks`, Stern auf
+Wand-/Hilfslinie, `_ticks` verwirft ihn), kein schwacher Partner ≤ 2,5 h 45, falsche Länge 21, Rest meist winzige verschmolzene Doppelsterne. `_close_pairs(weak=…)`:
+schwacher Stern auf der Zeile (±2,5 px) nur als Partner eines sicheren, dem auf dieser Seite bis 2,5 h kein sicherer folgt; Längenprobe schützt vor
+Schraffurkreuzungen. Echt Texte 2079 → 2090, falsch 267 → 268; Sim 1266 → 1274, falsch 641 → 638; Scans gleich.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.7 – 26.11.2026
+### Schrift
+- **Kleine Maße neben einem Stern auf einer Wand- oder Hilfslinie:** Sitzt der zweite Stern eines engen Paars auf einer dicken Linie, erkannte die Sternsuche ihn nicht – die Zahl über dem Paar blieb ungelesen. Jetzt gilt ein schwach erkannter Stern auf derselben Zeile als Partner, wenn auf dieser Seite des sicheren Sterns kein anderer folgt; die Längenprobe sortiert Kreuzungen in Schraffuren aus.
+- Gemessen an echten Plots: Texte 2079 → 2090 von 4360, falsche Wörter 267 → 268 (PLAN2_OG3 +4/−1, PLAN1_UG +2/+1, PLAN2_EG +2, OG2 +2). Simulation Texte 1266 → 1274, falsch 641 → 638, die 16 Scans unverändert.
+- Grundlage: 143 freie Fehlstellen „Einzelstern in der Nähe“; bei 19 passt ein schwacher Partner, der Rest sind meist winzige, verschmolzene Doppelsterne oder Partner mit falscher Länge.
+
 ## 0.45.6 – 26.11.2026
 ### Schrift
 - **Grau gedruckte Maße mit zweistelliger Hochziffer** („27⁷⁵“, „21²⁵“, „14⁷⁵“ = Viertelzentimeter): Allplan druckt sie grau, die dünne Hochziffer ist noch heller und fiel bei der Texterkennung weg – gelesen wurde „27“ oder „27⁵“, alle 49 solcher Maße auf den Plots waren falsch. Bei grau gedruckten Zahlen wird die Hochziffer jetzt mit einer Schwelle zwischen Zifferngrau und Papier gesucht; ist sie breiter als hoch, sind es zwei Ziffern (die zweite immer 5, die erste 2 oder 7 nach dem Fußstrich).

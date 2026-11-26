@@ -528,6 +528,20 @@ def test_kleines_mass_neben_dem_paar_an_der_masshilfslinie():
     assert x <= 680 and x + w >= 705 and y + h < 150         # beide Ziffern in der Box
 
 
+def test_kleines_mass_ueber_paar_mit_stern_auf_wandlinie():
+    """Der rechte Stern sitzt auf einer dicken Wandlinie, _ticks verwirft ihn: der schwache Stern auf
+    der Zeile wird Partner des sicheren (0.45.7)."""
+    img = np.zeros((300, 900), np.uint8)
+    _kette(img)
+    for x in (640, 680):
+        _star(img, x, 150)
+    cv2.line(img, (680, 40), (680, 260), 1, 5)
+    cv2.putText(img, "24", (642, 136), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    assert 680 not in [x for x, _ in dimensions._ticks(img, 10.0)[0]]
+    g = [gap for gap, k in dimensions.line_gaps(img, 10.0) if gap[4] and len(gap[4]) > 4]
+    assert len(g) == 1 and g[0][4][1:3] == pytest.approx((640, 680), abs=1)
+
+
 def test_laengenpruefung_einstelliges_mass_ueber_sternpaar():
     r = 118.0                                            # 1:100 bei 300 dpi
     rows = [_seg(t, metres * r) for t, metres in
