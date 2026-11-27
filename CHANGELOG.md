@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45.10 – 27.11.2026
+### Geometrie
+- **Weniger zerstückelte Linien:** Die Strichstärke wird je Linienstück gemessen und springt dabei um eine Pixelstufe (0,085/0,152 mm); liegt sie nahe der Grenze dünn/dick, landete ein Stück auf LINIEN, das nächste auf DICKE_LINIEN. Solche Stücke wurden an Kreuzungen nicht mehr zu einer Linie verbunden. Jetzt gelten Stärken bis Faktor 1,8 als gleich, die verbundene Linie erhält Layer und Stärke der längeren Stücke. Dreifache Stärke bleibt getrennt.
+- Gemessen an echten Plots (je Originallinie ≥ 2 mm): Brüche 8907 → 7892, Linien aus einem Stück 22675 → 23025, Objekte −1,5 bis −3 %; Trefferquote −0,1 bis +0,01, Genauigkeit ±0,02, Texte gleich. Simulation unverändert; Scans Objekte bis −7 % (image-17 1760 → 1635, image-4 5858 → 5592), Ortho gleich oder besser.
+
 ## 0.45.9 – 27.11.2026
 ### Geometrie
 - **Keine Strichlinien mehr aus Reihen gleicher Formen:** Die fluchtenden Ober- und Unterkanten einer Reihe kleiner Quadrate (Rasterfelder, Möbel, Fenster) sahen aus wie Striche und wurden zu einer Strichlinie über die Lücken hinweg zusammengefasst. Jetzt zählt eine Reihe nicht als Strichlinie, wenn bei mindestens der Hälfte der Striche an beiden Enden eine Querkante ansetzt – echte Striche enden frei.

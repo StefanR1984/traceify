@@ -258,6 +258,10 @@ auf Strichlinien (Original-Strich unter durchgezogener Traceify-Linie 3,7 m). **
 mit `context=ents`. Echt Genauigkeit +0…+1,4 (PLAN2_OG3), falsche Strichlinien 10,7 → 8,9 m; Sim Genauigkeit +0…+1,8; Scans +2…+7 Objekte,
 image 94 Ortho −2,3, Schraffur-Einzellinien 215 → 236. **Messhinweis:** seit 27.11. sperrt ein Virenscanner Tesseract-Temp-Dateien (pytesseract
 `cleanup` WinError 32) → `ocr._setup` fängt das ab; Messläufe brachen vorher zufällig ab.
+**0.45.10** `cad.join_collinear`: LINIEN/DICKE_LINIEN gleiche Art, Stärke bis Faktor 1,8 gleich (`same_weight`), verbundene Linie Layer + Stärke der
+längengewichteten Mehrheit. Echt Brüche 8907 → 7892, 1 Stück 22675 → 23025, Objekte −1,5…−3 %, Treffer −0,1…+0,01; Sim gleich; Scans Objekte bis −7 %.
+Rest „Art verschieden“ 3560: 0,085/0,152 429 (scheitern an Lücke/Winkel/Versatz), 0,085/0,254 325 (Faktor 3, absichtlich getrennt), DASHED/CONTINUOUS
+1248. Danach Line/Polyline 1917 (Wandband-Umrisse), Winkel > 2° 1496.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

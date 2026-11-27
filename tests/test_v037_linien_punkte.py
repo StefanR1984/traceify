@@ -161,3 +161,20 @@ def test_wellen_boegen_werden_gerade():
     n = cad.flatten_arcs(ents, cad.ink_share(g2), max_radius=50)
     assert n == 1 and isinstance(ents[0], Line) and ents[0].layer == LAYER_LINES
     assert isinstance(ents[1], Arc)
+
+
+def test_stuecke_mit_schwankender_strichstaerke_werden_eine_linie():
+    """Die Strichstärke wird je Stück gemessen und springt um eine Pixelstufe, dünn/dick wechselt
+    dabei den Layer: trotzdem eine Linie, mit Layer und Stärke der längeren Stücke (0.45.10)."""
+    from traceify.core.model import LAYER_THICK
+    ents = [Line((0, 100), (198, 100), LAYER_LINES, None, "CONTINUOUS", 0.085),
+            Line((202, 100), (300, 100), LAYER_THICK, None, "CONTINUOUS", 0.152),
+            Line((200, 0), (200, 200))]
+    assert cad.join_collinear(ents, 10) == 1 and len(ents) == 2
+    assert ents[0].layer == LAYER_LINES and ents[0].lineweight == 0.085
+    assert ents[0].p2[0] == pytest.approx(300, abs=0.5)
+    # dreifache Stärke: verschiedene Linien
+    ents = [Line((0, 100), (198, 100), LAYER_LINES, None, "CONTINUOUS", 0.085),
+            Line((202, 100), (300, 100), LAYER_THICK, None, "CONTINUOUS", 0.254),
+            Line((200, 0), (200, 200))]
+    assert cad.join_collinear(ents, 10) == 0

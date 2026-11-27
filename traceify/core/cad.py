@@ -886,8 +886,16 @@ def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: 
             i = parent[i]
         return i
 
+    from .model import LAYER_LINES, LAYER_THICK
+
     def kind(l):
-        return (l.layer, l.linetype, l.lineweight, l.color)
+        # die Strichstärke wird je Stück gemessen und schwankt um eine Pixelstufe (0,085/0,152 mm),
+        # dünn/dick liegt dann mal knapp über, mal unter der Grenze: gleiche Art, Stärke prüft same_weight
+        return (LAYER_LINES if l.layer == LAYER_THICK else l.layer, l.linetype, l.color)
+
+    def same_weight(a, b) -> bool:
+        wa, wb = a.lineweight, b.lineweight
+        return wa == wb or wa > 0 and wb > 0 and max(wa, wb) <= 1.8 * min(wa, wb)
 
     def crossed(p, q, a, b) -> bool:
         c, r = ((p[0] + q[0]) / 2, (p[1] + q[1]) / 2), math.dist(p, q) / 2 + 2
@@ -901,7 +909,7 @@ def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: 
     n = 0
     for i, j in sorted(cKDTree(P).query_pairs(max_gap), key=lambda t: math.dist(P[t[0]], P[t[1]])):
         a, b = lines[i // 2], lines[j // 2]
-        if a is b or kind(a) != kind(b) or find(i // 2) == find(j // 2):
+        if a is b or kind(a) != kind(b) or not same_weight(a, b) or find(i // 2) == find(j // 2):
             continue
         ua = (a.p2[0] - a.p1[0], a.p2[1] - a.p1[1])
         ub = (b.p2[0] - b.p1[0], b.p2[1] - b.p1[1])
@@ -944,6 +952,12 @@ def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: 
         d = math.hypot(sx, sy)
         ux, uy, cx, cy = sx / d, sy / d, cx / W, cy / W
         ts = [((p[0] - cx) * ux + (p[1] - cy) * uy) for l in grp for p in (l.p1, l.p2)]
+        # Layer und Stärke der Mehrheit (nach Länge)
+        for f in ("layer", "lineweight"):
+            votes = {}
+            for l in grp:
+                votes[getattr(l, f)] = votes.get(getattr(l, f), 0.0) + math.dist(l.p1, l.p2)
+            setattr(ref, f, max(votes, key=votes.get))
         ref.p1 = (cx + min(ts) * ux, cy + min(ts) * uy)
         ref.p2 = (cx + max(ts) * ux, cy + max(ts) * uy)
         drop.update(id(l) for l in grp[1:])
