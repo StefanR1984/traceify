@@ -11,7 +11,7 @@ from .model import LAYER_DASHED, LAYER_HATCH, LAYER_LINES, Drawing, Line, Text
 from .pdf_vector import PdfVectorSettings, has_vectors, import_page, is_stroke_scan
 from .preprocess import PreprocessSettings, to_binary
 from .scale_detect import find_scale, format_scale
-from .style import (StyleSettings, classify_thick, classify_thick_mm, cleanup, detect_dashed,
+from .style import (StyleSettings, classify_thick, classify_thick_mm, cleanup, detect_dashed, paper_checker,
                     detect_hatch, measure_widths, walls_to_outline)
 from .vectorize import MODE_CENTERLINE, MODE_OUTLINE, VectorizeSettings, vectorize
 
@@ -136,7 +136,7 @@ def apply_auto_scale(d: Drawing, settings: ConvertSettings) -> None:
             d.meta["massstab_quelle"] += f", Plan nennt {format_scale(named)}"
 
 
-def _style_post(ents: list, mask: np.ndarray, paper_mm_per_px: float, settings) -> list:
+def _style_post(ents: list, mask: np.ndarray, paper_mm_per_px: float, settings, paper=None) -> list:
     """Strichstärken messen, dicke Linien einordnen, Strichlinien zusammenfassen."""
     st = settings.style
     if settings.vectorize.mode != MODE_CENTERLINE:
@@ -151,7 +151,7 @@ def _style_post(ents: list, mask: np.ndarray, paper_mm_per_px: float, settings) 
             for e in ents:
                 e.lineweight = 0.0
     if st.detect_dashed:
-        ents = detect_dashed(ents, st)
+        ents = detect_dashed(ents, st, paper=paper)
     if st.hatch_layer:
         detect_hatch(ents, paper_mm_per_px)
     cleanup(ents)
@@ -255,7 +255,9 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
             if band.any():
                 main = np.where(band, 0, main).astype(main.dtype)
                 walls = band_outlines(band, settings.vectorize.tolerance)
-        ents = _style_post(vectorize(main, settings.vectorize), main, dpi_scale, settings)
+        # Papier in den Strichlücken: im vollen Binärbild (mit Schrift – Linie durch eine Maßzahl ist durchgezogen)
+        paper = paper_checker(bw)
+        ents = _style_post(vectorize(main, settings.vectorize), main, dpi_scale, settings, paper)
         if settings.style.detect_dashed and settings.vectorize.mode == MODE_CENTERLINE \
                 and not settings.preprocess.deskew:
             # feine Strichlinien: Striche < 0,8 mm fallen dem Entflecken zum Opfer
@@ -347,7 +349,7 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
             return (isinstance(e, Line) and e.layer == LAYER_LINES
                     and math.dist(e.p1, e.p2) <= DASH2_MAX_MM / dpi_scale)
         fine = detect_dashed([e for e in ents if short(e)], settings.style, skip_missing=True,
-                             context=ents)
+                             context=ents, paper=None if settings.preprocess.deskew else paper_checker(bw))
         ents = [e for e in ents if not short(e)] + fine
     if settings.style.specks_layer:
         from .cad import isolate_specks

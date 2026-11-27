@@ -156,3 +156,18 @@ def test_reihe_gleicher_quadrate_ist_keine_strichlinie():
     lines = tf.convert(img, _settings()).drawing.by_type(tf.Line)
     dashed = [l for l in lines if l.linetype != "CONTINUOUS"]
     assert len(dashed) == 1 and abs(dashed[0].p1[1] - 200) < 2
+
+
+def test_strichlinie_braucht_papier_in_den_luecken():
+    """Eine durchgezogene Linie, die an Kreuzungen in gleich lange Stücke zerfällt (Wandkante an Schraffur),
+    hat in den „Lücken“ Tinte statt Papier – keine Strichlinie (0.45.12). Echte Lücken zeigen Papier."""
+    s = tf.ConvertSettings().style
+    stuecke = [tf.Line((x, 100), (x + 20, 100)) for x in range(50, 650, 30)]
+    voll = np.zeros((200, 700), np.uint8)
+    cv2.line(voll, (50, 100), (640, 100), 255, 2)
+    gestrichelt = np.zeros_like(voll)
+    for l in stuecke:
+        cv2.line(gestrichelt, (int(l.p1[0]), 100), (int(l.p2[0]), 100), 255, 2)
+    for bw, n in ((voll, 0), (gestrichelt, 1)):
+        out = style.detect_dashed([tf.Line(l.p1, l.p2) for l in stuecke], s, paper=style.paper_checker(bw))
+        assert sum(l.linetype != "CONTINUOUS" for l in out) == n

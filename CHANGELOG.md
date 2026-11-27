@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45.12 – 27.11.2026
+### Geometrie
+- **Weniger falsche Strichlinien:** Durchgezogene Linien, die an Kreuzungen in gleich lange Stücke zerfallen (Wandkanten an 45°-Schraffur, Linien durch Maßzahlen), wurden zu Strichlinien zusammengefasst. Jetzt braucht eine Strichlinie Papier in ihren Lücken – liegt in keiner Lücke Papier, bleibt die Linie durchgezogen. Außerdem gilt jede Linie über 25° (bisher 60°), die an beiden Strichenden ansetzt, als Querkante.
+- Gemessen an echten Plots: Strichlinien auf durchgezogenen Originallinien 8,8 → 6,0 m, richtige Strichlinien 5,36 → 5,35 m; Brüche Strichlinie/durchgezogen 1301 → 706, alle Brüche 6974 → 6602; Trefferquote −0,02 bis +0,24 (PLAN3_OG2), Genauigkeit −0,06 bis +0,05, Texte gleich. Simulation Trefferquote bis +3,2 (PLAN3_OG4), Genauigkeit bis +0,9, Texte 1271 → 1272, falsch 645 → 644; Scans image 89 Ortho 15 → 35 %, offene Enden 49 → 35, image 27 Schraffur-Muster auf Tinte 95 → 88 %.
+
 ## 0.45.11 – 27.11.2026
 ### Geometrie
 - **Weniger geknickte Linienenden:** Hinter der letzten Kreuzung knickt das kurze Endstück einer Linie oft um einige Grad zum Knoten hin ab und blieb als eigenes Stück stehen (Winkelregel 2°). Jetzt gehört ein kürzeres Stück zur Linie, wenn beide Enden höchstens 0,15 mm neben ihrer Flucht liegen (bis 15°); die verbundene Linie folgt der Richtung der langen Stücke.

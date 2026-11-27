@@ -266,6 +266,11 @@ Rest „Art verschieden“ 3560: 0,085/0,152 429 (scheitern an Lücke/Winkel/Ver
 Nachbarstück liegt richtig; fernes Ende ≤ 1,5 px neben der Flucht bei 924 von 2165. Jetzt Querprobe am kürzeren Stück (a = längeres), `angle_tol`
 15°, Richtung der verbundenen Linie nach Länge² (sonst kippt sie). Echt Brüche 7892 → 6974, Winkel > 2° 1496 → 933, Objekte −1…−4 %, Treffer ±0,1;
 Sim gleich; Scans Objekte bis −5 %, Schraffur-Muster auf Tinte image-4 84 → 79 %. Rest: Art verschieden 3074, Line/Polyline 1915.
+**0.45.12 Strichlinien** (`geom/strichbruch.py`, `haken2.py`, `grau.py`, `falsch_bild.py`): von 1515 Brüchen Strich/durchgezogen liegen 1093 auf
+durchgezogenem Original, falsch ist die Strichlinie (≥ 10 mm); falsche Strichlinien haben 2,0 schräge Ansätze je cm (richtige 0,6) und meist keine
+weiße Stelle entlang der Linie (301 von 585, 4,45 m; richtige 38 von 384). `style.paper_checker(bw)` → `detect_dashed(paper=…)`: Kette verworfen, wenn
+keine Lücke Papier zeigt (3×3 frei im vollen Binärbild mit Schrift); `hooked` ab 25° statt 60°. Echt falsche Strichlinien 8,8 → 6,0 m, richtige gleich,
+Brüche 6974 → 6602; Sim Treffer bis +3,2; Scans image 89 Ortho 15 → 35 %, image 27 Schraffur-Muster 95 → 88 %.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

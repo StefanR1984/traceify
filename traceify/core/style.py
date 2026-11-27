@@ -266,11 +266,27 @@ def _dir(l: Line):
     return ux, uy
 
 
+def paper_checker(bw: np.ndarray):
+    """Prüffunktion für ``detect_dashed``: liegt auf der Strecke p→q irgendwo Papier (Binärbild,
+    Tinte ≠ 0; 3×3 um den Punkt frei – die Linie liegt ±1 px)?"""
+    free = cv2.dilate((bw > 0).astype(np.uint8), np.ones((3, 3), np.uint8)) == 0
+    H, W = free.shape
+
+    def ok(p, q) -> bool:
+        n = max(2, int(math.dist(p, q)) + 1)
+        xs = np.clip(np.round(np.linspace(p[0], q[0], n)).astype(int), 0, W - 1)
+        ys = np.clip(np.round(np.linspace(p[1], q[1], n)).astype(int), 0, H - 1)
+        return bool(free[ys, xs].any())
+    return ok
+
+
 def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
-                  offset_tol: float = 2.5, skip_missing: bool = False, context=None) -> list:
+                  offset_tol: float = 2.5, skip_missing: bool = False, context=None,
+                  paper=None) -> list:
     """Fasst Strich-Segmente zu Linien mit Linientyp zusammen. Gibt die neue Liste zurück.
     ``skip_missing``: ein fehlender Strich (an einer Kreuzung verschluckt) trennt die Reihe nicht.
-    ``context``: alle Objekte (für die Prüfung, ob ein Strich an Querlinien hängt), sonst ``ents``."""
+    ``context``: alle Objekte (für die Prüfung, ob ein Strich an Querlinien hängt), sonst ``ents``.
+    ``paper(p, q)``: zeigt die Lücke p→q Papier? (``paper_checker``)"""
     cand = [e for e in ents if isinstance(e, Line) and
             1.0 < math.dist(e.p1, e.p2) <= s.dash_max_len]
     if len(cand) < s.dash_min_count:
@@ -299,7 +315,7 @@ def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
             if isinstance(o, Polyline):
                 return True
             vx, vy = _dir(o)
-            if abs(ux * vx + uy * vy) < 0.5:          # > 60° zur Strichrichtung
+            if abs(ux * vx + uy * vy) < 0.9:          # > 25° zur Strichrichtung (Schraffur 45° an Wandkanten)
                 return True
         return False
     info = []
@@ -391,6 +407,14 @@ def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
             # Kanten einer Reihe gleicher Formen (Rasterfelder, Möbel) fluchten wie Striche, an ihren
             # Enden setzt aber eine Querkante an – echte Striche enden frei
             if etree is not None and sum(hooked(c[2], c[2].p1) and hooked(c[2], c[2].p2) for c in ch) >= 0.5 * len(ch):
+                continue
+            # echte Lücken zeigen Papier; liegt in keiner eine, ist die Linie durchgezogen und nur an
+            # Kreuzungen zerfallen (Wandkante an Schraffur, Linie durch Schrift)
+            b0 = base_pt[0] * ux + base_pt[1] * uy
+
+            def at(t):
+                return (base_pt[0] + (t - b0) * ux, base_pt[1] + (t - b0) * uy)
+            if paper is not None and not any(paper(at(a[1]), at(b[0])) for a, b in zip(ch, ch[1:])):
                 continue
             lens = [c[1] - c[0] for c in ch]
             # Striche bedecken einen guten Teil der Linie; Stummel an Kreuzungen und Schriftreste,
