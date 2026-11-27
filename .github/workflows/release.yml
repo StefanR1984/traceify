@@ -21,7 +21,7 @@ permissions:
 env:
   RELEASE_TAG: ${{ github.event.inputs.release_tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
   TESSERACT_URL: https://github.com/tesseract-ocr/tesseract/releases/download/5.5.3/tesseract-ocr-w64-setup-5.5.3.20260724.exe
-  TESSDATA_URL: https://github.com/tesseract-ocr/tessdata_fast/raw/main
+  TESSDATA_URL: https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main
   PYTHONUTF8: "1"
 
 jobs:
