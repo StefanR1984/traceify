@@ -188,3 +188,18 @@ def test_kurzes_abgeknicktes_endstueck_wird_durchgezogen():
     assert abs(ents[0].p1[1] - ents[0].p2[1]) < 0.5
     ents = [Line((0, 100), (198, 100)), Line((202, 100), (300, 108.5)), Line((200, 0), (200, 200))]
     assert cad.join_collinear(ents, 10) == 0
+
+
+def test_kurzes_stueck_am_massstern_mit_falscher_staerke_wird_durchgezogen():
+    """Ein kurzes Stück an einer Kreuzung misst die Tinte des Maßsterns mit (0,254 statt 0,085): seine
+    Stärke zählt nicht, die Linie läuft durch und bleibt dünn (0.45.13). Lange Stücke bleiben getrennt."""
+    from traceify.core.model import LAYER_THICK
+    ents = [Line((0, 100), (198, 100), LAYER_LINES, None, "CONTINUOUS", 0.085),
+            Line((202, 100), (220, 100), LAYER_THICK, None, "CONTINUOUS", 0.254),
+            Line((200, 0), (200, 200))]
+    assert cad.join_collinear(ents, 10, short_len=30) == 1 and len(ents) == 2
+    assert ents[0].layer == LAYER_LINES and ents[0].lineweight == 0.085
+    ents = [Line((0, 100), (198, 100), LAYER_LINES, None, "CONTINUOUS", 0.085),
+            Line((202, 100), (300, 100), LAYER_THICK, None, "CONTINUOUS", 0.254),
+            Line((200, 0), (200, 200))]
+    assert cad.join_collinear(ents, 10, short_len=30) == 0

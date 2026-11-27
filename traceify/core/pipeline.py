@@ -324,7 +324,7 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         # an Kreuzungen zerfallene Linien wieder durchziehen (Lücke gekreuzt oder voller Tinte)
         join_collinear(ents, 1.0 / dpi_scale, lateral=max(1.5, 0.15 / dpi_scale),
                        ink_ok=None if ink_gray is None else ink_checker(ink_gray),
-                       skip_layers=(LAYER_DASHED,))
+                       skip_layers=(LAYER_DASHED,), short_len=3.0 / dpi_scale)
     if settings.style.hatch_layer and not groups and settings.vectorize.mode == MODE_CENTERLINE:
         from .cad import extend_hatch_ends, ink_checker
         # zweiter Durchgang: nach Ausrichten, Fransen und Lückenschließen sind die Striche

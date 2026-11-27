@@ -271,6 +271,10 @@ durchgezogenem Original, falsch ist die Strichlinie (≥ 10 mm); falsche Strichl
 weiße Stelle entlang der Linie (301 von 585, 4,45 m; richtige 38 von 384). `style.paper_checker(bw)` → `detect_dashed(paper=…)`: Kette verworfen, wenn
 keine Lücke Papier zeigt (3×3 frei im vollen Binärbild mit Schrift); `hooked` ab 25° statt 60°. Echt falsche Strichlinien 8,8 → 6,0 m, richtige gleich,
 Brüche 6974 → 6602; Sim Treffer bis +3,2; Scans image 89 Ortho 15 → 35 %, image 27 Schraffur-Muster 95 → 88 %.
+**0.45.13** (`geom/staerke.py`, `staerke_bild.py`): 1131 Brüche mit Stärkefaktor > 1,8 (meist 0,085/0,254); das dicke Stück < 3 mm bei 685, Tinte im Plot
+dort wirklich breiter (0,34 gegen 0,17 mm) – `measure_widths` (5×5-Maximum der Distanz) misst Maßstern/Diagonale/Schraffur an der Kreuzung mit. Statt die
+Messung zu ändern (DICKE_LINIEN, Wände hängen daran): `join_collinear(short_len=3 mm)` – kürzeres Stück darunter darf andere Stärke haben. Echt Brüche
+6602 → 5961, Objekte −1…−3,5 %, Treffer ±0,2; Sim/Scans gleich. Rest: Line/Polyline 1938, Art verschieden 1992 (Strich/durchgezogen 698), Winkel 945.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

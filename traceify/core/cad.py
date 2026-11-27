@@ -861,7 +861,7 @@ def flatten_arcs(ents: list, share, max_radius: float, min_ink: float = 0.95) ->
 
 
 def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: float = 15.0,
-                   ink_ok=None, skip_layers=()) -> int:
+                   ink_ok=None, skip_layers=(), short_len: float = 0.0) -> int:
     """Zerstückelte Linien zu einer durchgehenden Linie verbinden.
 
     Im Scan zerfällt eine Linie an jeder kreuzenden Linie (Raster, Stufen, Maßlinien) in Stücke,
@@ -911,10 +911,14 @@ def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: 
     n = 0
     for i, j in sorted(cKDTree(P).query_pairs(max_gap), key=lambda t: math.dist(P[t[0]], P[t[1]])):
         a, b = lines[i // 2], lines[j // 2]
-        if a is b or kind(a) != kind(b) or not same_weight(a, b) or find(i // 2) == find(j // 2):
+        if a is b or kind(a) != kind(b) or find(i // 2) == find(j // 2):
             continue
         if math.dist(b.p1, b.p2) > math.dist(a.p1, a.p2):
             a, b, i, j = b, a, j, i              # a = längeres Stück, Querprobe am kürzeren
+        # Stücke < short_len messen an Kreuzungen (Maßstern, Diagonale, Schraffur) die fremde Tinte mit:
+        # ihre Stärke zählt nicht, die verbundene Linie erhält die der langen Stücke
+        if not same_weight(a, b) and math.dist(b.p1, b.p2) > short_len:
+            continue
         ua = (a.p2[0] - a.p1[0], a.p2[1] - a.p1[1])
         ub = (b.p2[0] - b.p1[0], b.p2[1] - b.p1[1])
         na, nb = math.hypot(*ua), math.hypot(*ub)

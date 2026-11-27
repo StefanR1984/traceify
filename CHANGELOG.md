@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45.13 – 27.11.2026
+### Geometrie
+- **Weniger zerstückelte Linien an Maßsternen:** Ein kurzes Linienstück an einer Kreuzung (Maßstern, Diagonale, Schraffur) misst die fremde Tinte mit und erscheint doppelt so dick (0,254 statt 0,085 mm) – die Linie wurde dort nicht verbunden. Jetzt zählt die Stärke von Stücken unter 3 mm beim Verbinden nicht; die Linie erhält die Stärke der langen Stücke.
+- Gemessen an echten Plots: Brüche 6602 → 5961, Linien aus einem Stück 23782 → 24111, Objekte −1 bis −3,5 %, Trefferquote −0,06 bis +0,21 (PLAN1_UG), Genauigkeit −0,07 bis +0,02, Texte gleich. Simulation Trefferquote ±0,15, Texte 1272 → 1271; Scans Objekte bis −1 %, sonst gleich.
+
 ## 0.45.12 – 27.11.2026
 ### Geometrie
 - **Weniger falsche Strichlinien:** Durchgezogene Linien, die an Kreuzungen in gleich lange Stücke zerfallen (Wandkanten an 45°-Schraffur, Linien durch Maßzahlen), wurden zu Strichlinien zusammengefasst. Jetzt braucht eine Strichlinie Papier in ihren Lücken – liegt in keiner Lücke Papier, bleibt die Linie durchgezogen. Außerdem gilt jede Linie über 25° (bisher 60°), die an beiden Strichenden ansetzt, als Querkante.
