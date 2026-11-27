@@ -860,13 +860,15 @@ def flatten_arcs(ents: list, share, max_radius: float, min_ink: float = 0.95) ->
     return n
 
 
-def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: float = 2.0,
+def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: float = 15.0,
                    ink_ok=None, skip_layers=()) -> int:
     """Zerstückelte Linien zu einer durchgehenden Linie verbinden.
 
     Im Scan zerfällt eine Linie an jeder kreuzenden Linie (Raster, Stufen, Maßlinien) in Stücke,
     die knapp vor der Kreuzung enden. Zwei Linien gleicher Art (Layer, Linientyp, Stärke, Farbe)
-    werden eins, wenn sie in einer Flucht liegen (Richtung ≤ angle_tol, quer ≤ lateral) und die
+    werden eins, wenn sie in einer Flucht liegen (beide Enden des kürzeren ≤ lateral neben dem längeren,
+    Richtung ≤ angle_tol – kurze Endstücke knicken zum Knoten hin bis ~5° ab, die Querprobe begrenzt den
+    Winkel langer Stücke ohnehin) und die
     Lücke zwischen ihnen höchstens ``max_gap`` misst und berührt ist (≤ 1 px), von einem anderen
     Objekt gekreuzt wird oder ``ink_ok`` dort Tinte sieht. Absichtliche weiße Lücken (vor
     Maßzahlen, zwischen Strichen) bleiben offen. Gibt die Zahl der Verbindungen zurück."""
@@ -911,6 +913,8 @@ def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: 
         a, b = lines[i // 2], lines[j // 2]
         if a is b or kind(a) != kind(b) or not same_weight(a, b) or find(i // 2) == find(j // 2):
             continue
+        if math.dist(b.p1, b.p2) > math.dist(a.p1, a.p2):
+            a, b, i, j = b, a, j, i              # a = längeres Stück, Querprobe am kürzeren
         ua = (a.p2[0] - a.p1[0], a.p2[1] - a.p1[1])
         ub = (b.p2[0] - b.p1[0], b.p2[1] - b.p1[1])
         na, nb = math.hypot(*ua), math.hypot(*ub)
@@ -938,7 +942,7 @@ def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: 
     for grp in groups.values():
         if len(grp) < 2:
             continue
-        # gemeinsame Gerade: längengewichtete Richtung, Lage durch den gewichteten Schwerpunkt
+        # gemeinsame Gerade: Richtung nach Länge² gewichtet, Lage durch den längengewichteten Schwerpunkt
         ref = grp[0]
         rx, ry = ref.p2[0] - ref.p1[0], ref.p2[1] - ref.p1[1]
         sx = sy = cx = cy = W = 0.0
@@ -947,7 +951,7 @@ def join_collinear(ents: list, max_gap: float, lateral: float = 1.5, angle_tol: 
             if dx * rx + dy * ry < 0:
                 dx, dy = -dx, -dy
             L = math.hypot(dx, dy)
-            sx, sy, W = sx + dx, sy + dy, W + L
+            sx, sy, W = sx + L * dx, sy + L * dy, W + L    # Richtung nach Länge²: kurze Endstücke kippen nicht
             cx, cy = cx + L * (l.p1[0] + l.p2[0]) / 2, cy + L * (l.p1[1] + l.p2[1]) / 2
         d = math.hypot(sx, sy)
         ux, uy, cx, cy = sx / d, sy / d, cx / W, cy / W

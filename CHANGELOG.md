@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45.11 – 27.11.2026
+### Geometrie
+- **Weniger geknickte Linienenden:** Hinter der letzten Kreuzung knickt das kurze Endstück einer Linie oft um einige Grad zum Knoten hin ab und blieb als eigenes Stück stehen (Winkelregel 2°). Jetzt gehört ein kürzeres Stück zur Linie, wenn beide Enden höchstens 0,15 mm neben ihrer Flucht liegen (bis 15°); die verbundene Linie folgt der Richtung der langen Stücke.
+- Gemessen an echten Plots (je Originallinie ≥ 2 mm): Brüche 7892 → 6974, Winkelbrüche 1496 → 933, Linien aus einem Stück 23025 → 23715, Objekte −1 bis −4 %, Trefferquote −0,09 bis +0,1, Genauigkeit ±0,08, Ecken und Texte gleich. Simulation Texte gleich, Trefferquote ±0,3; Scans Objekte −0,3 bis −5 % (image-17 1635 → 1555), Ortho gleich oder besser, Schraffur-Muster auf Tinte image-4 84 → 79 %, image 27 92 → 95 %.
+
 ## 0.45.10 – 27.11.2026
 ### Geometrie
 - **Weniger zerstückelte Linien:** Die Strichstärke wird je Linienstück gemessen und springt dabei um eine Pixelstufe (0,085/0,152 mm); liegt sie nahe der Grenze dünn/dick, landete ein Stück auf LINIEN, das nächste auf DICKE_LINIEN. Solche Stücke wurden an Kreuzungen nicht mehr zu einer Linie verbunden. Jetzt gelten Stärken bis Faktor 1,8 als gleich, die verbundene Linie erhält Layer und Stärke der längeren Stücke. Dreifache Stärke bleibt getrennt.

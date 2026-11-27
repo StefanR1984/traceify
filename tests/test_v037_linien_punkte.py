@@ -178,3 +178,13 @@ def test_stuecke_mit_schwankender_strichstaerke_werden_eine_linie():
             Line((202, 100), (300, 100), LAYER_THICK, None, "CONTINUOUS", 0.254),
             Line((200, 0), (200, 200))]
     assert cad.join_collinear(ents, 10) == 0
+
+
+def test_kurzes_abgeknicktes_endstueck_wird_durchgezogen():
+    """Hinter der letzten Kreuzung knickt ein kurzes Endstück zum Knoten hin ~5° ab: liegt es ganz
+    in der Querprobe, gehört es zur Linie (0.45.11). Ein langes Stück im gleichen Winkel nicht."""
+    ents = [Line((0, 100), (198, 100)), Line((202, 100), (220, 101.5)), Line((200, 0), (200, 200))]
+    assert cad.join_collinear(ents, 10) == 1 and len(ents) == 2
+    assert abs(ents[0].p1[1] - ents[0].p2[1]) < 0.5
+    ents = [Line((0, 100), (198, 100)), Line((202, 100), (300, 108.5)), Line((200, 0), (200, 200))]
+    assert cad.join_collinear(ents, 10) == 0

@@ -262,6 +262,10 @@ image 94 Ortho −2,3, Schraffur-Einzellinien 215 → 236. **Messhinweis:** seit
 längengewichteten Mehrheit. Echt Brüche 8907 → 7892, 1 Stück 22675 → 23025, Objekte −1,5…−3 %, Treffer −0,1…+0,01; Sim gleich; Scans Objekte bis −7 %.
 Rest „Art verschieden“ 3560: 0,085/0,152 429 (scheitern an Lücke/Winkel/Versatz), 0,085/0,254 325 (Faktor 3, absichtlich getrennt), DASHED/CONTINUOUS
 1248. Danach Line/Polyline 1917 (Wandband-Umrisse), Winkel > 2° 1496.
+**0.45.11** `join_collinear`: Winkelbrüche (`geom/winkel.py`, `haken.py`) sind fast nur kurze Endstücke 1–3 mm, ~5° zum Knoten abgeknickt, das
+Nachbarstück liegt richtig; fernes Ende ≤ 1,5 px neben der Flucht bei 924 von 2165. Jetzt Querprobe am kürzeren Stück (a = längeres), `angle_tol`
+15°, Richtung der verbundenen Linie nach Länge² (sonst kippt sie). Echt Brüche 7892 → 6974, Winkel > 2° 1496 → 933, Objekte −1…−4 %, Treffer ±0,1;
+Sim gleich; Scans Objekte bis −5 %, Schraffur-Muster auf Tinte image-4 84 → 79 %. Rest: Art verschieden 3074, Line/Polyline 1915.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den
