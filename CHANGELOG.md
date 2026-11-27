@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.45.9 – 27.11.2026
+### Geometrie
+- **Keine Strichlinien mehr aus Reihen gleicher Formen:** Die fluchtenden Ober- und Unterkanten einer Reihe kleiner Quadrate (Rasterfelder, Möbel, Fenster) sahen aus wie Striche und wurden zu einer Strichlinie über die Lücken hinweg zusammengefasst. Jetzt zählt eine Reihe nicht als Strichlinie, wenn bei mindestens der Hälfte der Striche an beiden Enden eine Querkante ansetzt – echte Striche enden frei.
+- Gemessen an echten Plots: Genauigkeit überall gleich oder besser (PLAN2_OG3 98,1 → 99,5 %, sonst bis +0,2), Trefferquote ±0,2, Texte gleich; Strichlinien auf durchgezogenen Originallinien 10,7 → 8,9 m (richtige 5,4 m gleich). Simulation Genauigkeit bis +1,8 (PLAN2_OG3), Texte 1272 → 1271, falsch 644 → 645; Scans +2…+7 Objekte, image 94 Ortho 36,7 → 34,4 %.
+- Texterkennung: Hält ein Virenscanner die Temp-Dateien von Tesseract kurz offen, brach die Konvertierung beim Aufräumen ab (WinError 32). Jetzt wird kurz erneut versucht und die Datei sonst liegen gelassen.
+- Grundlage: neue Messung, wie brauchbar die Geometrie im CAD ist (alle 17 Plots, je Originallinie): Ecken zu 93 % geschlossen; 19 % der Linien bestehen aus mehreren Stücken, meist weil die Linienstärke entlang derselben Linie wechselt (rund 3150 Brüche); zwei Drittel der Strichlinien-Länge lagen auf durchgezogenen Linien.
+
 ## 0.45.8 – 26.11.2026
 ### Schrift
 - **Maße von 1–3 cm neben einem einzelnen Stern** („1⁵“, „2⁵“ an einer Wand): Bei so kleinen Maßen liegen beide Sterne fast aufeinander und verschmelzen zu einem – es gab kein Sternpaar, die Zahl blieb ungelesen. Jetzt gilt ein einzelner Stern als Paar der Länge 0; angenommen werden dort nur „1⁵“ bis „3⁵“, eine Lesung „15“ wird „1⁵“ (15 cm hätten zwei getrennte Sterne).

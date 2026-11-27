@@ -267,13 +267,41 @@ def _dir(l: Line):
 
 
 def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
-                  offset_tol: float = 2.5, skip_missing: bool = False) -> list:
+                  offset_tol: float = 2.5, skip_missing: bool = False, context=None) -> list:
     """Fasst Strich-Segmente zu Linien mit Linientyp zusammen. Gibt die neue Liste zurück.
-    ``skip_missing``: ein fehlender Strich (an einer Kreuzung verschluckt) trennt die Reihe nicht."""
+    ``skip_missing``: ein fehlender Strich (an einer Kreuzung verschluckt) trennt die Reihe nicht.
+    ``context``: alle Objekte (für die Prüfung, ob ein Strich an Querlinien hängt), sonst ``ents``."""
     cand = [e for e in ents if isinstance(e, Line) and
             1.0 < math.dist(e.p1, e.p2) <= s.dash_max_len]
     if len(cand) < s.dash_min_count:
         return ents
+    from scipy.spatial import cKDTree
+    ends, owner = [], []
+    for e in (ents if context is None else context):
+        if isinstance(e, Line):
+            pts = (e.p1, e.p2)
+        elif isinstance(e, Polyline):
+            pts = e.points
+        else:
+            continue
+        for p in pts:
+            ends.append(p)
+            owner.append(e)
+    etree = cKDTree(np.array(ends, float)) if ends else None
+
+    def hooked(l, p) -> bool:
+        """An p endet eine quer laufende Linie (Ecke einer Form, kein freies Strichende)."""
+        ux, uy = _dir(l)
+        for k in etree.query_ball_point(p, 2.0):
+            o = owner[k]
+            if o is l or isinstance(o, Line) and math.dist(o.p1, o.p2) < 1.0:
+                continue
+            if isinstance(o, Polyline):
+                return True
+            vx, vy = _dir(o)
+            if abs(ux * vx + uy * vy) < 0.5:          # > 60° zur Strichrichtung
+                return True
+        return False
     info = []
     for l in cand:
         ux, uy = _dir(l)
@@ -359,6 +387,10 @@ def detect_dashed(ents: list, s: StyleSettings, angle_tol: float = 4.0,
             gaps = [b[0] - a[1] for a, b in zip(ch, ch[1:])]
             # regelmäßige Lücken (Streuung begrenzt)
             if max(gaps) > 3.5 * max(1.0, float(np.median(gaps))):
+                continue
+            # Kanten einer Reihe gleicher Formen (Rasterfelder, Möbel) fluchten wie Striche, an ihren
+            # Enden setzt aber eine Querkante an – echte Striche enden frei
+            if etree is not None and sum(hooked(c[2], c[2].p1) and hooked(c[2], c[2].p2) for c in ch) >= 0.5 * len(ch):
                 continue
             lens = [c[1] - c[0] for c in ch]
             # Striche bedecken einen guten Teil der Linie; Stummel an Kreuzungen und Schriftreste,

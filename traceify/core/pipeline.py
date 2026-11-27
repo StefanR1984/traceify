@@ -346,7 +346,8 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
         def short(e):
             return (isinstance(e, Line) and e.layer == LAYER_LINES
                     and math.dist(e.p1, e.p2) <= DASH2_MAX_MM / dpi_scale)
-        fine = detect_dashed([e for e in ents if short(e)], settings.style, skip_missing=True)
+        fine = detect_dashed([e for e in ents if short(e)], settings.style, skip_missing=True,
+                             context=ents)
         ents = [e for e in ents if not short(e)] + fine
     if settings.style.specks_layer:
         from .cad import isolate_specks

@@ -247,6 +247,17 @@ Schraffurkreuzungen. Echt Texte 2079 → 2090, falsch 267 → 268; Sim 1266 → 
 (`sonst/dbl.py`, Bilder `d_*.png`). `_close_pairs` nimmt jeden sicheren Stern zusätzlich als Paar (a, a), Wort mit echtem Paar hat Vorrang;
 `check_lengths` lässt bei L = 0 nur `[1-3][5⁵]` → „N⁵“ zu (±3,5 px). Echt 2090 → 2096, falsch gleich; Sim −2/+6; Scans gleich. Ohne Wertbeschränkung
 („01“, „0“, „1“, „2“, PLAN1 „4“/„5“ – `sonst/einzel.py`) echt +4/+5.
+**CAD-Brauchbarkeit (27.11., Notizordner local_7d6130cc `geom/`: `dump.py` sichert Original + Traceify je Plot, `zerfall.py`, `grund.py`,
+`linientyp.py`):** je Originallinie ≥ 2 mm außerhalb Text (34254, 28149 zu ≥ 90 % getroffen): 1 Stück 81 %, 2 Stücke 13 %, ≥ 3 6 %; Brüche 9074 an
+Kreuzungen, 327 frei. Ecken (zwei Linien, 30–150°): 3137 von 3377 geschlossen, 67 > 1 mm offen – kein Hebel. Warum `join_collinear` die Stücke nicht
+verbindet: andere Art 4662 (nur `lineweight` 2075 – Nachbarstufen 0,085/0,152, 0,254/0,287; dick/dünn mit Layerwechsel 1083; DASHED/CONTINUOUS
+1359), Line/Polyline 1966 (Wandband-Umrisse PLAN3/PLAN1_OG1), Winkel > 2° 1515, überlappen 529, quer versetzt 424, sollte verbunden sein 176.
+**Nächster Hebel: Linienstärke entlang einer Flucht vereinheitlichen.** Linientyp: Traceify-Strichlinien 10,7 m auf durchgezogenem Original, 5,4 m
+auf Strichlinien (Original-Strich unter durchgezogener Traceify-Linie 3,7 m). **0.45.9** `style.detect_dashed`: Kette keine Strichlinie, wenn bei
+≥ 50 % der Striche an beiden Enden (2 px) eine Querlinie (> 60°) oder Polylinie ansetzt (Kanten von Quadrat-Reihen, Rasterfelder); zweiter Durchgang
+mit `context=ents`. Echt Genauigkeit +0…+1,4 (PLAN2_OG3), falsche Strichlinien 10,7 → 8,9 m; Sim Genauigkeit +0…+1,8; Scans +2…+7 Objekte,
+image 94 Ortho −2,3, Schraffur-Einzellinien 215 → 236. **Messhinweis:** seit 27.11. sperrt ein Virenscanner Tesseract-Temp-Dateien (pytesseract
+`cleanup` WinError 32) → `ocr._setup` fängt das ab; Messläufe brachen vorher zufällig ab.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

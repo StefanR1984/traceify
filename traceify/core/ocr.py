@@ -102,6 +102,21 @@ def _setup():
 
             pp.subprocess_args = subprocess_args      # kein kurz aufblitzendes cmd-Fenster
             pp._traceify_kein_fenster = True
+        if not getattr(pp, "_traceify_aufraeumen", False):
+            orig_cleanup = pp.cleanup
+
+            def cleanup(temp_name):
+                # Virenscanner halten frische Temp-Dateien kurz offen (WinError 32): die Erkennung ist
+                # dann schon fertig – kurz erneut versuchen, sonst die Datei liegen lassen statt abbrechen
+                import time
+                for i in range(5):
+                    try:
+                        return orig_cleanup(temp_name)
+                    except PermissionError:
+                        time.sleep(0.05 * (i + 1))
+
+            pp.cleanup = cleanup
+            pp._traceify_aufraeumen = True
     return pytesseract
 
 

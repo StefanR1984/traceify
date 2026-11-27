@@ -144,3 +144,15 @@ def test_dashed_line_with_slightly_tilted_dash():
     l = dashed[0]
     assert abs(l.p1[1] - l.p2[1]) < 0.6           # waagrecht trotz schiefem Strich
     assert l.p1[0] < 105 and l.p2[0] > 1380        # über die ganze Länge
+
+
+def test_reihe_gleicher_quadrate_ist_keine_strichlinie():
+    """Die fluchtenden Kanten einer Reihe kleiner Quadrate (Rasterfelder, Möbel) sehen aus wie Striche, an
+    ihren Enden setzen aber die Seitenkanten an – keine Strichlinie (0.45.9). Echte Striche daneben schon."""
+    img = np.full((300, 800), 255, np.uint8)
+    for x in range(50, 700, 45):
+        cv2.rectangle(img, (x, 60), (x + 30, 90), 0, 2)
+        cv2.line(img, (x, 200), (x + 30, 200), 0, 3)
+    lines = tf.convert(img, _settings()).drawing.by_type(tf.Line)
+    dashed = [l for l in lines if l.linetype != "CONTINUOUS"]
+    assert len(dashed) == 1 and abs(dashed[0].p1[1] - 200) < 2
