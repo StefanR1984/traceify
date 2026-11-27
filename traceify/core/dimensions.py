@@ -283,7 +283,10 @@ def _close_pairs(rest: np.ndarray, ticks, found: List[Gap], weak=()) -> List[Gap
         if a != b and not 0.3 * h <= b - a <= 2.5 * h:
             continue
         c = (a + b) / 2.0
-        x0, x1 = max(0, int(a - 3 * h)), min(W, int(b + 3 * h))
+        # neben einem Einzelstern steht die Zahl auch weiter weg (0.45.14): Abstand bis 2,6 h, Fenster dazu
+        side = 2.6 * h if a == b else 1.5 * h
+        m = 5.5 * h if a == b else 3 * h
+        x0, x1 = max(0, int(a - m)), min(W, int(b + m))
         y0, y1 = max(0, int(cy - 2.4 * h)), int(cy) - 1
         win = rest[y0:y1, x0:x1]
         # Maßhilfslinien laufen senkrecht durchs Fenster und kleben an der Zahl daneben („12“ → Ziffer
@@ -312,9 +315,9 @@ def _close_pairs(rest: np.ndarray, ticks, found: List[Gap], weak=()) -> List[Gap
             wx0, wx1 = wd[0][0], wd[-1][0] + wd[-1][2]
             if abs((wx0 + wx1) / 2.0 - c) <= 0.6 * h:
                 dd = abs((wx0 + wx1) / 2.0 - c)
-            elif -0.2 * h <= wx0 - b <= 1.5 * h:
+            elif -0.2 * h <= wx0 - b <= side:
                 dd = h + wx0 - b
-            elif -0.2 * h <= a - wx1 <= 1.5 * h:
+            elif -0.2 * h <= a - wx1 <= side:
                 dd = h + a - wx1
             else:
                 continue
@@ -330,9 +333,14 @@ def _close_pairs(rest: np.ndarray, ticks, found: List[Gap], weak=()) -> List[Gap
         if g is None:
             continue
         out.append(g + (-1, (cy, a, b, g[1][0] + g[1][2] / 2.0, True)))
-    # ein Wort, das schon ein echtes Paar hat, nicht zusätzlich als Einzelstern
-    taken = {g[1] for g in out if g[4][1] != g[4][2]}
-    return [g for g in out if g[4][1] != g[4][2] or g[1] not in taken]
+    # ein Wort, das schon ein echtes Paar hat, nicht zusätzlich als Einzelstern (Box kann je Fenster
+    # leicht anders ausfallen: Überlappung zählt)
+    taken = [g[1] for g in out if g[4][1] != g[4][2]]
+
+    def hit(f):
+        return any(min(f[0] + f[2], t[0] + t[2]) > max(f[0], t[0]) and min(f[1] + f[3], t[1] + t[3]) > max(f[1], t[1])
+                   for t in taken)
+    return [g for g in out if g[4][1] != g[4][2] or not hit(g[1])]
 
 
 def _number(full, comps, rest, g0: int, g1: int):
@@ -838,9 +846,14 @@ def check_lengths(cand: list, gaps: list, ks: list) -> Optional[float]:
             continue
         L = sg[2] - sg[1]
         ts = [c[0]] if c[0] else _variants(c[1]) if c[2] >= 50 else []
+        free = []
         if L == 0:                              # verschmolzenes Paar: nur „1⁵“–„3⁵“, „15“ ist dort „1⁵“
+            # zweistellige cm-Maße neben einem Einzelstern („10“, „12“): keine Länge zu prüfen; einstellige
+            # und „01“ sind dort meist Bruchstücke (0.45.14)
+            free = [t for t in ts if t and re.fullmatch(r"[1-9]\d", t) and not re.fullmatch(r"[1-3]5", t)]
             ts = [t[0] + "⁵" for t in ts if t and re.fullmatch(r"[1-3][5⁵]", t)]
         fits = [t for t in ts if r is not None and abs(L - metres(t) * r) <= (3.5 if L == 0 else max(2.5, 0.1 * L))]
+        fits += [t for t in free if r is not None and c[2] >= 75]
         c[0] = fits[0] if len(fits) == 1 else None
         if c[0] and c[0][-1] in SUP and c[0][-1] != "⁵":
             c[0] = c[0][:-1]                    # halbe Zentimeter: fast immer ⁵, sonst Nachbarschrift

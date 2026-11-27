@@ -275,6 +275,13 @@ Brüche 6974 → 6602; Sim Treffer bis +3,2; Scans image 89 Ortho 15 → 35 %, i
 dort wirklich breiter (0,34 gegen 0,17 mm) – `measure_widths` (5×5-Maximum der Distanz) misst Maßstern/Diagonale/Schraffur an der Kreuzung mit. Statt die
 Messung zu ändern (DICKE_LINIEN, Wände hängen daran): `join_collinear(short_len=3 mm)` – kürzeres Stück darunter darf andere Stärke haben. Echt Brüche
 6602 → 5961, Objekte −1…−3,5 %, Treffer ±0,2; Sim/Scans gleich. Rest: Line/Polyline 1938, Art verschieden 1992 (Strich/durchgezogen 698), Winkel 945.
+**Schrift neu vermessen (27.11., Stand 0.45.13, `sonst/ges.py`, `ungelesen/d13`, 7 Plots mit Maßketten):** richtig 1814, Fehlstellen 879 = überlappt 179,
+klein 148, schräg 15, frei 537: Einzelstern 132 (keine Lücke 83), kein Stern 114 (keine Lücke 95), enges Paar 111, quer 78, längs 65, weites Paar 23,
+Linie längs durch 14. „Kandidat richtig, verloren“ 32 (`sonst/verl.py`): 20 × Längenprobe L = 0 (Einzelstern, nur „1⁵“–„3⁵“ erlaubt), 6 × erst nach
+check_lengths verloren (1.13⁵, 42⁵, 1.35, 55, 235, 2.38⁵ – offen, merge?). **0.45.14** `check_lengths`: bei L = 0 zusätzlich `[1-9]\d` ohne Längenprobe,
+Konfidenz ≥ 75 („15“/„25“ bleiben „1⁵“/„2⁵“); `_close_pairs`: Einzelstern Zahl bis 2,6 h daneben (Fenster 5,5 h), Wort eines echten Paars per
+Box-Überlappung statt gleicher Box ausgeschlossen. Echt Texte 2096 → 2109, falsch 268 gleich; Sim 1271 → 1275, falsch 645 → 641; Scans gleich.
+Rest Einzelstern ohne Lücke gemischt (Bilder `sonst/ein13_*.png`): Zahl unter langer Linie, Wanddetails, Raumstempel.
 **Simuliert, Stand 0.43.0** (21.11., 18 Pläne): 150 dpi Treffer 87,1–100 %, Genauigkeit 96,1–100 %, Lage 95 % ≤ 0,23 mm, Texte 1259 von 7446, Wörter falsch 638, Zeit 873 s.
 **Zweite Stufe 300 dpi** (`--dpi 300 --jobs 2`, ~17 min, PLAN3 ~16000×8500 px): Treffer 87,9–100 %, Genauigkeit 98,4–100 %,
 Lage 95 % ≤ 0,16 mm, Texte 1973 von 7446, Wörter falsch 877, Zeit 1726 s. Schrift bleibt trotz gleicher Auflösung weit unter den

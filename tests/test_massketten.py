@@ -551,11 +551,16 @@ def test_laengenpruefung_einstelliges_mass_ueber_sternpaar():
     cand, gaps = [c for c, _ in rows], [g for _, g in rows]
     dimensions.check_lengths(cand, gaps, [0] * len(gaps))
     assert [c[0] for c in cand[5:]] == ["5", None]
-    # Einzelstern (verschmolzenes Paar, Länge 0): nur „1⁵“–„3⁵“, „15“ ist dort „1⁵“ (0.45.8)
+    # Einzelstern (verschmolzenes Paar, Länge 0): „1⁵“–„3⁵“, „15“ ist dort „1⁵“ (0.45.8); zweistellige
+    # cm-Maße sicher gelesen ohne Längenprobe, einstellige und „01“ nicht (0.45.14)
     rows = rows[:5] + [pair(t, 0) for t in ("15", "2⁵", "2", "01", "45")]
     cand, gaps = [c for c, _ in rows], [g for _, g in rows]
     dimensions.check_lengths(cand, gaps, [0] * len(gaps))
-    assert [c[0] for c in cand[5:]] == ["1⁵", "2⁵", None, None, None]
+    assert [c[0] for c in cand[5:]] == ["1⁵", "2⁵", None, None, "45"]
+    rows = rows[:5] + [([t, t, 60.0], g) for t, (_, g) in zip(["45"], [pair("45", 0)])]
+    cand, gaps = [c for c, _ in rows], [g for _, g in rows]
+    dimensions.check_lengths(cand, gaps, [0] * len(gaps))
+    assert cand[5][0] is None                            # unsicher gelesen: weg
 
 
 def _mass_bild(sup_w=6, zwei=False):
@@ -692,3 +697,16 @@ def test_graue_zweistellige_hochziffer():
         T = [Text(lesung, (y + h, g.shape[1] - x), h, 90.0)]
         quarter_superscripts(np.ascontiguousarray(np.rot90(g, 1)), T, [(y, g.shape[1] - (x + w), h, w)])
         assert T[0].text == soll, ("senkrecht", lesung, soll)
+
+
+def test_zahl_zwei_schrifthoehen_neben_einzelstern():
+    """Neben einem Einzelstern steht das kleine Maß auch gut zwei Schrifthöhen entfernt (0.45.14)."""
+    img = np.zeros((300, 900), np.uint8)
+    _kette(img)
+    _star(img, 640, 150)
+    cv2.line(img, (640, 150), (780, 150), 1, 2)
+    cv2.putText(img, "12", (680, 144), cv2.FONT_HERSHEY_SIMPLEX, 0.9, 1, 2)
+    g = [gap for gap, k in dimensions.line_gaps(img, 10.0) if gap[4] and len(gap[4]) > 4]
+    assert len(g) == 1 and g[0][4][1] == g[0][4][2] == pytest.approx(640, abs=1)
+    x, y, w, h = g[0][0]
+    assert x <= 682 and x + w >= 705

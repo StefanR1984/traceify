@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45.14 – 27.11.2026
+### Texterkennung
+- **Mehr kleine Maße neben einem einzelnen Maßstern:** Sicher gelesene zweistellige cm-Maße („10“, „12“, „14“) neben einem einzelnen Stern wurden verworfen, weil dort keine Länge zu prüfen ist – bisher galten nur „1⁵“–„3⁵“. Einstellige Zahlen und „01“ bleiben ausgeschlossen (meist Bruchstücke). Außerdem wird neben einem Einzelstern bis 2,6 statt 1,5 Schrifthöhen weit nach der Zahl gesucht; eine Zahl, die schon zu einem Sternpaar gehört, zählt nicht doppelt.
+- Gemessen an echten Plots: Texte 2096 → 2109, falsche Wörter gleich (268), Trefferquote gleich (PLAN1_UG +0,2). Simulation Texte 1271 → 1275, falsch 645 → 641; Scans unverändert.
+
 ## 0.45.13 – 27.11.2026
 ### Geometrie
 - **Weniger zerstückelte Linien an Maßsternen:** Ein kurzes Linienstück an einer Kreuzung (Maßstern, Diagonale, Schraffur) misst die fremde Tinte mit und erscheint doppelt so dick (0,254 statt 0,085 mm) – die Linie wurde dort nicht verbunden. Jetzt zählt die Stärke von Stücken unter 3 mm beim Verbinden nicht; die Linie erhält die Stärke der langen Stücke.
