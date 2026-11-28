@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.16 – 28.11.2026
+### Geometrie
+- **Weniger falsche Strichlinien an grauer Tinte:** Hellgraue Linien zerfallen beim Binarisieren in Stücke, und zwischen zwei Linien mit grauer Füllung liegt Grau – beides galt bisher als Papier zwischen Strichen. Jetzt muss die Lücke einer Strichlinie auch im Graubild weiß sein.
+- **Linien über graue Fugen durchgezogen:** Linien, die eine graue Füllung stellenweise überdeckt (Fugen in grauen Wandstreifen), werden über diese Lücken bis 1 mm verbunden.
+- Gemessen an echten Plots: falsche Strichlinien 8,4 → 6,6 m, richtige 5,6 → 5,2 m, Brüche 5697 → 5412, Trefferquote PLAN1_EG +0,17, sonst ±0,05, Texte gleich. Simulation Texte gleich, Trefferquote −0,15 bis +0,3; Scans fast gleich.
+
 ## 0.45.15 – 28.11.2026
 ### Geometrie
 - **Fenster nicht mehr als Wandfläche:** Drei bis vier eng parallele Fensterlinien verschmolzen im Plot zu einem breiten Band und wurden als gefüllte Wand umrissen – die Wandlinien zerfielen an beiden Enden. Ein Band, durch das lange weiße Lücken waagrecht oder senkrecht laufen, gilt jetzt nicht mehr als Wand; Schraffur hat nur kurze, schräge Lücken.

@@ -266,10 +266,19 @@ def _dir(l: Line):
     return ux, uy
 
 
-def paper_checker(bw: np.ndarray):
+PAPER_MARGIN = 25     # Graustufen unter dem Papierton, die noch als Papier gelten
+
+
+def paper_checker(bw: np.ndarray, gray: np.ndarray = None):
     """Prüffunktion für ``detect_dashed``: liegt auf der Strecke p→q irgendwo Papier (Binärbild,
-    Tinte ≠ 0; 3×3 um den Punkt frei – die Linie liegt ±1 px)?"""
+    Tinte ≠ 0; 3×3 um den Punkt frei – die Linie liegt ±1 px)?
+
+    Mit ``gray`` (Papier hell) muss das Papier auch im Graubild weiß sein: hellgraue Linien zerfallen
+    beim Binarisieren in Stücke, und zwischen Doppellinien mit grauer Füllung liegt Grau, kein Papier."""
     free = cv2.dilate((bw > 0).astype(np.uint8), np.ones((3, 3), np.uint8)) == 0
+    if gray is not None and gray.shape[:2] == free.shape:
+        white = (gray >= np.percentile(gray, 95) - PAPER_MARGIN).astype(np.uint8)
+        free &= cv2.erode(white, np.ones((3, 3), np.uint8)) > 0
     H, W = free.shape
 
     def ok(p, q) -> bool:

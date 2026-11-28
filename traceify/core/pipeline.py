@@ -167,6 +167,7 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
 
     step(5, "Vorverarbeitung …")
     bw = to_binary(gray, settings.preprocess, 1.0 / dpi_scale)
+    paper_gray = 255 - gray if settings.preprocess.invert else gray   # Papier hell (Strichlinien-Lücken)
     bw_ocr = to_binary(gray, settings.preprocess) if settings.preprocess.auto else bw
     regions = _regions(settings)
     for r in regions:
@@ -256,7 +257,7 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
                 main = np.where(band, 0, main).astype(main.dtype)
                 walls = band_outlines(band, settings.vectorize.tolerance)
         # Papier in den Strichlücken: im vollen Binärbild (mit Schrift – Linie durch eine Maßzahl ist durchgezogen)
-        paper = paper_checker(bw)
+        paper = paper_checker(bw, paper_gray)
         ents = _style_post(vectorize(main, settings.vectorize), main, dpi_scale, settings, paper)
         if settings.style.detect_dashed and settings.vectorize.mode == MODE_CENTERLINE \
                 and not settings.preprocess.deskew:
@@ -321,9 +322,11 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
                    far=2.5 * settings.style.close_gaps_mm / dpi_scale, ink_ok=ink_ok)
     if settings.style.join_lines and settings.vectorize.mode == MODE_CENTERLINE:
         from .cad import ink_checker, join_collinear
-        # an Kreuzungen zerfallene Linien wieder durchziehen (Lücke gekreuzt oder voller Tinte)
+        from .style import PAPER_MARGIN
+        # an Kreuzungen zerfallene Linien wieder durchziehen (Lücke gekreuzt oder ohne Papier – auch
+        # graue Füllung, die eine Linie überdeckt, zählt: Lücken ≤ 1 mm, gleiche Flucht)
         join_collinear(ents, 1.0 / dpi_scale, lateral=max(1.5, 0.15 / dpi_scale),
-                       ink_ok=None if ink_gray is None else ink_checker(ink_gray),
+                       ink_ok=None if ink_gray is None else ink_checker(ink_gray, min_dark=PAPER_MARGIN),
                        skip_layers=(LAYER_DASHED,), short_len=3.0 / dpi_scale)
     if settings.style.hatch_layer and not groups and settings.vectorize.mode == MODE_CENTERLINE:
         from .cad import extend_hatch_ends, ink_checker
@@ -349,7 +352,7 @@ def convert(gray: np.ndarray, settings: ConvertSettings, dpi_scale: float = 25.4
             return (isinstance(e, Line) and e.layer == LAYER_LINES
                     and math.dist(e.p1, e.p2) <= DASH2_MAX_MM / dpi_scale)
         fine = detect_dashed([e for e in ents if short(e)], settings.style, skip_missing=True,
-                             context=ents, paper=None if settings.preprocess.deskew else paper_checker(bw))
+                             context=ents, paper=None if settings.preprocess.deskew else paper_checker(bw, paper_gray))
         ents = [e for e in ents if not short(e)] + fine
     if settings.style.specks_layer:
         from .cad import isolate_specks

@@ -203,3 +203,19 @@ def test_kurzes_stueck_am_massstern_mit_falscher_staerke_wird_durchgezogen():
             Line((202, 100), (300, 100), LAYER_THICK, None, "CONTINUOUS", 0.254),
             Line((200, 0), (200, 200))]
     assert cad.join_collinear(ents, 10, short_len=30) == 0
+
+
+def test_linie_ueber_graue_fuge_wird_durchgezogen():
+    """Schwarze Linie in einem grauen Wandstreifen, alle paar mm von grauen Fugenblöcken überdeckt:
+    die Lücke zeigt kein Papier – Stücke werden verbunden; über weißem Papier nicht (0.45.16)."""
+    from traceify.core.style import PAPER_MARGIN
+    g = np.full((60, 200), 255, np.uint8)
+    g[20:40, :] = 213                                       # grauer Streifen
+    g[29:31, 10:90] = 0
+    g[29:31, 98:190] = 0                                    # 8 px Fuge in Grau
+    ok = cad.ink_checker(g, min_dark=PAPER_MARGIN)
+    ents = [Line((10, 30), (89, 30)), Line((98, 30), (189, 30))]
+    assert cad.join_collinear(ents, 10, ink_ok=ok) == 1 and len(ents) == 1
+    g[20:40, 90:98] = 255                                   # Fuge weiß = echte Lücke
+    ents = [Line((10, 30), (89, 30)), Line((98, 30), (189, 30))]
+    assert cad.join_collinear(ents, 10, ink_ok=cad.ink_checker(g, min_dark=PAPER_MARGIN)) == 0

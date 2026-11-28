@@ -171,3 +171,19 @@ def test_strichlinie_braucht_papier_in_den_luecken():
     for bw, n in ((voll, 0), (gestrichelt, 1)):
         out = style.detect_dashed([tf.Line(l.p1, l.p2) for l in stuecke], s, paper=style.paper_checker(bw))
         assert sum(l.linetype != "CONTINUOUS" for l in out) == n
+
+
+def test_strichlinie_braucht_weisses_papier_im_graubild():
+    """Hellgraue Linie, die beim Binarisieren in Stücke zerfällt: die „Lücken“ sind grau, nicht weiß –
+    keine Strichlinie (0.45.16). Echte Lücken sind auch im Graubild weiß."""
+    s = tf.ConvertSettings().style
+    stuecke = [tf.Line((x, 100), (x + 20, 100)) for x in range(50, 650, 30)]
+    bw = np.zeros((200, 700), np.uint8)
+    for l in stuecke:
+        cv2.line(bw, (int(l.p1[0]), 100), (int(l.p2[0]), 100), 255, 2)
+    grau = np.full_like(bw, 255)
+    cv2.line(grau, (50, 100), (640, 100), 200, 2)                 # zwischen den Stücken grau
+    weiss = np.where(bw > 0, 0, 255).astype(np.uint8)              # Lücken weiß
+    for g, n in ((grau, 0), (weiss, 1)):
+        out = style.detect_dashed([tf.Line(l.p1, l.p2) for l in stuecke], s, paper=style.paper_checker(bw, g))
+        assert sum(l.linetype != "CONTINUOUS" for l in out) == n
