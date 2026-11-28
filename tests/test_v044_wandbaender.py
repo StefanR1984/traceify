@@ -43,6 +43,17 @@ def test_lockere_schraffur_ist_kein_band():
     assert not bands.find_bands(255 - img, PPM).any()
 
 
+def test_fenster_aus_parallelen_linien_ist_kein_band():
+    """Fenster im Grundriss: 4 dicke Parallelen mit durchlaufenden 2-px-Lücken – kein Wandband (0.45.15)."""
+    img = _wandbild()
+    for y in (430, 437, 444):                           # 5 px Linie, 2 px weiß, 15 mm lang
+        cv2.rectangle(img, (150, y), (330, y + 4), 0, -1)
+    cv2.rectangle(img, (150, 451), (330, 453), 0, -1)
+    band = bands.find_bands(255 - img, PPM)
+    assert not band[440, 240]
+    assert band[109, 300]                               # schraffierte Wand bleibt
+
+
 def test_ring_umriss_mit_loch_und_fuellung():
     band = np.zeros((300, 300), bool)
     band[50:250, 50:250] = True

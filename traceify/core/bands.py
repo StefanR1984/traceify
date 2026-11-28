@@ -50,8 +50,25 @@ def find_bands(bw: np.ndarray, px_per_mm: float, w_min_mm: float = W_MIN_MM,
             continue
         x, y, w, h = st[i, :4]
         sub = lab[y:y + h, x:x + w] == i
-        keep[i] = m[y:y + h, x:x + w][sub].mean() >= fill_min
+        ink = m[y:y + h, x:x + w]
+        keep[i] = ink[sub].mean() >= fill_min and not _lengthwise_gaps(sub, ink, px_per_mm)
     return keep[lab]
+
+
+GAP_LEN_MM = 0.8      # weiße Lücke so lang waagrecht/senkrecht = Lücke zwischen Parallelen
+GAP_SHARE = 0.2       # ab diesem Flächenanteil ist das Band ein Fenster (Rahmen-/Glaslinien)
+
+
+def _lengthwise_gaps(sub: np.ndarray, ink: np.ndarray, px_per_mm: float) -> bool:
+    """Fenster im Grundriss: 3–4 eng parallele Linien verschmelzen zum Band, das Weiß dazwischen
+    läuft lang durch. Schraffur hat nur kurze, schräge Lücken."""
+    inner = cv2.erode(sub.astype(np.uint8), np.ones((3, 3), np.uint8))
+    white = (inner > 0) & (ink == 0)
+    k = max(3, int(round(GAP_LEN_MM * px_per_mm)))
+    w8 = white.astype(np.uint8)
+    run = (cv2.morphologyEx(w8, cv2.MORPH_OPEN, np.ones((1, k), np.uint8), borderType=cv2.BORDER_CONSTANT, borderValue=0)
+           | cv2.morphologyEx(w8, cv2.MORPH_OPEN, np.ones((k, 1), np.uint8), borderType=cv2.BORDER_CONSTANT, borderValue=0))
+    return run.sum() >= GAP_SHARE * max(int(sub.sum()), 1)
 
 
 def band_outlines(band: np.ndarray, tolerance: float = 1.0) -> List[Polyline]:

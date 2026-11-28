@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45.15 – 28.11.2026
+### Geometrie
+- **Fenster nicht mehr als Wandfläche:** Drei bis vier eng parallele Fensterlinien verschmolzen im Plot zu einem breiten Band und wurden als gefüllte Wand umrissen – die Wandlinien zerfielen an beiden Enden. Ein Band, durch das lange weiße Lücken waagrecht oder senkrecht laufen, gilt jetzt nicht mehr als Wand; Schraffur hat nur kurze, schräge Lücken.
+- Gemessen an echten Plots: Wandbänder 411 → 357 (davon 50 Fenster), Brüche 5976 → 5697, Trefferquote ±0,1, Texte gleich. Simulation Texte gleich, Trefferquote PLAN3_OG3 −0,5; Scans unverändert.
+
 ## 0.45.14 – 27.11.2026
 ### Texterkennung
 - **Mehr kleine Maße neben einem einzelnen Maßstern:** Sicher gelesene zweistellige cm-Maße („10“, „12“, „14“) neben einem einzelnen Stern wurden verworfen, weil dort keine Länge zu prüfen ist – bisher galten nur „1⁵“–„3⁵“. Einstellige Zahlen und „01“ bleiben ausgeschlossen (meist Bruchstücke). Außerdem wird neben einem Einzelstern bis 2,6 statt 1,5 Schrifthöhen weit nach der Zahl gesucht; eine Zahl, die schon zu einem Sternpaar gehört, zählt nicht doppelt.
